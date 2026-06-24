@@ -19,7 +19,11 @@ const PORT = process.env.PORT || 3001;
 app.use(express.json());
 
 // Initialize SQLite Cache for TTS
-const dbPath = path.resolve("tts_cache.db");
+// Vercel serverless environment has a read-only filesystem except for /tmp
+const dbPath = process.env.VERCEL
+  ? path.join("/tmp", "tts_cache.db")
+  : path.resolve("tts_cache.db");
+
 const db = new Database(dbPath);
 db.exec(`
   CREATE TABLE IF NOT EXISTS tts_cache (
@@ -155,14 +159,20 @@ app.post("/api/generate-tts", async (req: express.Request, res: express.Response
   }
 });
 
-// Production: serve built static frontend files
-if (process.env.NODE_ENV === "production") {
+// Production: serve built static frontend files (used locally when running in production mode)
+if (process.env.NODE_ENV === "production" && !process.env.VERCEL) {
   app.use(express.static(path.resolve("dist")));
   app.get("*", (req, res) => {
     res.sendFile(path.resolve("dist/index.html"));
   });
 }
 
-app.listen(PORT, () => {
-  console.log(`Backend server is running on port ${PORT}`);
-});
+// Start local listener only if not running as a Vercel Serverless Function
+if (!process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`Backend server is running on port ${PORT}`);
+  });
+}
+
+// Export the Express app as default for Vercel's Node.js Serverless Function handler
+export default app;
