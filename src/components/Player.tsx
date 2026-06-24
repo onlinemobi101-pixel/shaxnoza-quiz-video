@@ -213,7 +213,7 @@ export function Player({ quiz, onExit }: PlayerProps) {
 
       <div
         ref={containerRef}
-        className={`relative w-full max-h-[85vh] bg-neutral-900 overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.5)] ring-[8px] ring-neutral-900/90 box-border ${containerDimensionsClass}`}
+        className={`relative w-full max-h-[85vh] bg-neutral-900 overflow-hidden shadow-[0_25px_60px_rgba(0,0,0,0.6)] ring-[12px] ring-neutral-950 border border-white/10 box-border ${containerDimensionsClass}`}
         style={{
           backgroundImage: `url(${question.backgroundImage})`,
           backgroundSize: "cover",
@@ -221,6 +221,26 @@ export function Player({ quiz, onExit }: PlayerProps) {
         }}
       >
         <div className="absolute inset-0 bg-black/50 pointer-events-none" />
+
+        {/* Simulated Phone Bezel Status Bar & Speaker Notch (only in 9:16) */}
+        {ratio === '9:16' && (
+          <>
+            <div className="absolute top-2 left-0 right-0 px-8 h-6 flex justify-between items-center z-30 text-white/40 text-[10px] font-semibold tracking-wider select-none pointer-events-none">
+              <span>09:41</span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[9px]">5G</span>
+                <div className="w-5 h-2.5 border border-white/20 rounded-[3px] p-0.5 flex items-center">
+                  <div className="h-full w-full bg-white/40 rounded-[1px]" />
+                </div>
+              </div>
+            </div>
+            {/* Notch */}
+            <div className="absolute top-2 left-1/2 -translate-x-1/2 w-28 h-4.5 bg-black rounded-full z-40 flex items-center justify-center gap-1.5 border border-white/5 shadow-inner">
+              <div className="w-8 h-1 bg-neutral-900 rounded-full" />
+              <div className="w-1.5 h-1.5 bg-neutral-950 rounded-full border border-neutral-900" />
+            </div>
+          </>
+        )}
 
         <div className="relative w-full h-full flex flex-col items-center px-6 sm:px-8 z-10 justify-between">
           

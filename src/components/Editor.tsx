@@ -363,7 +363,7 @@ export function Editor({ quiz, setQuiz, onPlay }: EditorProps) {
       {/* Settings & AI Generation Section */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
         {/* Settings */}
-        <div className="bg-white/5 backdrop-blur-2xl border border-white/10 rounded-3xl p-6 shadow-2xl transition-all duration-300 hover:bg-white/[0.07] hover:border-white/20">
+        <div className="glass-card glass-card-hover rounded-3xl p-6 transition-all duration-300">
           <div className="flex items-center gap-3 mb-6">
             <div className="bg-white/10 p-2.5 rounded-xl text-white shadow-inner">
               <Settings2 size={24} />
@@ -516,7 +516,7 @@ export function Editor({ quiz, setQuiz, onPlay }: EditorProps) {
         </div>
 
         {/* AI Generation */}
-        <div className="bg-gradient-to-br from-indigo-500/10 to-purple-500/10 backdrop-blur-2xl border border-indigo-500/20 rounded-3xl p-6 shadow-2xl transition-all duration-300 hover:border-indigo-500/30 hover:shadow-indigo-500/10 relative overflow-hidden">
+        <div className="glass-card rounded-3xl p-6 shadow-2xl transition-all duration-300 border-indigo-500/30 hover:border-indigo-500/50 hover:shadow-indigo-500/10 relative overflow-hidden bg-gradient-to-br from-indigo-500/10 to-purple-500/5">
           <div className="absolute top-0 right-0 -mt-4 -mr-4 w-32 h-32 bg-indigo-500/20 blur-3xl rounded-full" />
           <div className="flex items-center gap-3 mb-6 relative z-10">
             <div className="bg-indigo-500/20 p-2.5 rounded-xl text-indigo-300 shadow-inner">
@@ -549,7 +549,7 @@ export function Editor({ quiz, setQuiz, onPlay }: EditorProps) {
         {quiz.questions.map((q, qIndex) => (
           <div
             key={q.id}
-            className="bg-white/5 backdrop-blur-2xl border border-white/10 rounded-3xl p-6 md:p-8 shadow-2xl transition-all duration-300 hover:bg-white/[0.07] hover:border-white/20"
+            className="glass-card glass-card-hover rounded-3xl p-6 md:p-8 transition-all duration-300"
           >
             <div className="flex justify-between items-start mb-8">
               <div className="flex items-center gap-4">
