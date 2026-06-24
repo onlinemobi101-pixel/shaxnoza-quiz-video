@@ -178,6 +178,95 @@ export function Editor({ quiz, setQuiz, onPlay }: EditorProps) {
     }
   };
 
+  const handleJSONUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const json = JSON.parse(e.target?.result as string);
+        if (!json.questions || !Array.isArray(json.questions)) {
+          alert("JSON formatida xatolik: 'questions' maydoni bo'lishi va u massiv bo'lishi shart.");
+          return;
+        }
+
+        const voiceName = json.voiceName || quiz.voiceName || "Kore";
+        const themeColor = ['emerald', 'cyan', 'violet', 'rose', 'amber'].includes(json.themeColor)
+          ? json.themeColor
+          : (quiz.themeColor || "emerald");
+
+        const timerDuration = typeof json.timerDuration === 'number'
+          ? json.timerDuration
+          : (quiz.timerDuration || 5);
+
+        const watermark = json.watermark || quiz.watermark || "";
+        const title = json.title || quiz.title || "Yangi Test";
+
+        const importedQuestions: Question[] = json.questions.map((q: any) => ({
+          id: q.id || Math.random().toString(36).substr(2, 9),
+          text: q.text || "Savol matni?",
+          options: Array.isArray(q.options) && q.options.length === 4
+            ? q.options
+            : ["Variant A", "Variant B", "Variant C", "Variant D"],
+          correctOptionIndex: typeof q.correctOptionIndex === 'number' && q.correctOptionIndex >= 0 && q.correctOptionIndex <= 3
+            ? q.correctOptionIndex
+            : 0,
+          backgroundImage: q.backgroundImage || "https://images.unsplash.com/photo-1505506874110-6a7a48e14c49?q=80&w=1000&auto=format&fit=crop",
+          fact: q.fact || "",
+        }));
+
+        const newQuiz: Quiz = {
+          title,
+          themeColor,
+          bgmEnabled: typeof json.bgmEnabled === 'boolean' ? json.bgmEnabled : (quiz.bgmEnabled !== undefined ? quiz.bgmEnabled : true),
+          timerDuration,
+          watermark,
+          voiceName,
+          aspectRatio: json.aspectRatio || quiz.aspectRatio || "9:16",
+          questions: importedQuestions,
+        };
+
+        setQuiz(newQuiz);
+
+        // Avtomatik ovozlarni yaratamiz
+        setIsGeneratingAI(true);
+        const updatedQuestions = [...importedQuestions];
+
+        for (let i = 0; i < updatedQuestions.length; i++) {
+          const q = updatedQuestions[i];
+          setGeneratingAudioId(q.id);
+          const letters = ['A', 'B', 'C', 'D'];
+          const optionsText = q.options.map((opt, idx) => `${letters[idx]}) ${opt}`).join(". ");
+          const textToRead = `${q.text}. Variantlar: ${optionsText}.`;
+          const audioBase64 = await generateTTS(textToRead, voiceName);
+          
+          let correctTextToRead = `To'g'ri javob: ${letters[q.correctOptionIndex]}, ${q.options[q.correctOptionIndex]}.`;
+          if (q.fact) {
+            correctTextToRead += ` Bilasizmi? ${q.fact}`;
+          }
+          const correctAudioBase64 = await generateTTS(correctTextToRead, voiceName);
+          
+          if (audioBase64) {
+            updatedQuestions[i] = { 
+              ...updatedQuestions[i], 
+              audioBase64, 
+              correctAudioBase64: correctAudioBase64 || undefined 
+            };
+            setQuiz({ ...newQuiz, questions: [...updatedQuestions] });
+          }
+        }
+      } catch (err) {
+        console.error(err);
+        alert("JSON faylini o'qishda xatolik yuz berdi. Iltimos fayl butunligini tekshiring.");
+      } finally {
+        setGeneratingAudioId(null);
+        setIsGeneratingAI(false);
+      }
+    };
+    reader.readAsText(file);
+  };
+
   const handleExport = async () => {
     setIsExporting(true);
     setExportProgress(0);
@@ -229,6 +318,19 @@ export function Editor({ quiz, setQuiz, onPlay }: EditorProps) {
           </p>
         </div>
         <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto mt-4 sm:mt-0">
+          <label
+            className={`w-full sm:w-auto flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 hover:scale-[1.02] active:scale-[0.98] text-white px-6 py-3.5 rounded-2xl font-semibold transition-all shadow-lg cursor-pointer ${isExporting || isGeneratingAI ? 'opacity-50 pointer-events-none' : ''}`}
+          >
+            <Upload size={20} />
+            JSON Yuklash
+            <input
+              type="file"
+              accept=".json"
+              onChange={handleJSONUpload}
+              className="hidden"
+              disabled={isExporting || isGeneratingAI}
+            />
+          </label>
           <button
             onClick={handleExport}
             disabled={isExporting || isGeneratingAI}
