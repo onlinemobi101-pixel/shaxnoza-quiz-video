@@ -15,6 +15,7 @@ import {
   query, 
   where, 
   deleteDoc,
+  getDoc,
   Timestamp
 } from "firebase/firestore";
 import { Quiz } from "../types";
@@ -96,3 +97,47 @@ export async function deleteQuizFromCloud(quizId: string): Promise<void> {
   const docRef = doc(db, "quizzes", quizId);
   await deleteDoc(docRef);
 }
+
+// --- Premium & Usage Tracking ---
+export interface UserProfile {
+  uid: string;
+  usageCount: number;
+  isPremium: boolean;
+}
+
+export async function getUserProfile(userId: string): Promise<UserProfile> {
+  const docRef = doc(db, "users", userId);
+  const docSnap = await getDoc(docRef);
+  if (docSnap.exists()) {
+    const data = docSnap.data();
+    return {
+      uid: userId,
+      usageCount: data.usageCount || 0,
+      isPremium: data.isPremium || false,
+    };
+  } else {
+    const defaultProfile = {
+      usageCount: 0,
+      isPremium: false,
+    };
+    await setDoc(docRef, defaultProfile);
+    return {
+      uid: userId,
+      ...defaultProfile,
+    };
+  }
+}
+
+export async function incrementUserUsage(userId: string): Promise<number> {
+  const docRef = doc(db, "users", userId);
+  const profile = await getUserProfile(userId);
+  const newCount = profile.usageCount + 1;
+  await setDoc(docRef, { usageCount: newCount }, { merge: true });
+  return newCount;
+}
+
+export async function upgradeUserToPremium(userId: string): Promise<void> {
+  const docRef = doc(db, "users", userId);
+  await setDoc(docRef, { isPremium: true }, { merge: true });
+}
+

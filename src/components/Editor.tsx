@@ -18,6 +18,7 @@ import {
   FolderOpen,
   LogOut,
   LogIn,
+  Crown,
 } from "lucide-react";
 import { generateTTS, playPCM, stopPCM } from "../services/tts";
 import { generateQuizAI } from "../services/ai";
@@ -28,9 +29,13 @@ import {
   saveQuizToCloud, 
   getUserQuizzes, 
   deleteQuizFromCloud, 
-  SavedQuiz 
+  SavedQuiz,
+  getUserProfile,
+  incrementUserUsage,
+  UserProfile
 } from "../services/firebase";
 import { AuthModal } from "./AuthModal";
+import { PremiumModal } from "./PremiumModal";
 import { AnimatePresence } from "motion/react";
 
 interface EditorProps {
@@ -57,6 +62,8 @@ export function Editor({ quiz, setQuiz, onPlay, user }: EditorProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [isLoadingQuizzes, setIsLoadingQuizzes] = useState(false);
   const [showQuizzesDropdown, setShowQuizzesDropdown] = useState(false);
+  const [userUsage, setUserUsage] = useState<UserProfile | null>(null);
+  const [showPremiumModal, setShowPremiumModal] = useState(false);
 
   useEffect(() => {
     return () => {
@@ -67,11 +74,23 @@ export function Editor({ quiz, setQuiz, onPlay, user }: EditorProps) {
   useEffect(() => {
     if (user) {
       loadSavedQuizzes();
+      loadUserProfile();
     } else {
       setMyQuizzes([]);
       setCurrentQuizId(undefined);
+      setUserUsage(null);
     }
   }, [user]);
+
+  const loadUserProfile = async () => {
+    if (!user) return;
+    try {
+      const profile = await getUserProfile(user.uid);
+      setUserUsage(profile);
+    } catch (err) {
+      console.error("Failed to load user profile:", err);
+    }
+  };
 
   const loadSavedQuizzes = async () => {
     if (!user) return;
@@ -221,11 +240,25 @@ export function Editor({ quiz, setQuiz, onPlay, user }: EditorProps) {
 
   const handleAIGenerate = async () => {
     if (!aiTopic) return;
+    if (!user) {
+      alert("AI orqali test yaratish uchun iltimos avval tizimga kiring.");
+      setShowAuthModal(true);
+      return;
+    }
+    if (userUsage && !userUsage.isPremium && userUsage.usageCount >= 1) {
+      setShowPremiumModal(true);
+      return;
+    }
     setIsGeneratingAI(true);
     
     try {
       const newQuestions = await generateQuizAI(aiTopic);
       if (newQuestions && newQuestions.length > 0) {
+        // Bepul urinish sonini oshiramiz
+        if (userUsage && !userUsage.isPremium) {
+          await incrementUserUsage(user.uid);
+          await loadUserProfile();
+        }
         // Avval savollarni ekranga chiqaramiz
         setQuiz({ ...quiz, title: aiTopic, questions: newQuestions });
         
@@ -353,18 +386,33 @@ export function Editor({ quiz, setQuiz, onPlay, user }: EditorProps) {
   };
 
   const handleExport = async () => {
+    if (!user) {
+      alert("Video yuklab olish uchun iltimos avval tizimga kiring.");
+      setShowAuthModal(true);
+      return;
+    }
+    if (userUsage && !userUsage.isPremium && userUsage.usageCount >= 1) {
+      setShowPremiumModal(true);
+      return;
+    }
+
     setIsExporting(true);
     setExportProgress(0);
     
     try {
       const renderer = new QuizRenderer(quiz);
       renderer.onProgress = (p) => setExportProgress(p);
-      renderer.onComplete = (url, extension) => {
+      renderer.onComplete = async (url, extension) => {
         const a = document.createElement('a');
         a.href = url;
         a.download = `${quiz.title || 'quiz'}.${extension}`;
         a.click();
         setIsExporting(false);
+        // Bepul urinish sonini oshiramiz
+        if (userUsage && !userUsage.isPremium) {
+          await incrementUserUsage(user.uid);
+          await loadUserProfile();
+        }
       };
       await renderer.start();
     } catch (err) {
@@ -455,8 +503,27 @@ export function Editor({ quiz, setQuiz, onPlay, user }: EditorProps) {
             </button>
           </div>
 
-          <div className="flex items-center gap-3">
-            <span className="text-xs font-medium text-neutral-300">
+          <div className="flex items-center gap-4">
+            {userUsage?.isPremium ? (
+              <div className="flex items-center gap-1 bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs px-2.5 py-1.5 rounded-xl font-bold">
+                <Crown size={14} className="fill-amber-400" />
+                <span>Premium</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <span className="text-xs bg-white/5 border border-white/10 text-neutral-300 px-2.5 py-1.5 rounded-xl font-medium">
+                  ⚡ Bepul: {userUsage ? (1 - userUsage.usageCount <= 0 ? 0 : 1 - userUsage.usageCount) : 1}/1
+                </span>
+                <button
+                  onClick={() => setShowPremiumModal(true)}
+                  className="flex items-center gap-1 bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-black text-xs px-3 py-1.5 rounded-xl font-bold cursor-pointer transition-all active:scale-95 shadow-md shadow-amber-500/10"
+                >
+                  <Crown size={14} className="fill-black animate-pulse" />
+                  Premiumga o'tish
+                </button>
+              </div>
+            )}
+            <span className="text-xs font-medium text-neutral-300 max-w-[120px] truncate" title={user.email || ""}>
               {user.email || user.displayName || "Foydalanuvchi"}
             </span>
             <button
@@ -470,13 +537,14 @@ export function Editor({ quiz, setQuiz, onPlay, user }: EditorProps) {
         </div>
       ) : (
         <div className="flex justify-between items-center w-full mb-6 border-b border-white/5 pb-4 text-sm text-neutral-400">
-          <div className="text-xs font-medium text-neutral-500">
-            Bulutga saqlash va testlaringizni boshqarish uchun tizimga kiring.
+          <div className="flex items-center gap-2 text-xs font-medium text-neutral-500">
+            <span>Bulutga saqlash va testlaringizni boshqarish uchun tizimga kiring.</span>
+            <span className="bg-amber-500/10 border border-amber-500/20 text-amber-400 px-2 py-0.5 rounded-lg font-semibold ml-2">⚡ 1 ta bepul so'rov</span>
           </div>
           <div className="flex gap-2">
             <button
               onClick={() => setShowAuthModal(true)}
-              className="flex items-center gap-2 bg-white/5 hover:bg-white/10 text-white px-4 py-2 rounded-xl border border-white/10 transition-all text-xs font-semibold cursor-pointer active:scale-95"
+              className="flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 text-white px-4 py-2 rounded-xl border border-white/10 transition-all text-xs font-semibold cursor-pointer active:scale-95 shadow-md shadow-emerald-500/10"
             >
               <LogIn size={16} />
               Kirish
@@ -932,6 +1000,13 @@ export function Editor({ quiz, setQuiz, onPlay, user }: EditorProps) {
           <AuthModal 
             onClose={() => setShowAuthModal(false)} 
             onSuccess={loadSavedQuizzes} 
+          />
+        )}
+        {showPremiumModal && (
+          <PremiumModal
+            onClose={() => setShowPremiumModal(false)}
+            onSuccess={loadUserProfile}
+            user={user}
           />
         )}
       </AnimatePresence>
