@@ -19,6 +19,7 @@ import {
   LogOut,
   LogIn,
   Crown,
+  Shield,
 } from "lucide-react";
 import { generateTTS, playPCM, stopPCM } from "../services/tts";
 import { generateQuizAI } from "../services/ai";
@@ -42,10 +43,12 @@ interface EditorProps {
   quiz: Quiz;
   setQuiz: (quiz: Quiz) => void;
   onPlay: () => void;
+  onNavigateToAdmin: () => void;
+  isAdmin: boolean;
   user: User | null;
 }
 
-export function Editor({ quiz, setQuiz, onPlay, user }: EditorProps) {
+export function Editor({ quiz, setQuiz, onPlay, onNavigateToAdmin, isAdmin, user }: EditorProps) {
   const [generatingAudioId, setGeneratingAudioId] = useState<string | null>(
     null,
   );
@@ -504,6 +507,15 @@ export function Editor({ quiz, setQuiz, onPlay, user }: EditorProps) {
           </div>
 
           <div className="flex items-center gap-4">
+            {isAdmin && (
+              <button
+                onClick={onNavigateToAdmin}
+                className="flex items-center gap-1.5 bg-amber-500/10 border border-amber-500/25 hover:bg-amber-500/20 text-amber-400 text-xs px-3 py-1.5 rounded-xl font-bold cursor-pointer transition-all active:scale-95 shadow-md shadow-amber-500/5"
+              >
+                <Shield size={14} className="text-amber-400" />
+                Admin Panel
+              </button>
+            )}
             {userUsage?.isPremium ? (
               <div className="flex items-center gap-1 bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs px-2.5 py-1.5 rounded-xl font-bold">
                 <Crown size={14} className="fill-amber-400" />

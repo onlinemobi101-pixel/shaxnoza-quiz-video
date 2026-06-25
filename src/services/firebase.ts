@@ -103,6 +103,8 @@ export interface UserProfile {
   uid: string;
   usageCount: number;
   isPremium: boolean;
+  role?: string;
+  email?: string;
 }
 
 export async function getUserProfile(userId: string): Promise<UserProfile> {
@@ -110,15 +112,25 @@ export async function getUserProfile(userId: string): Promise<UserProfile> {
   const docSnap = await getDoc(docRef);
   if (docSnap.exists()) {
     const data = docSnap.data();
+    
+    // Auto-update email in Firestore if missing
+    if (auth.currentUser && auth.currentUser.email && (!data.email || data.email !== auth.currentUser.email)) {
+      await setDoc(docRef, { email: auth.currentUser.email }, { merge: true });
+    }
+
     return {
       uid: userId,
       usageCount: data.usageCount || 0,
       isPremium: data.isPremium || false,
+      role: data.role || "user",
+      email: data.email || auth.currentUser?.email || "Nomalum"
     };
   } else {
     const defaultProfile = {
       usageCount: 0,
       isPremium: false,
+      role: "user",
+      email: auth.currentUser?.email || "Nomalum"
     };
     await setDoc(docRef, defaultProfile);
     return {
@@ -139,5 +151,51 @@ export async function incrementUserUsage(userId: string): Promise<number> {
 export async function upgradeUserToPremium(userId: string): Promise<void> {
   const docRef = doc(db, "users", userId);
   await setDoc(docRef, { isPremium: true }, { merge: true });
+}
+
+// --- Admin Panel Helpers ---
+export async function getAllUsersAdmin(): Promise<UserProfile[]> {
+  const usersCol = collection(db, "users");
+  const querySnapshot = await getDocs(usersCol);
+  const results: UserProfile[] = [];
+  querySnapshot.forEach((docSnap) => {
+    const data = docSnap.data();
+    results.push({
+      uid: docSnap.id,
+      usageCount: data.usageCount || 0,
+      isPremium: data.isPremium || false,
+      role: data.role || "user",
+      email: data.email || "Nomalum email"
+    });
+  });
+  return results;
+}
+
+export async function updateUserProfileAdmin(targetUserId: string, updates: Partial<UserProfile & { role?: string }>): Promise<void> {
+  const docRef = doc(db, "users", targetUserId);
+  await setDoc(docRef, updates, { merge: true });
+}
+
+export interface AdminSavedQuiz {
+  id: string;
+  title: string;
+  userId: string;
+  updatedAt: Timestamp;
+}
+
+export async function getAllSavedQuizzesAdmin(): Promise<AdminSavedQuiz[]> {
+  const quizzesCol = collection(db, "quizzes");
+  const querySnapshot = await getDocs(quizzesCol);
+  const results: AdminSavedQuiz[] = [];
+  querySnapshot.forEach((docSnap) => {
+    const data = docSnap.data();
+    results.push({
+      id: docSnap.id,
+      title: data.title || "Yozilmagan mavzu",
+      userId: data.userId,
+      updatedAt: data.updatedAt
+    });
+  });
+  return results;
 }
 

@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
 import { Editor } from "./components/Editor";
 import { Player } from "./components/Player";
+import { AdminPanel } from "./components/AdminPanel";
 import { Quiz } from "./types";
 import { onAuthStateChanged, User } from "firebase/auth";
-import { auth } from "./services/firebase";
+import { auth, getUserProfile } from "./services/firebase";
 
 const defaultQuiz: Quiz = {
   title: "Tarix Testi",
@@ -40,12 +41,25 @@ const defaultQuiz: Quiz = {
 
 export default function App() {
   const [quiz, setQuiz] = useState<Quiz>(defaultQuiz);
-  const [mode, setMode] = useState<"editor" | "player">("editor");
+  const [mode, setMode] = useState<"editor" | "player" | "admin">("editor");
   const [user, setUser] = useState<User | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
+      if (currentUser) {
+        try {
+          const profile = await getUserProfile(currentUser.uid);
+          setIsAdmin(profile.role === "admin");
+        } catch (err) {
+          console.error(err);
+          // Fallback: check email
+          setIsAdmin(currentUser.email === "admin@gmail.com" || currentUser.email === "admin@quiz.uz");
+        }
+      } else {
+        setIsAdmin(false);
+      }
     });
     return () => unsubscribe();
   }, []);
@@ -57,10 +71,14 @@ export default function App() {
           quiz={quiz}
           setQuiz={setQuiz}
           onPlay={() => setMode("player")}
+          onNavigateToAdmin={() => setMode("admin")}
+          isAdmin={isAdmin}
           user={user}
         />
-      ) : (
+      ) : mode === "player" ? (
         <Player quiz={quiz} onExit={() => setMode("editor")} />
+      ) : (
+        <AdminPanel onBack={() => setMode("editor")} />
       )}
     </div>
   );
