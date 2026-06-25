@@ -14,18 +14,33 @@ import {
   ArrowDown,
   Upload,
   Pause,
+  Cloud,
+  FolderOpen,
+  LogOut,
+  LogIn,
 } from "lucide-react";
 import { generateTTS, playPCM, stopPCM } from "../services/tts";
 import { generateQuizAI } from "../services/ai";
 import { QuizRenderer } from "../services/renderer";
+import { User } from "firebase/auth";
+import { 
+  logoutUser, 
+  saveQuizToCloud, 
+  getUserQuizzes, 
+  deleteQuizFromCloud, 
+  SavedQuiz 
+} from "../services/firebase";
+import { AuthModal } from "./AuthModal";
+import { AnimatePresence } from "motion/react";
 
 interface EditorProps {
   quiz: Quiz;
   setQuiz: (quiz: Quiz) => void;
   onPlay: () => void;
+  user: User | null;
 }
 
-export function Editor({ quiz, setQuiz, onPlay }: EditorProps) {
+export function Editor({ quiz, setQuiz, onPlay, user }: EditorProps) {
   const [generatingAudioId, setGeneratingAudioId] = useState<string | null>(
     null,
   );
@@ -35,11 +50,81 @@ export function Editor({ quiz, setQuiz, onPlay }: EditorProps) {
   const [exportProgress, setExportProgress] = useState(0);
   const [playingAudioId, setPlayingAudioId] = useState<string | null>(null);
 
+  // Firebase auth & firestore states
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [myQuizzes, setMyQuizzes] = useState<SavedQuiz[]>([]);
+  const [currentQuizId, setCurrentQuizId] = useState<string | undefined>(undefined);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isLoadingQuizzes, setIsLoadingQuizzes] = useState(false);
+  const [showQuizzesDropdown, setShowQuizzesDropdown] = useState(false);
+
   useEffect(() => {
     return () => {
       stopPCM();
     };
   }, []);
+
+  useEffect(() => {
+    if (user) {
+      loadSavedQuizzes();
+    } else {
+      setMyQuizzes([]);
+      setCurrentQuizId(undefined);
+    }
+  }, [user]);
+
+  const loadSavedQuizzes = async () => {
+    if (!user) return;
+    setIsLoadingQuizzes(true);
+    try {
+      const quizzes = await getUserQuizzes(user.uid);
+      setMyQuizzes(quizzes);
+    } catch (err) {
+      console.error("Failed to load quizzes:", err);
+    } finally {
+      setIsLoadingQuizzes(false);
+    }
+  };
+
+  const handleSaveToCloud = async () => {
+    if (!user) {
+      setShowAuthModal(true);
+      return;
+    }
+    setIsSaving(true);
+    try {
+      const docId = await saveQuizToCloud(user.uid, quiz, currentQuizId);
+      setCurrentQuizId(docId);
+      alert("Test muvaffaqiyatli bulutga saqlandi!");
+      loadSavedQuizzes(); // Refresh list
+    } catch (err) {
+      console.error(err);
+      alert("Bulutga saqlashda xatolik yuz berdi.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleLoadQuiz = (saved: SavedQuiz) => {
+    setQuiz(saved.quizData);
+    setCurrentQuizId(saved.id);
+    setShowQuizzesDropdown(false);
+  };
+
+  const handleDeleteQuiz = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent loading
+    if (!confirm("Ushbu testni o'chirishni xohlaysizmi?")) return;
+    try {
+      await deleteQuizFromCloud(id);
+      if (currentQuizId === id) {
+        setCurrentQuizId(undefined);
+      }
+      loadSavedQuizzes(); // Refresh list
+    } catch (err) {
+      console.error(err);
+      alert("O'chirishda xatolik yuz berdi.");
+    }
+  };
 
   const handlePlayAudio = (id: string, base64: string) => {
     if (playingAudioId === id) {
@@ -305,6 +390,98 @@ export function Editor({ quiz, setQuiz, onPlay }: EditorProps) {
             />
           </div>
           <p className="mt-4 font-mono text-lg">{Math.round(exportProgress * 100)}%</p>
+        </div>
+      )}
+
+      {/* Firebase Auth Status Bar */}
+      {user ? (
+        <div className="flex justify-between items-center w-full mb-6 border-b border-white/5 pb-4 text-sm text-neutral-400">
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <button
+                onClick={() => setShowQuizzesDropdown(!showQuizzesDropdown)}
+                className="flex items-center gap-2 bg-white/5 hover:bg-white/10 text-white px-4 py-2.5 rounded-xl border border-white/10 transition-all text-xs font-semibold cursor-pointer active:scale-95"
+              >
+                <FolderOpen size={16} />
+                Mening testlarim ({myQuizzes.length})
+              </button>
+
+              {showQuizzesDropdown && (
+                <div className="absolute left-0 mt-2 w-64 bg-neutral-900 border border-white/10 rounded-2xl shadow-xl z-50 p-2 space-y-1">
+                  <div className="text-xs font-bold text-neutral-500 px-3 py-1.5 uppercase tracking-wider border-b border-white/5 mb-1">
+                    Saqlangan testlar
+                  </div>
+                  {isLoadingQuizzes ? (
+                    <div className="flex items-center justify-center p-4">
+                      <Loader2 size={16} className="animate-spin text-emerald-500" />
+                    </div>
+                  ) : myQuizzes.length === 0 ? (
+                    <div className="text-xs text-neutral-500 px-3 py-3 text-center">
+                      Hozircha saqlangan testlar yo'q
+                    </div>
+                  ) : (
+                    <div className="max-h-60 overflow-y-auto space-y-0.5 scrollbar-thin">
+                      {myQuizzes.map((saved) => (
+                        <div
+                          key={saved.id}
+                          onClick={() => handleLoadQuiz(saved)}
+                          className={`flex justify-between items-center p-2 rounded-xl hover:bg-white/5 cursor-pointer transition-colors group ${currentQuizId === saved.id ? 'bg-emerald-500/10 border border-emerald-500/25' : ''}`}
+                        >
+                          <span className="truncate text-xs font-medium text-white max-w-[170px]">
+                            {saved.title}
+                          </span>
+                          <button
+                            onClick={(e) => handleDeleteQuiz(saved.id, e)}
+                            className="opacity-0 group-hover:opacity-100 text-neutral-400 hover:text-red-400 p-1 rounded transition-all cursor-pointer"
+                            title="O'chirish"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <button
+              onClick={handleSaveToCloud}
+              disabled={isSaving}
+              className="flex items-center gap-2 bg-emerald-600/20 hover:bg-emerald-600/35 border border-emerald-500/30 text-emerald-400 px-4 py-2.5 rounded-xl transition-all text-xs font-bold cursor-pointer active:scale-95 disabled:opacity-50"
+            >
+              {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Cloud size={16} />}
+              {currentQuizId ? "Yangilash" : "Bulutga Saqlash"}
+            </button>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <span className="text-xs font-medium text-neutral-300">
+              {user.email || user.displayName || "Foydalanuvchi"}
+            </span>
+            <button
+              onClick={logoutUser}
+              className="flex items-center gap-1.5 hover:text-red-400 transition-colors text-xs font-bold cursor-pointer"
+            >
+              <LogOut size={16} />
+              Chiqish
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex justify-between items-center w-full mb-6 border-b border-white/5 pb-4 text-sm text-neutral-400">
+          <div className="text-xs font-medium text-neutral-500">
+            Bulutga saqlash va testlaringizni boshqarish uchun tizimga kiring.
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShowAuthModal(true)}
+              className="flex items-center gap-2 bg-white/5 hover:bg-white/10 text-white px-4 py-2 rounded-xl border border-white/10 transition-all text-xs font-semibold cursor-pointer active:scale-95"
+            >
+              <LogIn size={16} />
+              Kirish
+            </button>
+          </div>
         </div>
       )}
 
@@ -743,12 +920,21 @@ export function Editor({ quiz, setQuiz, onPlay }: EditorProps) {
 
         <button
           onClick={addQuestion}
-          className="w-full py-8 border-[1.5px] border-dashed border-white/20 rounded-3xl text-neutral-400 hover:text-white hover:border-emerald-500/50 hover:bg-emerald-500/5 hover:shadow-[0_0_30px_rgba(16,185,129,0.1)] transition-all flex items-center justify-center gap-3 font-display font-bold text-lg hover:scale-[1.01] active:scale-[0.99]"
+          className="w-full py-8 border-[1.5px] border-dashed border-white/20 rounded-3xl text-neutral-400 hover:text-white hover:border-emerald-500/50 hover:bg-emerald-500/5 hover:shadow-[0_0_30px_rgba(16,185,129,0.1)] transition-all flex items-center justify-center gap-3 font-display font-bold text-lg hover:scale-[1.01] active:scale-[0.99] cursor-pointer"
         >
           <Plus size={24} />
           Yangi savol qo'shish
         </button>
       </div>
+
+      <AnimatePresence>
+        {showAuthModal && (
+          <AuthModal 
+            onClose={() => setShowAuthModal(false)} 
+            onSuccess={loadSavedQuizzes} 
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

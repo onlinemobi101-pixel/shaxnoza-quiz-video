@@ -1,7 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Editor } from "./components/Editor";
 import { Player } from "./components/Player";
 import { Quiz } from "./types";
+import { onAuthStateChanged, User } from "firebase/auth";
+import { auth } from "./services/firebase";
 
 const defaultQuiz: Quiz = {
   title: "Tarix Testi",
@@ -39,6 +41,14 @@ const defaultQuiz: Quiz = {
 export default function App() {
   const [quiz, setQuiz] = useState<Quiz>(defaultQuiz);
   const [mode, setMode] = useState<"editor" | "player">("editor");
+  const [user, setUser] = useState<User | null>(null);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+    });
+    return () => unsubscribe();
+  }, []);
 
   return (
     <div className="min-h-screen text-white font-sans selection:bg-emerald-500/30">
@@ -47,6 +57,7 @@ export default function App() {
           quiz={quiz}
           setQuiz={setQuiz}
           onPlay={() => setMode("player")}
+          user={user}
         />
       ) : (
         <Player quiz={quiz} onExit={() => setMode("editor")} />
