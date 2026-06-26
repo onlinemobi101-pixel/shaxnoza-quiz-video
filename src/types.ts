@@ -20,6 +20,7 @@ export interface Quiz {
   bgmType?: 'calm' | 'happy' | 'tense';
   timerStyle?: 'circular' | 'line' | 'digital';
   transitionEffect?: 'slide' | 'zoom' | 'fade';
+  language?: 'uz' | 'en' | 'ru' | 'tr';
 }
 
 export interface UserProfile {

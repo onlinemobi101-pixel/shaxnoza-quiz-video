@@ -81,26 +81,65 @@ export class QuizRenderer {
     const tracks = [...canvasStream.getVideoTracks(), ...this.dest.stream.getAudioTracks()];
     this.stream = new MediaStream(tracks);
     
-    let mimeType = 'video/webm; codecs=vp9';
+    let mimeType = '';
     this.extension = 'webm';
     
-    if (MediaRecorder.isTypeSupported('video/mp4')) {
-      mimeType = 'video/mp4';
-      this.extension = 'mp4';
-    } else if (MediaRecorder.isTypeSupported('video/webm; codecs=h264')) {
-      mimeType = 'video/webm; codecs=h264';
+    const candidates = [
+      { type: 'video/mp4;codecs=avc1,mp4a.40.2', ext: 'mp4' },
+      { type: 'video/mp4;codecs=avc1', ext: 'mp4' },
+      { type: 'video/mp4;codecs=h264', ext: 'mp4' },
+      { type: 'video/mp4', ext: 'mp4' },
+      { type: 'video/webm;codecs=vp9,opus', ext: 'webm' },
+      { type: 'video/webm;codecs=vp8,opus', ext: 'webm' },
+      { type: 'video/webm;codecs=h264', ext: 'webm' },
+      { type: 'video/webm', ext: 'webm' },
+      { type: 'video/quicktime;codecs=h264', ext: 'mp4' },
+      { type: 'video/quicktime', ext: 'mp4' }
+    ];
+
+    const selectedCandidate = candidates.find(c => MediaRecorder.isTypeSupported(c.type));
+    if (selectedCandidate) {
+      mimeType = selectedCandidate.type;
+      this.extension = selectedCandidate.ext;
     }
-    
-    this.recorder = new MediaRecorder(this.stream, { 
-      mimeType,
-      videoBitsPerSecond: 8000000 // 8 Mbps for high quality
-    });
+
+    try {
+      const options: MediaRecorderOptions = {};
+      if (mimeType) {
+        options.mimeType = mimeType;
+      }
+      
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      options.videoBitsPerSecond = isMobile ? 2500000 : 8000000; // 2.5 Mbps for mobile, 8 Mbps for desktop
+      
+      this.recorder = new MediaRecorder(this.stream, options);
+    } catch (e) {
+      console.warn("MediaRecorder construction failed with options, trying basic initialization...", e);
+      try {
+        const options: MediaRecorderOptions = {};
+        if (mimeType) {
+          options.mimeType = mimeType;
+        }
+        this.recorder = new MediaRecorder(this.stream, options);
+      } catch (e2) {
+        console.error("MediaRecorder construction failed completely with options, using browser defaults", e2);
+        this.recorder = new MediaRecorder(this.stream);
+        if (this.recorder.mimeType) {
+          mimeType = this.recorder.mimeType;
+          if (mimeType.includes('mp4') || mimeType.includes('quicktime')) {
+            this.extension = 'mp4';
+          } else {
+            this.extension = 'webm';
+          }
+        }
+      }
+    }
     
     this.recorder.ondataavailable = (e) => {
       if (e.data.size > 0) this.recordedChunks.push(e.data);
     };
     this.recorder.onstop = () => {
-      const blob = new Blob(this.recordedChunks, { type: mimeType });
+      const blob = new Blob(this.recordedChunks, { type: this.recorder.mimeType || mimeType });
       const url = URL.createObjectURL(blob);
       if (this.onComplete) this.onComplete(url, this.extension);
     };
@@ -127,6 +166,7 @@ export class QuizRenderer {
     }
     
     this.isRecording = true;
+    this.drawFrame();
     this.recorder.start();
     this.worker.postMessage('start');
     

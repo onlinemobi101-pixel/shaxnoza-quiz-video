@@ -48,6 +48,9 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
   const [exportProgress, setExportProgress] = useState(0);
   const [isGeneratingBulkImages, setIsGeneratingBulkImages] = useState(false);
   const [isGeneratingBulkVoices, setIsGeneratingBulkVoices] = useState(false);
+  const [selectedLanguage, setSelectedLanguage] = useState<"uz" | "en" | "ru" | "tr">(
+    quiz.language || "uz"
+  );
 
   // O'z ovozini yozib olish (Voice Recorder) states & refs
   interface RecordingState {
@@ -308,10 +311,10 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
     setIsGeneratingAI(true);
     
     try {
-      const newQuestions = await generateQuizAI(aiTopic);
+      const newQuestions = await generateQuizAI(aiTopic, selectedLanguage);
       if (newQuestions && newQuestions.length > 0) {
         // Avval savollarni ekranga chiqaramiz
-        setQuiz({ ...quiz, title: aiTopic, questions: newQuestions });
+        setQuiz({ ...quiz, title: aiTopic, questions: newQuestions, language: selectedLanguage });
         
         // Keyin har bir savol uchun avtomatik ovoz yaratamiz
         let updatedQuestions = [...newQuestions];
@@ -331,7 +334,7 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
             
             if (audioBase64) {
               updatedQuestions[i] = { ...updatedQuestions[i], audioBase64, correctAudioBase64: correctAudioBase64 || undefined };
-              setQuiz({ ...quiz, title: aiTopic, questions: [...updatedQuestions] });
+              setQuiz({ ...quiz, title: aiTopic, questions: [...updatedQuestions], language: selectedLanguage });
             }
           }
         } catch (ttsErr: any) {
@@ -562,9 +565,11 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
           bgmType: importedQuiz.bgmType || quiz.bgmType || "calm",
           timerDuration: importedQuiz.timerDuration || quiz.timerDuration || 5,
           questions: validatedQuestions,
+          language: importedQuiz.language || quiz.language || "uz",
         };
 
         setQuiz(newQuiz);
+        setSelectedLanguage(newQuiz.language || "uz");
         alert("Test muvaffaqiyatli import qilindi!");
       } catch (err: any) {
         alert(`Import qilishda xatolik: ${err.message || err}`);
@@ -922,6 +927,21 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
               className="w-full bg-black/40 backdrop-blur-md border border-indigo-500/30 rounded-xl px-4 py-3.5 text-white focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/20 transition-all placeholder:text-indigo-200/30 font-semibold"
               onKeyDown={(e) => e.key === 'Enter' && handleAIGenerate()}
             />
+            <div className="relative">
+              <select
+                value={selectedLanguage}
+                onChange={(e) => setSelectedLanguage(e.target.value as any)}
+                className="w-full bg-black/40 backdrop-blur-md border border-indigo-500/30 rounded-xl px-4 py-3.5 text-white focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/20 transition-all appearance-none cursor-pointer font-semibold"
+              >
+                <option value="uz" className="bg-neutral-900">🇺🇿 O'zbek tili (Uzbek)</option>
+                <option value="en" className="bg-neutral-900">🇺🇸 Ingliz tili (English)</option>
+                <option value="ru" className="bg-neutral-900">🇷🇺 Rus tili (Russian)</option>
+                <option value="tr" className="bg-neutral-900">🇹🇷 Turk tili (Turkish)</option>
+              </select>
+              <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-indigo-400">
+                <ArrowDown size={16} />
+              </div>
+            </div>
             <button
               onClick={handleAIGenerate}
               disabled={isGeneratingAI || !aiTopic}

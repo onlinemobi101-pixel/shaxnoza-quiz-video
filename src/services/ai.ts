@@ -80,12 +80,22 @@ Return ONLY the Unsplash photo ID as plain text (for example: photo-154135992727
   return "https://images.unsplash.com/photo-1505506874110-6a7a48e14c49?q=80&w=1080&auto=format&fit=crop";
 }
 
-export async function generateQuizAI(topic: string): Promise<Question[] | null> {
+export async function generateQuizAI(topic: string, language: string = "uz"): Promise<Question[] | null> {
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+    
+    const langPromptMap: Record<string, string> = {
+      uz: "o'zbek tilida tuzing. Har bir savol 3 ta variantdan iborat bo'lsin. To'g'ri javob indeksini (0, 1 yoki 2) ko'rsating. Shu savol mavzusiga mos keluvchi 1 ta inglizcha so'z bering (masalan: history, space, nature) - bu 'imageKeyword' bo'ladi. Savol matni va variantlar faqat o'zbek tilida bo'lsin.",
+      en: "in English. Each question must have 3 options. Provide the correct option index (0, 1, or 2). Provide 1 English keyword matching the question topic (e.g. history, space, nature) - this will be 'imageKeyword'. The question text and options must be in English.",
+      ru: "на русском языке. Каждый вопрос должен состоять из 3 вариантов. Укажите индекс правильного ответа (0, 1 или 2). Дайте 1 английское слово, соответствующее теме вопроса (например: history, space, nature) — это будет 'imageKeyword'. Текст вопроса и варианты ответов должны быть на русском языке.",
+      tr: "Türkçe olarak oluşturun. Her soru 3 seçenekten oluşmalıdır. Doğru cevap indeksini (0, 1 veya 2) belirtin. Soru konusuna uygun 1 İngilizce kelime verin (örneğin: history, space, nature) - bu 'imageKeyword' olacaktır. Soru metni ve seçenekler Türkçe olmalıdır."
+    };
+
+    const promptDetails = langPromptMap[language] || langPromptMap.uz;
+
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
-      contents: `Mavzu: ${topic}. Shu mavzuda 5 ta qiziqarli test savolini o'zbek tilida tuzing. Har bir savol 3 ta variantdan iborat bo'lsin. To'g'ri javob indeksini (0, 1 yoki 2) ko'rsating. Shu savol mavzusiga mos keluvchi 1 ta inglizcha so'z bering (masalan: history, space, nature) - bu 'imageKeyword' bo'ladi.`,
+      contents: `Mavzu: ${topic}. Shu mavzuda 5 ta qiziqarli test savolini ${promptDetails}`,
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -93,10 +103,10 @@ export async function generateQuizAI(topic: string): Promise<Question[] | null> 
           items: {
             type: Type.OBJECT,
             properties: {
-              text: { type: Type.STRING, description: "Savol matni" },
-              options: { type: Type.ARRAY, items: { type: Type.STRING }, description: "3 ta variant" },
-              correctOptionIndex: { type: Type.INTEGER, description: "To'g'ri javob indeksi (0, 1 yoki 2)" },
-              imageKeyword: { type: Type.STRING, description: "Mavzuga doir bitta inglizcha so'z" }
+              text: { type: Type.STRING, description: "Savol matni / Question text" },
+              options: { type: Type.ARRAY, items: { type: Type.STRING }, description: "3 ta variant / 3 options" },
+              correctOptionIndex: { type: Type.INTEGER, description: "To'g'ri javob indeksi (0, 1 yoki 2) / Correct answer index (0, 1 or 2)" },
+              imageKeyword: { type: Type.STRING, description: "Mavzuga doir bitta inglizcha so'z / One English word for the topic" }
             },
             required: ["text", "options", "correctOptionIndex", "imageKeyword"]
           }
