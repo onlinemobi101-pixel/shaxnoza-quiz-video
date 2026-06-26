@@ -26,7 +26,7 @@ export interface Quiz {
 export interface UserProfile {
   uid: string;
   email: string | null;
-  role: 'free' | 'premium' | 'pack10';
+  role: 'free' | 'premium' | 'pack10' | 'admin';
   videosCreated: number;
   premiumUntil: string | null;
 }

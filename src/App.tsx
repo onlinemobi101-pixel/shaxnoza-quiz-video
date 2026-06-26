@@ -1,13 +1,14 @@
 import { useState, useEffect } from "react";
 import { Editor } from "./components/Editor";
 import { Player } from "./components/Player";
+import { AdminPanel } from "./components/AdminPanel";
 import { Quiz, UserProfile } from "./types";
 import { auth, db } from "./services/firebase";
 import { onAuthStateChanged, signInAnonymously, signOut, User } from "firebase/auth";
 import { doc, getDoc, setDoc, onSnapshot } from "firebase/firestore";
 import { AuthModal } from "./components/AuthModal";
 import { PaywallModal } from "./components/PaywallModal";
-import { Crown, LogIn, LogOut, Sparkles, Loader2, User as UserIcon } from "lucide-react";
+import { Crown, LogIn, LogOut, Sparkles, Loader2, User as UserIcon, Shield } from "lucide-react";
 
 const defaultQuiz: Quiz = {
   title: "Tarix Testi",
@@ -45,7 +46,7 @@ const defaultQuiz: Quiz = {
 
 export default function App() {
   const [quiz, setQuiz] = useState<Quiz>(defaultQuiz);
-  const [mode, setMode] = useState<"editor" | "player">("editor");
+  const [mode, setMode] = useState<"editor" | "player" | "admin">("editor");
 
   // Firebase Auth & Profile States
   const [user, setUser] = useState<User | null>(null);
@@ -187,6 +188,22 @@ export default function App() {
                 </span>
               </div>
 
+              {/* Admin Panel Button */}
+              {(userProfile?.role === "admin" || (user && user.email === "onlinemobi101@gmail.com")) && (
+                <button
+                  id="header-admin-btn"
+                  onClick={() => setMode(mode === "admin" ? "editor" : "admin")}
+                  className={`font-semibold text-xs px-3.5 py-1.5 rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 ${
+                    mode === "admin" 
+                      ? "bg-amber-500 text-slate-950 hover:bg-amber-600" 
+                      : "bg-white/5 hover:bg-white/10 border border-white/10 text-amber-400 hover:text-amber-300"
+                  }`}
+                >
+                  <Shield size={13} />
+                  {mode === "admin" ? "Tahrirchi" : "Admin Panel"}
+                </button>
+              )}
+
               {/* Upgrade or Sign In CTAs */}
               {userProfile?.role !== "premium" && (
                 <button
@@ -225,7 +242,12 @@ export default function App() {
 
       {/* Main Container */}
       <main className="flex-1 overflow-auto">
-        {mode === "editor" ? (
+        {mode === "admin" ? (
+          <AdminPanel
+            onBack={() => setMode("editor")}
+            currentUserId={user?.uid || "guest"}
+          />
+        ) : mode === "editor" ? (
           <Editor
             quiz={quiz}
             setQuiz={setQuiz}
