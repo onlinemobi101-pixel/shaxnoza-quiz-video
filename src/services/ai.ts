@@ -54,7 +54,7 @@ export async function getUnsplashImageForKeyword(keyword: string): Promise<strin
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-3.5-flash",
       contents: `Find a highly-popular, valid, active, and high-resolution Unsplash photo ID that perfectly matches the following search query/keyword: "${keyword}".
 The photo must be vertical (or suitable for portrait 1080x1920 cropping), beautiful, atmospheric, and have rich background colors (avoid plain white or overly bright backgrounds since this is used as a full-screen vertical background for a video player).
 
@@ -94,7 +94,7 @@ export async function generateQuizAI(topic: string, language: string = "uz"): Pr
     const promptDetails = langPromptMap[language] || langPromptMap.uz;
 
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-3.5-flash",
       contents: `Mavzu: ${topic}. Shu mavzuda 5 ta qiziqarli test savolini ${promptDetails}`,
       config: {
         responseMimeType: "application/json",
@@ -139,7 +139,7 @@ export async function analyzeQuestionsForImages(questions: { text: string }[]): 
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-3.5-flash",
       contents: `Quyidagi test savollarini tahlil qiling va har biriga mos keladigan eng muvofiq, inglizcha bitta so'zdan iborat kalit so'z (image search keyword) bering (masalan: history, galaxy, math, science, nature).
 
 Savollar:
