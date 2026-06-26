@@ -4,7 +4,7 @@ import { Player } from "./components/Player";
 import { AdminPanel } from "./components/AdminPanel";
 import { Quiz, UserProfile } from "./types";
 import { auth, db } from "./services/firebase";
-import { onAuthStateChanged, signInAnonymously, signOut, User } from "firebase/auth";
+import { onAuthStateChanged, signOut, User } from "firebase/auth";
 import { doc, getDoc, setDoc, onSnapshot } from "firebase/firestore";
 import { AuthModal } from "./components/AuthModal";
 import { PaywallModal } from "./components/PaywallModal";
@@ -110,18 +110,8 @@ export default function App() {
           unsubProfile();
         };
       } else {
-        // No user, auto sign in anonymously for a seamless guest experience.
-        // If anonymous auth is disabled in the Firebase Console, we fallback silently to local guest mode.
-        try {
-          await signInAnonymously(auth);
-        } catch (err: any) {
-          // Suppress error reporting for standard administrative restrictions
-          if (err?.code !== "auth/admin-restricted-operation") {
-            console.log("Using local guest mode fallback:", err?.message || err);
-          }
-        } finally {
-          setIsAuthLoading(false);
-        }
+        // No user signed in — show guest UI with login button
+        setIsAuthLoading(false);
       }
     });
 
@@ -236,7 +226,22 @@ export default function App() {
                 </button>
               )}
             </div>
-          ) : null}
+          ) : (
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1.5 bg-slate-950 border border-slate-800 text-slate-300 px-3 py-1.5 rounded-xl text-xs font-semibold">
+                <Sparkles size={14} className="text-emerald-400" />
+                Bepul (0/1 video)
+              </div>
+              <button
+                id="header-login-btn-guest"
+                onClick={() => setIsAuthOpen(true)}
+                className="bg-gradient-to-r from-indigo-500 to-cyan-500 hover:from-indigo-600 hover:to-cyan-600 text-white font-semibold text-xs px-4 py-2 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shadow-lg shadow-indigo-500/20"
+              >
+                <LogIn size={13} />
+                Gmail bilan Kirish
+              </button>
+            </div>
+          )}
         </div>
       </header>
 
