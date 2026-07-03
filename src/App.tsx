@@ -94,15 +94,21 @@ export default function App() {
       });
 
     // 2. Monitor auth state changes
+    let unsubProfile: (() => void) | null = null;
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       clearTimeout(safetyTimeout);
+      // Foydalanuvchi almashganda eski profil obunasini yopamiz
+      if (unsubProfile) {
+        unsubProfile();
+        unsubProfile = null;
+      }
       setUser(currentUser);
 
       if (currentUser) {
         // Subscribe to real-time profile updates
         const userDocRef = doc(db, "users", currentUser.uid);
-        
-        const unsubProfile = onSnapshot(
+
+        unsubProfile = onSnapshot(
           userDocRef,
           async (docSnap) => {
             if (docSnap.exists()) {
@@ -159,10 +165,6 @@ export default function App() {
             setIsAuthLoading(false);
           }
         );
-
-        return () => {
-          unsubProfile();
-        };
       } else {
         // No user signed in — show guest UI with login button
         setIsAuthLoading(false);
@@ -171,6 +173,7 @@ export default function App() {
 
     return () => {
       clearTimeout(safetyTimeout);
+      if (unsubProfile) unsubProfile();
       unsubscribe();
     };
   }, []);
