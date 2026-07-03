@@ -1,8 +1,6 @@
 import React, { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Crown, CheckCircle2, X, Sparkles, Zap, Loader2, AlertCircle, ShoppingBag, Copy, Check, ExternalLink, Send, ArrowLeft } from "lucide-react";
-import { doc, updateDoc } from "firebase/firestore";
-import { db } from "../services/firebase";
+import { Crown, CheckCircle2, X, Sparkles, Zap, AlertCircle, ShoppingBag, Copy, Check, ExternalLink, Send, ArrowLeft } from "lucide-react";
 
 interface PaywallModalProps {
   isOpen: boolean;
@@ -16,7 +14,6 @@ type PlanId = "pack10" | "premium";
 export function PaywallModal({ isOpen, onClose, userId, onUpgradeSuccess }: PaywallModalProps) {
   const [selectedPlan, setSelectedPlan] = useState<PlanId>("premium");
   const [step, setStep] = useState<1 | 2>(1);
-  const [isUpgrading, setIsUpgrading] = useState(false);
   const [copied, setCopied] = useState(false);
 
   // Generate stable guest ID if no real userId is provided
@@ -48,47 +45,6 @@ export function PaywallModal({ isOpen, onClose, userId, onUpgradeSuccess }: Payw
 
   const handleAdminTelegramRedirect = () => {
     window.open("https://t.me/Akramjon1984", "_blank");
-  };
-
-  // Simulation for direct activation (testing purpose)
-  const handleSimulateActivation = async () => {
-    setIsUpgrading(true);
-    try {
-      if (!userId || userId === "guest") {
-        // LocalStorage fallback for guests
-        localStorage.setItem("guest_role", selectedPlan);
-        localStorage.setItem("guest_videos_created", "0"); // Reset videos created on upgrade
-        if (onUpgradeSuccess) {
-          onUpgradeSuccess();
-        }
-        onClose();
-        return;
-      }
-
-      const userRef = doc(db, "users", userId);
-      if (selectedPlan === "premium") {
-        await updateDoc(userRef, {
-          role: "premium",
-          premiumUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-        });
-      } else {
-        await updateDoc(userRef, {
-          role: "pack10",
-          videosCreated: 0,
-          premiumUntil: null,
-        });
-      }
-
-      if (onUpgradeSuccess) {
-        onUpgradeSuccess();
-      }
-      onClose();
-    } catch (err) {
-      console.error("Upgrade simulation error:", err);
-      alert("Simulyatsiya xatosi: " + (err instanceof Error ? err.message : String(err)));
-    } finally {
-      setIsUpgrading(false);
-    }
   };
 
   return (
@@ -351,24 +307,6 @@ export function PaywallModal({ isOpen, onClose, userId, onUpgradeSuccess }: Payw
                   <p className="text-[11px] text-slate-400 mt-3 text-center">
                     Telegram: <span className="text-indigo-400 font-bold hover:underline cursor-pointer" onClick={handleAdminTelegramRedirect}>@Akramjon1984</span>
                   </p>
-
-                  {/* Dev Bypass Testing button */}
-                  <div className="w-full border-t border-slate-900/60 pt-4 mt-6 flex flex-col items-center">
-                    <button
-                      onClick={handleSimulateActivation}
-                      disabled={isUpgrading}
-                      className="text-[10px] text-amber-500/70 hover:text-amber-400/90 font-mono transition-all underline decoration-dotted flex items-center gap-1"
-                    >
-                      {isUpgrading ? (
-                        <>
-                          <Loader2 size={10} className="animate-spin" />
-                          Faollashtirilmoqda...
-                        </>
-                      ) : (
-                        "🔒 [Simulyatsiya] Hisobni hoziroq tizimda faollashtirish (Sinash uchun)"
-                      )}
-                    </button>
-                  </div>
                 </motion.div>
               )}
             </div>

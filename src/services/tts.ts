@@ -1,40 +1,36 @@
-import { GoogleGenAI, Modality } from "@google/genai";
-
+// TTS endi /api/ai serverless funksiyasi orqali chaqiriladi — API kaliti klientda saqlanmaydi.
 export async function generateTTS(text: string, voiceName: string = "Kore", retryCount = 0): Promise<string | null> {
   try {
-    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: [{ parts: [{ text }] }],
-      config: {
-        responseModalities: [Modality.AUDIO],
-        speechConfig: {
-          voiceConfig: {
-            prebuiltVoiceConfig: { voiceName },
-          },
-        },
-      },
+    const response = await fetch("/api/ai", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "tts", text, voiceName }),
     });
 
-    const base64Audio =
-      response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-    if (base64Audio) {
-      return base64Audio;
-    }
-    return null;
-  } catch (error: any) {
-    if ((error?.status === 429 || error?.toString().includes("429"))) {
-      if (error?.toString()?.includes("quota") || error?.message?.includes("quota")) {
-         throw new Error("QUOTA_EXCEEDED");
+    const data = await response.json().catch(() => ({}));
+
+    if (response.status === 429) {
+      if (data?.error === "QUOTA_EXCEEDED") {
+        throw new Error("QUOTA_EXCEEDED");
       }
       if (retryCount < 3) {
-        console.warn(`TTS Quota exceeded. Retrying in ${(retryCount + 1) * 5} seconds...`);
+        console.warn(`TTS rate limited. Retrying in ${(retryCount + 1) * 5} seconds...`);
         await new Promise((r) => setTimeout(r, (retryCount + 1) * 5000));
         return generateTTS(text, voiceName, retryCount + 1);
       }
+      throw new Error("RATE_LIMITED");
     }
+
+    if (!response.ok) {
+      throw new Error(data?.error || `TTS API xatosi (${response.status})`);
+    }
+
+    return data.audio || null;
+  } catch (error: any) {
+    if (error?.message === "QUOTA_EXCEEDED") throw error;
     console.error("TTS generation failed:", error);
-    return null;
+    // Re-throw with detail so the UI can show the real reason
+    throw new Error(error?.message || error?.toString() || "Noma'lum xatolik");
   }
 }
 

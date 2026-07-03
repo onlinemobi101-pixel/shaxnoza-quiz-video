@@ -1,11 +1,45 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /users/{userId} {
-      allow read, write: if request.auth != null && (
-        request.auth.uid == userId || 
+
+    // Egasi (owner) emaili yoki Firestore'da role == 'admin' bo'lgan foydalanuvchi admin hisoblanadi
+    function isOwnerEmail() {
+      return request.auth != null && request.auth.token.email == 'onlinemobi101@gmail.com';
+    }
+
+    function isAdmin() {
+      return isOwnerEmail() || (
+        request.auth != null &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
       );
+    }
+
+    match /users/{userId} {
+      // O'qish: faqat o'z hujjati yoki admin
+      allow read: if request.auth != null && (request.auth.uid == userId || isAdmin());
+
+      // Yaratish: foydalanuvchi faqat o'ziga, faqat 'free' rol va 0 video bilan profil ochadi.
+      // Egasi emaili istisno — u 'admin' rol bilan ochishi mumkin.
+      allow create: if request.auth != null && request.auth.uid == userId && (
+        isOwnerEmail() || (
+          request.resource.data.role == 'free' &&
+          request.resource.data.videosCreated == 0 &&
+          request.resource.data.premiumUntil == null
+        )
+      );
+
+      // Yangilash: admin hammasini o'zgartira oladi.
+      // Oddiy foydalanuvchi faqat videosCreated ni +1 ga oshira oladi (video yaratganda).
+      // role, premiumUntil kabi maydonlarni foydalanuvchi O'ZGARTIRA OLMAYDI.
+      allow update: if isAdmin() || (
+        request.auth != null &&
+        request.auth.uid == userId &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['videosCreated']) &&
+        request.resource.data.videosCreated == resource.data.videosCreated + 1
+      );
+
+      allow delete: if isAdmin();
     }
   }
 }
