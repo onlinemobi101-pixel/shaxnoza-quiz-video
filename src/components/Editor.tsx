@@ -201,7 +201,7 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
       if (ttsErr.message === "QUOTA_EXCEEDED") {
         alert("AI Ovoz yaratish uchun API kvotasi tugadi. Boshqa vaqt qayta urinib ko'ring.");
       } else {
-        alert("Ovoz yaratishda xatolik yuz berdi.");
+        alert(`Ovoz yaratishda xatolik: ${ttsErr.message || ttsErr}`);
         console.error(ttsErr);
       }
     }
@@ -1192,7 +1192,7 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
                 </label>
                 <div className="flex flex-col sm:flex-row gap-4 items-start">
                   <div className="relative flex-1 w-full flex flex-col gap-3">
-                    <div className="flex gap-3">
+                    <div className="flex flex-col sm:flex-row gap-3">
                       <div className="relative flex-1">
                         <ImageIcon
                           className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500"
@@ -1211,8 +1211,9 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
                           placeholder="Orqa fon rasm URL manzili..."
                         />
                       </div>
-                      <label className="cursor-pointer bg-white/5 hover:bg-white/10 text-white p-3.5 rounded-xl border border-white/10 flex items-center justify-center transition-all hover:scale-105 active:scale-95 shadow-sm shrink-0" title="Rasm yuklash">
-                        <Upload size={20} />
+                      <label className="cursor-pointer bg-white/5 hover:bg-white/10 text-white px-4 py-3 rounded-xl border border-white/10 flex items-center justify-center gap-2 transition-all hover:scale-105 active:scale-95 shadow-sm shrink-0" title="Rasm yuklash">
+                        <Upload size={18} className="text-emerald-400" />
+                        <span className="text-xs font-semibold">Komp'yuterdan yuklash</span>
                         <input
                           type="file"
                           accept="image/*"
@@ -1288,13 +1289,29 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
                     </div>
                   </div>
                   {q.backgroundImage && (
-                    <div className="w-full sm:w-28 h-40 sm:h-28 rounded-xl overflow-hidden shrink-0 border border-white/10 shadow-inner">
-                      <img
-                        src={q.backgroundImage}
-                        alt="Background preview"
-                        className="w-full h-full object-cover transition-transform hover:scale-110 duration-700"
-                        referrerPolicy="no-referrer"
-                      />
+                    <div className="flex flex-col items-center gap-2 shrink-0 w-full sm:w-auto">
+                      <div className="w-full sm:w-28 h-40 sm:h-28 rounded-xl overflow-hidden border border-white/10 shadow-inner">
+                        <img
+                          src={q.backgroundImage}
+                          alt="Background preview"
+                          className="w-full h-full object-cover transition-transform hover:scale-110 duration-700"
+                          referrerPolicy="no-referrer"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const updatedQuestions = quiz.questions.map((item) => ({
+                            ...item,
+                            backgroundImage: q.backgroundImage
+                          }));
+                          setQuiz({ ...quiz, questions: updatedQuestions });
+                          alert("Ushbu fon rasmi barcha savollarga muvaffaqiyatli qo'llanildi!");
+                        }}
+                        className="text-[10px] w-full bg-white/5 hover:bg-white/10 border border-white/10 text-neutral-300 py-1.5 rounded-lg transition-all font-semibold cursor-pointer text-center"
+                      >
+                        Barchasiga qo'llash
+                      </button>
                     </div>
                   )}
                 </div>

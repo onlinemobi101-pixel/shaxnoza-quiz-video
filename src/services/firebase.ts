@@ -27,4 +27,7 @@ const finalConfig = firebaseConfig.apiKey ? firebaseConfig : {
 const app = getApps().length === 0 ? initializeApp(finalConfig) : getApp();
 
 export const auth = getAuth(app);
-export const db = getFirestore(app);
+const isFallback = !firebaseConfig.apiKey;
+export const db = isFallback
+  ? getFirestore(app, "ai-studio-quizvideogenerat-b76222ad-cbef-4099-98d0-287a876f919d")
+  : getFirestore(app);

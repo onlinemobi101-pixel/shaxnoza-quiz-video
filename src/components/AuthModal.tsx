@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { X, Mail, Lock, LogIn, UserPlus, Loader2, Key } from "lucide-react";
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile, GoogleAuthProvider, signInWithPopup, signInWithRedirect } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
 import { auth, db } from "../services/firebase";
 
@@ -27,11 +27,21 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
       onClose();
     } catch (err: any) {
       console.error(err);
-      if (err.code !== "auth/popup-closed-by-user") {
-        setError("Google orqali kirishda xatolik yuz berdi. Iltimos qayta urinib ko'ring.");
+      if (err.code === "auth/popup-blocked") {
+        // Fallback to Redirect if Popups are blocked by browser settings
+        try {
+          const provider = new GoogleAuthProvider();
+          await signInWithRedirect(auth, provider);
+        } catch (redirErr: any) {
+          setError(`Google orqali kirishda xatolik yuz berdi (${redirErr.code || redirErr.message}).`);
+          setIsLoading(false);
+        }
+      } else if (err.code !== "auth/popup-closed-by-user") {
+        setError(`Google orqali kirishda xatolik yuz berdi (${err.code || err.message || "noma'lum xato"}).`);
+        setIsLoading(false);
+      } else {
+        setIsLoading(false);
       }
-    } finally {
-      setIsLoading(false);
     }
   };
 

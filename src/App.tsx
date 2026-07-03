@@ -4,7 +4,7 @@ import { Player } from "./components/Player";
 import { AdminPanel } from "./components/AdminPanel";
 import { Quiz, UserProfile } from "./types";
 import { auth, db } from "./services/firebase";
-import { onAuthStateChanged, signOut, User } from "firebase/auth";
+import { onAuthStateChanged, signOut, User, getRedirectResult } from "firebase/auth";
 import { doc, getDoc, setDoc, onSnapshot } from "firebase/firestore";
 import { AuthModal } from "./components/AuthModal";
 import { PaywallModal } from "./components/PaywallModal";
@@ -70,41 +70,95 @@ export default function App() {
       premiumUntil: null,
     });
 
+    // Safety timeout: If Firebase auth doesn't resolve in 5 seconds, unblock the UI anyway
+    const safetyTimeout = setTimeout(() => {
+      setIsAuthLoading((loading) => {
+        if (loading) {
+          console.warn("Auth state resolution timed out. Unblocking UI.");
+          return false;
+        }
+        return loading;
+      });
+    }, 5000);
+
+    // 1. Resolve redirect result to catch any Google sign-in redirect errors
+    getRedirectResult(auth)
+      .then((result) => {
+        if (result) {
+          console.log("Redirect sign-in successful:", result.user.email);
+        }
+      })
+      .catch((err) => {
+        console.error("Redirect sign-in error:", err);
+        alert(`Google orqali kirishda xatolik yuz berdi (${err.code || err.message}).`);
+      });
+
+    // 2. Monitor auth state changes
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      clearTimeout(safetyTimeout);
       setUser(currentUser);
 
       if (currentUser) {
         // Subscribe to real-time profile updates
         const userDocRef = doc(db, "users", currentUser.uid);
         
-        const unsubProfile = onSnapshot(userDocRef, async (docSnap) => {
-          if (docSnap.exists()) {
-            const data = docSnap.data();
+        const unsubProfile = onSnapshot(
+          userDocRef,
+          async (docSnap) => {
+            if (docSnap.exists()) {
+              const data = docSnap.data();
+              
+              // Automatically elevate owner email to admin in Firestore
+              if (currentUser.email === "onlinemobi101@gmail.com" && data.role !== "admin") {
+                try {
+                  await setDoc(userDocRef, { role: "admin" }, { merge: true });
+                } catch (e) {
+                  console.error("Auto admin elevation failed:", e);
+                }
+              }
+
+              setUserProfile({
+                uid: currentUser.uid,
+                email: currentUser.email,
+                role: currentUser.email === "onlinemobi101@gmail.com" ? "admin" : (data.role || "free"),
+                videosCreated: data.videosCreated || 0,
+                premiumUntil: data.premiumUntil || null,
+              });
+            } else {
+              // Profile document doesn't exist yet, create it
+              const defaultProfile = {
+                role: currentUser.email === "onlinemobi101@gmail.com" ? "admin" : "free",
+                videosCreated: 0,
+                premiumUntil: null,
+                email: currentUser.email,
+                createdAt: new Date().toISOString()
+              };
+              try {
+                await setDoc(userDocRef, defaultProfile);
+                setUserProfile({
+                  uid: currentUser.uid,
+                  email: currentUser.email,
+                  ...defaultProfile
+                });
+              } catch (setErr) {
+                console.error("Error setting default profile:", setErr);
+              }
+            }
+            setIsAuthLoading(false);
+          },
+          (snapError) => {
+            console.error("Profile snapshot read failed:", snapError);
+            // Fallback so the app doesn't get stuck on loading
             setUserProfile({
               uid: currentUser.uid,
               email: currentUser.email,
-              role: data.role || "free",
-              videosCreated: data.videosCreated || 0,
-              premiumUntil: data.premiumUntil || null,
-            });
-          } else {
-            // Profile document doesn't exist yet, create it
-            const defaultProfile = {
               role: "free",
               videosCreated: 0,
               premiumUntil: null,
-              email: currentUser.email,
-              createdAt: new Date().toISOString()
-            };
-            await setDoc(userDocRef, defaultProfile);
-            setUserProfile({
-              uid: currentUser.uid,
-              email: currentUser.email,
-              ...defaultProfile
             });
+            setIsAuthLoading(false);
           }
-          setIsAuthLoading(false);
-        });
+        );
 
         return () => {
           unsubProfile();
@@ -116,6 +170,7 @@ export default function App() {
     });
 
     return () => {
+      clearTimeout(safetyTimeout);
       unsubscribe();
     };
   }, []);

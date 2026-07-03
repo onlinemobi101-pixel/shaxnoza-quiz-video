@@ -544,11 +544,26 @@ export function Player({ quiz, onExit }: PlayerProps) {
             </AnimatePresence>
           </div>
           
-          {/* Watermark overlay */}
+          {/* Watermark overlay - floating/bouncing across the screen */}
           {quiz.watermark && (
-            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-50 text-white/40 font-bold tracking-widest text-sm bg-black/20 px-4 py-1.5 rounded-full backdrop-blur-sm border border-white/5 pointer-events-none">
+            <motion.div
+              animate={{
+                left: ["5%", "70%", "10%", "75%", "25%", "70%", "5%"],
+                top: ["5%", "45%", "90%", "10%", "50%", "90%", "5%"],
+                opacity: [0.25, 0.45, 0.25, 0.45, 0.25, 0.45, 0.25]
+              }}
+              transition={{
+                duration: 25,
+                ease: "linear",
+                repeat: Infinity,
+              }}
+              className="absolute z-50 text-white font-bold tracking-widest text-[11px] bg-black/30 px-3 py-1.5 rounded-full backdrop-blur-xs border border-white/5 pointer-events-none whitespace-nowrap shadow-md"
+              style={{
+                textShadow: "0 1px 4px rgba(0,0,0,0.8)"
+              }}
+            >
               {quiz.watermark}
-            </div>
+            </motion.div>
           )}
         </div>
       </div>
