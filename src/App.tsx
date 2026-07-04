@@ -8,6 +8,7 @@ import { onAuthStateChanged, signOut, User, getRedirectResult } from "firebase/a
 import { doc, getDoc, setDoc, onSnapshot } from "firebase/firestore";
 import { AuthModal } from "./components/AuthModal";
 import { PaywallModal } from "./components/PaywallModal";
+import { Landing } from "./components/Landing";
 import { Crown, LogIn, LogOut, Sparkles, Loader2, User as UserIcon, Shield } from "lucide-react";
 
 const defaultQuiz: Quiz = {
@@ -44,9 +45,49 @@ const defaultQuiz: Quiz = {
   ],
 };
 
+const AUTOSAVE_KEY = "qv_autosaved_quiz";
+
 export default function App() {
-  const [quiz, setQuiz] = useState<Quiz>(defaultQuiz);
-  const [mode, setMode] = useState<"editor" | "player" | "admin">("editor");
+  // Oxirgi ish avtosaqlangan bo'lsa, o'shandan boshlaymiz (audio qayta yaratiladi)
+  const [quiz, setQuiz] = useState<Quiz>(() => {
+    try {
+      const saved = localStorage.getItem(AUTOSAVE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && Array.isArray(parsed.questions) && parsed.questions.length > 0) {
+          return parsed as Quiz;
+        }
+      }
+    } catch (e) {
+      console.warn("Autosave restore failed:", e);
+    }
+    return defaultQuiz;
+  });
+  // Birinchi tashrifda landing sahifani ko'rsatamiz
+  const [mode, setMode] = useState<"landing" | "editor" | "player" | "admin">(() =>
+    localStorage.getItem("qv_visited") ? "editor" : "landing"
+  );
+
+  const startEditor = () => {
+    localStorage.setItem("qv_visited", "1");
+    setMode("editor");
+  };
+
+  // Har o'zgarishda quiz'ni localStorage'ga saqlaymiz (audio'siz — hajm limiti uchun)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      try {
+        const light: Quiz = {
+          ...quiz,
+          questions: quiz.questions.map(({ audioBase64, correctAudioBase64, ...rest }) => rest),
+        };
+        localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(light));
+      } catch (e) {
+        console.warn("Autosave failed:", e);
+      }
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [quiz]);
 
   // Firebase Auth & Profile States
   const [user, setUser] = useState<User | null>(null);
@@ -191,7 +232,11 @@ export default function App() {
     <div className="min-h-screen text-white font-sans selection:bg-emerald-500/30 flex flex-col">
       {/* Premium Header / Status Bar */}
       <header className="border-b border-white/5 bg-slate-950/30 backdrop-blur-md px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-4 shrink-0">
-        <div className="flex items-center gap-3">
+        <button
+          onClick={() => setMode(mode === "landing" ? "editor" : "landing")}
+          className="flex items-center gap-3 cursor-pointer text-left"
+          title={mode === "landing" ? "Tahrirlagichga o'tish" : "Bosh sahifa"}
+        >
           <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-cyan-500 flex items-center justify-center font-display font-extrabold text-slate-950 shadow-md">
             QV
           </div>
@@ -199,7 +244,7 @@ export default function App() {
             <h2 className="text-md font-display font-bold text-white tracking-wide">Quiz Video Generator</h2>
             <p className="text-[10px] text-slate-400 font-medium">Frictionless TikTok, Shorts & Reels Creator</p>
           </div>
-        </div>
+        </button>
 
         {/* User Status and Controls */}
         <div className="flex items-center gap-3 font-sans">
@@ -305,7 +350,12 @@ export default function App() {
 
       {/* Main Container */}
       <main className="flex-1 overflow-auto">
-        {mode === "admin" ? (
+        {mode === "landing" ? (
+          <Landing
+            onStart={startEditor}
+            onShowPricing={() => setIsPaywallOpen(true)}
+          />
+        ) : mode === "admin" ? (
           <AdminPanel
             onBack={() => setMode("editor")}
             currentUserId={user?.uid || "guest"}

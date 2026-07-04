@@ -34,6 +34,8 @@ export class QuizRenderer {
   bgImages: HTMLImageElement[] = [];
   cachedLines: { [key: number]: string[] } = {};
   silenceOscillator?: OscillatorNode;
+  wakeLock: any = null;
+  handleVisibilityChange?: () => void;
   
   onProgress?: (progress: number) => void;
   onComplete?: (url: string, extension: string) => void;
@@ -155,10 +157,27 @@ export class QuizRenderer {
     }
   }
 
+  async requestWakeLock() {
+    // Render paytida ekran o'chib qolmasligi uchun (ayniqsa mobil qurilmalarda)
+    try {
+      this.wakeLock = await (navigator as any).wakeLock?.request('screen');
+    } catch (e) {
+      // Qo'llab-quvvatlanmasa yoki rad etilsa jim davom etamiz
+    }
+  }
+
   async start() {
     if (this.audioCtx.state === 'suspended') {
       await this.audioCtx.resume();
     }
+    await this.requestWakeLock();
+    // Tab yashirilib qaytganda wake lock avtomatik bo'shaydi — qayta so'raymiz
+    this.handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && this.isRecording) {
+        this.requestWakeLock();
+      }
+    };
+    document.addEventListener('visibilitychange', this.handleVisibilityChange);
     await this.loadImages();
     
     if (this.quiz.bgmEnabled) {
@@ -591,6 +610,14 @@ export class QuizRenderer {
   stop() {
     this.isRecording = false;
     this.isCancelled = true;
+    if (this.handleVisibilityChange) {
+      document.removeEventListener('visibilitychange', this.handleVisibilityChange);
+      this.handleVisibilityChange = undefined;
+    }
+    if (this.wakeLock) {
+      try { this.wakeLock.release(); } catch (e) {}
+      this.wakeLock = null;
+    }
     this.worker.postMessage('stop');
     this.worker.terminate();
     stopPCM();
