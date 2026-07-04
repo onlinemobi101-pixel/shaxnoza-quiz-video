@@ -51,6 +51,7 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
   const [selectedLanguage, setSelectedLanguage] = useState<"uz" | "en" | "ru" | "tr">(
     quiz.language || "uz"
   );
+  const [showSettings, setShowSettings] = useState(false);
 
   // O'z ovozini yozib olish (Voice Recorder) states & refs
   interface RecordingState {
@@ -631,56 +632,110 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
         </div>
       )}
 
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
-        <div>
-          <h1 className="text-4xl sm:text-5xl font-display font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-br from-emerald-400 via-emerald-200 to-cyan-400 drop-shadow-sm mb-2">
-            Quiz Video Tayyorlash
-          </h1>
-          <p className="text-neutral-400 text-lg font-medium">
-            TikTok, Instagram Reels va YouTube Shorts uchun
-          </p>
+      <div className="mb-8">
+        <h1 className="text-3xl sm:text-4xl font-display font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-br from-emerald-400 via-emerald-200 to-cyan-400 drop-shadow-sm mb-2">
+          Quiz Video Tayyorlash
+        </h1>
+        <p className="text-neutral-400 text-base font-medium">
+          3 qadam: savollar tayyorlang → tekshiring → videoni yuklab oling
+        </p>
+      </div>
+
+      {/* QADAM 1: AI bilan savollar tayyorlash */}
+      <div className="bg-gradient-to-br from-indigo-500/10 to-purple-500/10 backdrop-blur-2xl border border-indigo-500/20 rounded-3xl p-6 shadow-2xl relative overflow-hidden mb-5">
+        <div className="absolute top-0 right-0 -mt-4 -mr-4 w-32 h-32 bg-indigo-500/20 blur-3xl rounded-full" />
+        <div className="flex items-center gap-3 mb-2 relative z-10">
+          <div className="w-8 h-8 shrink-0 rounded-full bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center text-indigo-300 font-display font-black text-sm">
+            1
+          </div>
+          <h2 className="text-xl font-display font-bold text-indigo-100 tracking-tight">Savollar tayyorlang</h2>
         </div>
-        <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto mt-4 sm:mt-0">
+        <p className="text-sm text-indigo-200/60 mb-5 relative z-10 leading-relaxed">
+          Mavzuni yozing — AI 5 ta savolni rasmlari bilan avtomatik tuzib beradi. Yoki pastda savollarni qo'lda kiriting.
+        </p>
+        <div className="flex flex-col md:flex-row gap-3 relative z-10">
+          <input
+            type="text"
+            value={aiTopic}
+            onChange={(e) => setAiTopic(e.target.value)}
+            placeholder="Mavzuni kiriting (masalan: Tarix, Kosmos, Sport...)"
+            className="flex-1 bg-black/40 backdrop-blur-md border border-indigo-500/30 rounded-xl px-4 py-3.5 text-white focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/20 transition-all placeholder:text-indigo-200/30 font-semibold"
+            onKeyDown={(e) => e.key === 'Enter' && handleAIGenerate()}
+          />
+          <div className="relative md:w-52 shrink-0">
+            <select
+              value={selectedLanguage}
+              onChange={(e) => setSelectedLanguage(e.target.value as any)}
+              className="w-full bg-black/40 backdrop-blur-md border border-indigo-500/30 rounded-xl px-4 py-3.5 text-white focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/20 transition-all appearance-none cursor-pointer font-semibold"
+            >
+              <option value="uz" className="bg-neutral-900">🇺🇿 O'zbek tili</option>
+              <option value="en" className="bg-neutral-900">🇺🇸 Ingliz tili</option>
+              <option value="ru" className="bg-neutral-900">🇷🇺 Rus tili</option>
+              <option value="tr" className="bg-neutral-900">🇹🇷 Turk tili</option>
+            </select>
+            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-indigo-400">
+              <ArrowDown size={16} />
+            </div>
+          </div>
           <button
-            onClick={handleExport}
-            disabled={isExporting || isGeneratingAI}
-            className="w-full sm:w-auto flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 hover:scale-[1.02] active:scale-[0.98] disabled:hover:scale-100 disabled:opacity-50 text-white px-6 py-3.5 rounded-2xl font-semibold transition-all shadow-lg relative overflow-hidden"
+            onClick={handleAIGenerate}
+            disabled={isGeneratingAI || !aiTopic}
+            className="md:w-auto shrink-0 flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:hover:scale-100 text-white px-6 py-3.5 rounded-xl font-bold transition-all shadow-lg shadow-indigo-900/20 border border-white/10 border-t-white/20 cursor-pointer whitespace-nowrap"
           >
-            {isExporting ? (
-              <>
-                <div className="absolute inset-0 bg-emerald-600/30" style={{ width: `${exportProgress * 100}%` }} />
-                <Loader2 size={20} className="animate-spin relative z-10" />
-                <span className="relative z-10">Tayyorlanmoqda... {Math.round(exportProgress * 100)}%</span>
-              </>
-            ) : (
-              <>
-                <Download size={20} />
-                Video Yuklab Olish
-              </>
-            )}
+            {isGeneratingAI ? <Loader2 size={20} className="animate-spin" /> : <Sparkles size={20} />}
+            {isGeneratingAI ? (generatingAudioId ? "Ovozlar yaratilmoqda..." : "Savollar tuzilmoqda...") : "AI bilan yaratish"}
           </button>
+        </div>
+        <div className="flex flex-wrap items-center gap-x-1 gap-y-1 mt-4 relative z-10 text-xs text-indigo-200/50">
+          <span className="mr-1">Tayyor testingiz bormi?</span>
+          <label className="inline-flex items-center gap-1 text-cyan-400 hover:text-cyan-300 cursor-pointer font-semibold transition-colors">
+            <FileUp size={13} />
+            Import (.json)
+            <input type="file" accept=".json" className="hidden" onChange={handleJSONImport} />
+          </label>
+          <span className="mx-1.5 text-indigo-200/20">•</span>
           <button
-            onClick={onPlay}
-            disabled={isExporting || isGeneratingAI}
-            className="w-full sm:w-auto flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 hover:scale-[1.02] active:scale-[0.98] disabled:hover:scale-100 disabled:opacity-50 text-white px-6 py-3.5 rounded-2xl font-semibold transition-all shadow-lg shadow-emerald-900/20 border border-white/10 border-t-white/20"
+            type="button"
+            onClick={handleJSONExport}
+            className="inline-flex items-center gap-1 text-cyan-400 hover:text-cyan-300 font-semibold transition-colors cursor-pointer"
           >
-            <Play size={20} fill="currentColor" />
-            Ko'rish
+            <FileDown size={13} />
+            Eksport
+          </button>
+          <span className="mx-1.5 text-indigo-200/20">•</span>
+          <button
+            type="button"
+            onClick={downloadSampleTemplate}
+            className="text-indigo-300/60 hover:text-indigo-200 underline decoration-dotted transition-colors cursor-pointer"
+          >
+            Shablon namunasi
           </button>
         </div>
       </div>
 
-      {/* Settings & AI Generation Section */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
-        {/* Settings */}
-        <div className="bg-white/5 backdrop-blur-2xl border border-white/10 rounded-3xl p-6 shadow-2xl transition-all duration-300 hover:bg-white/[0.07] hover:border-white/20">
-          <div className="flex items-center gap-3 mb-6">
+      {/* Sozlamalar (yig'iladigan) */}
+      <div className="bg-white/5 backdrop-blur-2xl border border-white/10 rounded-3xl shadow-2xl mb-10 overflow-hidden transition-all duration-300">
+        <button
+          type="button"
+          onClick={() => setShowSettings(!showSettings)}
+          className="w-full flex items-center justify-between p-5 hover:bg-white/5 transition-colors cursor-pointer"
+        >
+          <div className="flex items-center gap-3">
             <div className="bg-white/10 p-2.5 rounded-xl text-white shadow-inner">
-              <Settings2 size={24} />
+              <Settings2 size={20} />
             </div>
-            <h2 className="text-xl font-display font-bold text-white tracking-tight">Sozlamalar</h2>
+            <div className="text-left">
+              <h2 className="text-lg font-display font-bold text-white tracking-tight">Video sozlamalari</h2>
+              <p className="text-xs text-neutral-400 font-medium">Suxandon ovozi, taymer, dizayn mavzusi, musiqa</p>
+            </div>
           </div>
-          <div className="space-y-4">
+          <ArrowDown
+            size={18}
+            className={`text-neutral-400 transition-transform duration-300 ${showSettings ? "rotate-180" : ""}`}
+          />
+        </button>
+        {showSettings && (
+          <div className="p-6 pt-2 space-y-4 border-t border-white/5">
             <div>
               <label className="block text-sm font-medium text-neutral-300 mb-2 flex items-center justify-between">
                 <span>Suxandon ovozi (AI)</span>
@@ -902,152 +957,39 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
               </div>
             )}
           </div>
-        </div>
+        )}
+      </div>
 
-        {/* AI Generation */}
-        <div className="bg-gradient-to-br from-indigo-500/10 to-purple-500/10 backdrop-blur-2xl border border-indigo-500/20 rounded-3xl p-6 shadow-2xl transition-all duration-300 hover:border-indigo-500/30 hover:shadow-indigo-500/10 relative overflow-hidden flex flex-col justify-between">
-          <div>
-            <div className="absolute top-0 right-0 -mt-4 -mr-4 w-32 h-32 bg-indigo-500/20 blur-3xl rounded-full" />
-            <div className="flex items-center gap-3 mb-6 relative z-10">
-              <div className="bg-indigo-500/20 p-2.5 rounded-xl text-indigo-300 shadow-inner">
-                <Sparkles size={24} />
-              </div>
-              <h2 className="text-xl font-display font-bold text-indigo-100 tracking-tight">AI bilan test yaratish</h2>
-            </div>
-            <p className="text-sm text-indigo-200/60 mb-6 relative z-10 leading-relaxed">
-              Kanalingiz mavzusini kiriting va sun'iy intellekt sizga professional savollar va javob variantlarini avtomatik ravishda tayyorlab beradi.
-            </p>
+      {/* QADAM 2: Savollarni tekshirish */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 shrink-0 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-300 font-display font-black text-sm">
+            2
           </div>
-          <div className="flex flex-col gap-4 relative z-10">
-            <input
-              type="text"
-              value={aiTopic}
-              onChange={(e) => setAiTopic(e.target.value)}
-              placeholder="Mavzuni kiriting (masalan: Tarix...)"
-              className="w-full bg-black/40 backdrop-blur-md border border-indigo-500/30 rounded-xl px-4 py-3.5 text-white focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/20 transition-all placeholder:text-indigo-200/30 font-semibold"
-              onKeyDown={(e) => e.key === 'Enter' && handleAIGenerate()}
-            />
-            <div className="relative">
-              <select
-                value={selectedLanguage}
-                onChange={(e) => setSelectedLanguage(e.target.value as any)}
-                className="w-full bg-black/40 backdrop-blur-md border border-indigo-500/30 rounded-xl px-4 py-3.5 text-white focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/20 transition-all appearance-none cursor-pointer font-semibold"
-              >
-                <option value="uz" className="bg-neutral-900">🇺🇿 O'zbek tili (Uzbek)</option>
-                <option value="en" className="bg-neutral-900">🇺🇸 Ingliz tili (English)</option>
-                <option value="ru" className="bg-neutral-900">🇷🇺 Rus tili (Russian)</option>
-                <option value="tr" className="bg-neutral-900">🇹🇷 Turk tili (Turkish)</option>
-              </select>
-              <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-indigo-400">
-                <ArrowDown size={16} />
-              </div>
-            </div>
-            <button
-              onClick={handleAIGenerate}
-              disabled={isGeneratingAI || !aiTopic}
-              className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:hover:scale-100 text-white px-6 py-3.5 rounded-xl font-bold transition-all shadow-lg shadow-indigo-900/20 border border-white/10 border-t-white/20 cursor-pointer"
-            >
-              {isGeneratingAI ? <Loader2 size={20} className="animate-spin" /> : <Sparkles size={20} />}
-              {isGeneratingAI ? (generatingAudioId ? "Ovozlar yaratilmoqda..." : "Savollar tuzilmoqda...") : "Yaratish"}
-            </button>
-          </div>
+          <h2 className="text-xl font-display font-bold text-white tracking-tight">Savollarni tekshiring</h2>
+          <span className="text-xs font-bold bg-white/5 border border-white/10 text-neutral-300 px-2.5 py-1 rounded-full">
+            {quiz.questions.length} ta
+          </span>
         </div>
-
-        {/* Bulk Unsplash Generator */}
-        <div className="bg-gradient-to-br from-amber-500/10 to-rose-500/10 backdrop-blur-2xl border border-amber-500/20 rounded-3xl p-6 shadow-2xl transition-all duration-300 hover:border-amber-500/30 hover:shadow-amber-500/10 relative overflow-hidden flex flex-col justify-between">
-          <div>
-            <div className="absolute top-0 right-0 -mt-4 -mr-4 w-32 h-32 bg-amber-500/20 blur-3xl rounded-full" />
-            <div className="flex items-center gap-3 mb-6 relative z-10">
-              <div className="bg-amber-500/20 p-2.5 rounded-xl text-amber-300 shadow-inner">
-                <ImageIcon size={24} />
-              </div>
-              <h2 className="text-xl font-display font-bold text-amber-100 tracking-tight">AI Ommaviy Rasm Qidirish</h2>
-            </div>
-            <p className="text-sm text-amber-200/60 mb-6 relative z-10 leading-relaxed">
-              Barcha savollar matnini sun'iy intellekt tahlil qilib, har biriga eng mos keladigan Unsplash rasmini avtomatik ravishda bir soniyada biriktiradi.
-            </p>
-          </div>
-          <div className="flex flex-col gap-4 relative z-10">
-            <button
-              onClick={handleBulkImageGenerate}
-              disabled={isGeneratingBulkImages || quiz.questions.length === 0}
-              className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-amber-600 to-rose-600 hover:from-amber-500 hover:to-rose-500 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:hover:scale-100 text-white px-6 py-3.5 rounded-xl font-bold transition-all shadow-lg shadow-amber-900/20 border border-white/10 border-t-white/20 cursor-pointer"
-            >
-              {isGeneratingBulkImages ? <Loader2 size={20} className="animate-spin" /> : <ImageIcon size={20} />}
-              {isGeneratingBulkImages ? "Tahlil qilinmoqda..." : "Barcha rasmlarni yangilash"}
-            </button>
-          </div>
-        </div>
-
-        {/* Bulk Voice Generator */}
-        <div className="bg-gradient-to-br from-emerald-500/10 to-teal-500/10 backdrop-blur-2xl border border-emerald-500/20 rounded-3xl p-6 shadow-2xl transition-all duration-300 hover:border-emerald-500/30 hover:shadow-emerald-500/10 relative overflow-hidden flex flex-col justify-between">
-          <div>
-            <div className="absolute top-0 right-0 -mt-4 -mr-4 w-32 h-32 bg-emerald-500/20 blur-3xl rounded-full" />
-            <div className="flex items-center gap-3 mb-6 relative z-10">
-              <div className="bg-emerald-500/20 p-2.5 rounded-xl text-emerald-300 shadow-inner">
-                <Volume2 size={24} />
-              </div>
-              <h2 className="text-xl font-display font-bold text-emerald-100 tracking-tight">AI Ommaviy Ovoz Yaratish</h2>
-            </div>
-            <p className="text-sm text-emerald-200/60 mb-6 relative z-10 leading-relaxed">
-              Barcha savollar va to'g'ri javob variantlari uchun ovozlarni ketma-ket sun'iy intellekt orqali ommaviy yaratadi.
-            </p>
-          </div>
-          <div className="flex flex-col gap-4 relative z-10">
-            <button
-              onClick={handleBulkVoiceGenerate}
-              disabled={isGeneratingBulkVoices || quiz.questions.length === 0}
-              className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:hover:scale-100 text-white px-6 py-3.5 rounded-xl font-bold transition-all shadow-lg shadow-emerald-900/20 border border-white/10 border-t-white/20 cursor-pointer"
-            >
-              {isGeneratingBulkVoices ? <Loader2 size={20} className="animate-spin" /> : <Volume2 size={20} />}
-              {isGeneratingBulkVoices ? "Ovozlar yaratilmoqda..." : "Barcha ovozlarni yaratish (AI)"}
-            </button>
-          </div>
-        </div>
-
-        {/* JSON Import & Export */}
-        <div className="bg-gradient-to-br from-cyan-500/10 to-emerald-500/10 backdrop-blur-2xl border border-cyan-500/20 rounded-3xl p-6 shadow-2xl transition-all duration-300 hover:border-cyan-500/30 hover:shadow-cyan-500/10 relative overflow-hidden flex flex-col justify-between">
-          <div>
-            <div className="absolute top-0 right-0 -mt-4 -mr-4 w-32 h-32 bg-cyan-500/20 blur-3xl rounded-full" />
-            <div className="flex items-center gap-3 mb-6 relative z-10">
-              <div className="bg-cyan-500/20 p-2.5 rounded-xl text-cyan-300 shadow-inner">
-                <FileJson size={24} />
-              </div>
-              <h2 className="text-xl font-display font-bold text-cyan-100 tracking-tight">JSON test yuklash</h2>
-            </div>
-            <p className="text-sm text-cyan-200/60 mb-6 relative z-10 leading-relaxed">
-              O'z testlaringizni JSON fayl ko'rinishida saqlang yoki ularni tezda tahrirlash uchun dasturga qayta yuklang.
-            </p>
-          </div>
-          <div className="flex flex-col gap-3 relative z-10">
-            <div className="grid grid-cols-2 gap-3">
-              <label className="flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white py-3 rounded-xl font-semibold transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer shadow-sm text-sm">
-                <FileUp size={18} />
-                Import (.json)
-                <input
-                  type="file"
-                  accept=".json"
-                  className="hidden"
-                  onChange={handleJSONImport}
-                />
-              </label>
-              <button
-                type="button"
-                onClick={handleJSONExport}
-                className="flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white py-3 rounded-xl font-semibold transition-all hover:scale-[1.02] active:scale-[0.98] shadow-sm text-sm"
-              >
-                <FileDown size={18} />
-                Eksport
-              </button>
-            </div>
-            <button
-              type="button"
-              onClick={downloadSampleTemplate}
-              className="w-full text-center text-xs text-cyan-400 hover:text-cyan-300 underline font-medium py-1 transition-colors"
-            >
-              Shablon namunani yuklab olish (.json)
-            </button>
-          </div>
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={handleBulkImageGenerate}
+            disabled={isGeneratingBulkImages || quiz.questions.length === 0}
+            title="AI barcha savollarga mos rasm topib qo'yadi"
+            className="flex items-center gap-1.5 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 text-amber-300 text-xs font-bold px-3.5 py-2 rounded-xl transition-all disabled:opacity-40 cursor-pointer"
+          >
+            {isGeneratingBulkImages ? <Loader2 size={14} className="animate-spin" /> : <ImageIcon size={14} />}
+            {isGeneratingBulkImages ? "Tahlil..." : "Barcha rasmlar (AI)"}
+          </button>
+          <button
+            onClick={handleBulkVoiceGenerate}
+            disabled={isGeneratingBulkVoices || quiz.questions.length === 0}
+            title="AI barcha savollar va javoblar uchun ovoz yaratadi"
+            className="flex items-center gap-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 text-emerald-300 text-xs font-bold px-3.5 py-2 rounded-xl transition-all disabled:opacity-40 cursor-pointer"
+          >
+            {isGeneratingBulkVoices ? <Loader2 size={14} className="animate-spin" /> : <Volume2 size={14} />}
+            {isGeneratingBulkVoices ? "Yaratilmoqda..." : "Barcha ovozlar (AI)"}
+          </button>
         </div>
       </div>
 
@@ -1517,6 +1459,51 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
           <Plus size={24} />
           Yangi savol qo'shish
         </button>
+      </div>
+
+      {/* QADAM 3: Doimiy pastki harakat paneli */}
+      <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-white/10 bg-slate-950/85 backdrop-blur-xl shadow-[0_-8px_30px_rgba(0,0,0,0.4)]">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-3">
+          <div className="hidden sm:flex items-center gap-3 min-w-0">
+            <div className="w-8 h-8 shrink-0 rounded-full bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center text-cyan-300 font-display font-black text-sm">
+              3
+            </div>
+            <div className="flex flex-col text-xs leading-tight">
+              <span className="font-bold text-white">{quiz.questions.length} ta savol</span>
+              <span className="text-neutral-400">
+                {quiz.questions.filter((q) => q.audioBase64).length}/{quiz.questions.length} ovoz tayyor
+              </span>
+            </div>
+          </div>
+          <div className="flex gap-2.5 flex-1 sm:flex-none justify-end">
+            <button
+              onClick={onPlay}
+              disabled={isExporting || isGeneratingAI}
+              className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 disabled:opacity-50 text-white px-5 py-3 rounded-xl font-semibold text-sm transition-all cursor-pointer"
+            >
+              <Play size={17} fill="currentColor" />
+              Ko'rish
+            </button>
+            <button
+              onClick={handleExport}
+              disabled={isExporting || isGeneratingAI}
+              className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 disabled:opacity-50 text-white px-5 py-3 rounded-xl font-bold text-sm transition-all shadow-lg shadow-emerald-900/30 border border-white/10 border-t-white/20 relative overflow-hidden cursor-pointer"
+            >
+              {isExporting ? (
+                <>
+                  <div className="absolute inset-0 bg-emerald-400/20" style={{ width: `${exportProgress * 100}%` }} />
+                  <Loader2 size={17} className="animate-spin relative z-10" />
+                  <span className="relative z-10">{Math.round(exportProgress * 100)}%</span>
+                </>
+              ) : (
+                <>
+                  <Download size={17} />
+                  Video Yuklab Olish
+                </>
+              )}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
