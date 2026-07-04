@@ -1,0 +1,6 @@
+{
+  "firestore": {
+    "database": "ai-studio-quizvideogenerat-b76222ad-cbef-4099-98d0-287a876f919d",
+    "rules": "firestore.rules"
+  }
+}
