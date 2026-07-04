@@ -1,13 +1,27 @@
+import { auth } from "./firebase";
+
 // TTS endi /api/ai serverless funksiyasi orqali chaqiriladi — API kaliti klientda saqlanmaydi.
+// Server login va tarif limitini tekshiradi (AUTH_REQUIRED / TTS_LIMIT).
 export async function generateTTS(text: string, voiceName: string = "Kore", retryCount = 0): Promise<string | null> {
   try {
+    const idToken = await auth.currentUser?.getIdToken().catch(() => null);
+    if (!idToken) {
+      throw new Error("AUTH_REQUIRED");
+    }
+
     const response = await fetch("/api/ai", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${idToken}`,
+      },
       body: JSON.stringify({ action: "tts", text, voiceName }),
     });
 
     const data = await response.json().catch(() => ({}));
+
+    if (response.status === 401) throw new Error("AUTH_REQUIRED");
+    if (response.status === 403) throw new Error(data?.error === "TTS_LIMIT" ? "TTS_LIMIT" : "AUTH_REQUIRED");
 
     if (response.status === 429) {
       if (data?.error === "QUOTA_EXCEEDED") {
@@ -27,7 +41,8 @@ export async function generateTTS(text: string, voiceName: string = "Kore", retr
 
     return data.audio || null;
   } catch (error: any) {
-    if (error?.message === "QUOTA_EXCEEDED") throw error;
+    const code = error?.message;
+    if (code === "QUOTA_EXCEEDED" || code === "AUTH_REQUIRED" || code === "TTS_LIMIT") throw error;
     console.error("TTS generation failed:", error);
     // Re-throw with detail so the UI can show the real reason
     throw new Error(error?.message || error?.toString() || "Noma'lum xatolik");

@@ -42,6 +42,65 @@ const CURATED_IMAGES: Record<string, string> = {
 
 const FALLBACK_IMAGE = "https://images.unsplash.com/photo-1505506874110-6a7a48e14c49?q=80&w=1080&auto=format&fit=crop";
 
+// Firebase autentifikatsiya va profil tekshiruvi (TTS faqat ruxsatli foydalanuvchilarga)
+const FIREBASE_API_KEY = "AIzaSyDWBgBGukUFeB9TeIan3VN86QwufySwyqY";
+const FIRESTORE_BASE =
+  "https://firestore.googleapis.com/v1/projects/gen-lang-client-0398801666/databases/ai-studio-quizvideogenerat-b76222ad-cbef-4099-98d0-287a876f919d/documents";
+const OWNER_EMAIL = "onlinemobi101@gmail.com";
+
+async function verifyIdToken(idToken: string): Promise<{ uid: string; email?: string } | null> {
+  try {
+    const resp = await fetch(
+      `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${FIREBASE_API_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ idToken }),
+      }
+    );
+    if (!resp.ok) return null;
+    const data: any = await resp.json();
+    const u = data.users?.[0];
+    return u ? { uid: u.localId, email: u.email } : null;
+  } catch {
+    return null;
+  }
+}
+
+async function getUserProfile(uid: string, idToken: string): Promise<{ role: string; videosCreated: number }> {
+  try {
+    // Foydalanuvchining o'z tokeni bilan o'z hujjatini o'qiymiz (rules ruxsat beradi)
+    const resp = await fetch(`${FIRESTORE_BASE}/users/${uid}`, {
+      headers: { Authorization: `Bearer ${idToken}` },
+    });
+    if (!resp.ok) return { role: "free", videosCreated: 0 };
+    const doc: any = await resp.json();
+    return {
+      role: doc.fields?.role?.stringValue || "free",
+      videosCreated: parseInt(doc.fields?.videosCreated?.integerValue || "0", 10),
+    };
+  } catch {
+    return { role: "free", videosCreated: 0 };
+  }
+}
+
+// TTS siyosati: login shart; premium/pack10/admin — cheksiz (pack10 o'z limiti doirasida),
+// bepul foydalanuvchi faqat birinchi videosi uchun ishlata oladi.
+async function checkTTSAccess(idToken: string): Promise<{ ok: boolean; status?: number; error?: string }> {
+  if (!idToken) return { ok: false, status: 401, error: "AUTH_REQUIRED" };
+  const user = await verifyIdToken(idToken);
+  if (!user) return { ok: false, status: 401, error: "AUTH_REQUIRED" };
+  if (user.email === OWNER_EMAIL) return { ok: true };
+
+  const profile = await getUserProfile(user.uid, idToken);
+  if (profile.role === "admin" || profile.role === "premium") return { ok: true };
+  if (profile.role === "pack10") {
+    return profile.videosCreated < 10 ? { ok: true } : { ok: false, status: 403, error: "TTS_LIMIT" };
+  }
+  // free
+  return profile.videosCreated < 1 ? { ok: true } : { ok: false, status: 403, error: "TTS_LIMIT" };
+}
+
 function getAI(): GoogleGenAI {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
@@ -249,6 +308,13 @@ export default async function handler(req: IncomingMessage & { body?: any }, res
         const { text, voiceName } = body;
         if (!text || typeof text !== "string") {
           sendJSON(res, 400, { error: "text majburiy" });
+          return;
+        }
+        const authHeader = String(req.headers?.authorization || "");
+        const idToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
+        const access = await checkTTSAccess(idToken);
+        if (!access.ok) {
+          sendJSON(res, access.status || 403, { error: access.error || "FORBIDDEN" });
           return;
         }
         const audio = await generateTTS(text, voiceName || "Kore");

@@ -175,6 +175,22 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
     setActiveRecording(null);
   };
 
+  // TTS xatolarini bitta joyda tushunarli xabarga aylantiramiz
+  const handleTTSError = (err: any): void => {
+    const code = err?.message || String(err);
+    if (code === "AUTH_REQUIRED") {
+      alert("AI ovoz yaratish uchun avval Google hisobingiz bilan kiring. Savollaringiz saqlanib qoladi.");
+    } else if (code === "TTS_LIMIT") {
+      alert("AI ovoz limitingiz tugagan. Davom etish uchun Premium yoki 10 talik paketni oling.");
+      onOpenPaywall();
+    } else if (code === "QUOTA_EXCEEDED") {
+      alert("AI Ovoz yaratish uchun API kvotasi tugadi. Boshqa vaqt qayta urinib ko'ring.");
+    } else {
+      alert(`Ovoz yaratishda xatolik: ${code}`);
+      console.error(err);
+    }
+  };
+
   const generateSingleAudio = async (qIndex: number, q: Question, type: "question" | "correct") => {
     setGeneratingAudioId(`${q.id}-${type}`);
     try {
@@ -199,12 +215,7 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
         }
       }
     } catch (ttsErr: any) {
-      if (ttsErr.message === "QUOTA_EXCEEDED") {
-        alert("AI Ovoz yaratish uchun API kvotasi tugadi. Boshqa vaqt qayta urinib ko'ring.");
-      } else {
-        alert(`Ovoz yaratishda xatolik: ${ttsErr.message || ttsErr}`);
-        console.error(ttsErr);
-      }
+      handleTTSError(ttsErr);
     }
     setGeneratingAudioId(null);
   };
@@ -286,12 +297,7 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
         alert("Ovoz yaratishda xatolik yuz berdi.");
       }
     } catch (ttsErr: any) {
-      if (ttsErr.message === "QUOTA_EXCEEDED") {
-        alert("AI Ovoz yaratish uchun API kvotasi tugadi. Boshqa vaqt qayta urinib ko'ring.");
-      } else {
-        alert("Ovoz yaratishda xatolik yuz berdi.");
-        console.error(ttsErr);
-      }
+      handleTTSError(ttsErr);
     }
     setGeneratingAudioId(null);
   };
@@ -339,7 +345,13 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
             }
           }
         } catch (ttsErr: any) {
-          if (ttsErr.message === "QUOTA_EXCEEDED") {
+          // Savollar allaqachon yaratildi — ovoz xatosi ularni yo'qotmasin
+          const code = ttsErr?.message || "";
+          if (code === "AUTH_REQUIRED") {
+            alert("Savollar tayyor! AI ovoz qo'shish uchun Google hisobingiz bilan kiring, so'ng \"Barcha ovozlar (AI)\" tugmasini bosing.");
+          } else if (code === "TTS_LIMIT") {
+            alert("Savollar tayyor, lekin AI ovoz limitingiz tugagan. Premium yoki paket bilan ovoz qo'shishingiz mumkin.");
+          } else if (code === "QUOTA_EXCEEDED") {
             alert("AI Ovoz yaratish uchun API kvotasi tugadi. Siz audio yaratilmagan savollarni o'zingiz matn sifatida qoldirishingiz mumkin.");
           } else {
             console.error(ttsErr);
@@ -423,12 +435,7 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
       }
       alert("Barcha savollar uchun ovozlar muvaffaqiyatli yaratildi va o'rnatildi!");
     } catch (ttsErr: any) {
-      if (ttsErr.message === "QUOTA_EXCEEDED") {
-        alert("AI Ovoz yaratish uchun API kvotasi tugadi. Boshqa vaqt qayta urinib ko'ring.");
-      } else {
-        alert("Ovoz yaratishda xatolik yuz berdi.");
-        console.error(ttsErr);
-      }
+      handleTTSError(ttsErr);
     } finally {
       setGeneratingAudioId(null);
       setIsGeneratingBulkVoices(false);
