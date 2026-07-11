@@ -1,12 +1,18 @@
 import { Question } from "../types";
+import { auth } from "./firebase";
 
 // Barcha Gemini chaqiruvlari endi /api/ai serverless funksiyasi orqali bajariladi.
 // API kaliti klient bundle'ida saqlanmaydi.
 
 async function callAPI(payload: Record<string, unknown>): Promise<any> {
+  const idToken = await auth.currentUser?.getIdToken().catch(() => null);
+  if (!idToken) throw new Error("AUTH_REQUIRED");
   const response = await fetch("/api/ai", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${idToken}`,
+    },
     body: JSON.stringify(payload),
   });
 
@@ -18,35 +24,21 @@ async function callAPI(payload: Record<string, unknown>): Promise<any> {
 }
 
 export async function getUnsplashImageForKeyword(keyword: string): Promise<string> {
-  try {
-    const data = await callAPI({ action: "imageKeyword", keyword });
-    if (data.url) return data.url;
-  } catch (error) {
-    console.error("Image keyword lookup failed:", error);
-  }
+  const data = await callAPI({ action: "imageKeyword", keyword });
+  if (data.url) return data.url;
   // Beautiful fallback default
   return "https://images.unsplash.com/photo-1505506874110-6a7a48e14c49?q=80&w=1080&auto=format&fit=crop";
 }
 
 export async function generateQuizAI(topic: string, language: string = "uz"): Promise<Question[] | null> {
-  try {
-    const data = await callAPI({ action: "generateQuiz", topic, language });
-    return data.questions || null;
-  } catch (error) {
-    console.error("AI generation failed:", error);
-    return null;
-  }
+  const data = await callAPI({ action: "generateQuiz", topic, language });
+  return data.questions || null;
 }
 
 export async function analyzeQuestionsForImages(questions: { text: string }[]): Promise<string[] | null> {
-  try {
-    const data = await callAPI({
-      action: "analyzeImages",
-      questions: questions.map((q) => ({ text: q.text })),
-    });
-    return data.keywords || null;
-  } catch (error) {
-    console.error("AI question image analysis failed:", error);
-    return null;
-  }
+  const data = await callAPI({
+    action: "analyzeImages",
+    questions: questions.map((q) => ({ text: q.text })),
+  });
+  return data.keywords || null;
 }

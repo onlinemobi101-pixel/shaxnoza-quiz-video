@@ -24,21 +24,22 @@ import {
 import { generateTTS } from "../services/tts";
 import { generateQuizAI, analyzeQuestionsForImages, getUnsplashImageForKeyword } from "../services/ai";
 import { QuizRenderer } from "../services/renderer";
-import { doc, updateDoc, increment } from "firebase/firestore";
-import { db } from "../services/firebase";
+import { consumeVideoCredit, VideoCreditResult } from "../services/access";
+import type { User } from "firebase/auth";
 import { UserProfile } from "../types";
 
 interface EditorProps {
   quiz: Quiz;
   setQuiz: (quiz: Quiz) => void;
   onPlay: () => void;
-  user: any;
+  user: User | null;
   userProfile: UserProfile | null;
   onOpenPaywall: () => void;
-  onVideoCreated?: () => void;
+  onRequireAuth: () => void;
+  onVideoCreated?: (result: VideoCreditResult) => void;
 }
 
-export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall, onVideoCreated }: EditorProps) {
+export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall, onRequireAuth, onVideoCreated }: EditorProps) {
   const [generatingAudioId, setGeneratingAudioId] = useState<string | null>(
     null,
   );
@@ -52,6 +53,7 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
     quiz.language || "uz"
   );
   const [showSettings, setShowSettings] = useState(false);
+  const hasPremiumAccess = userProfile?.role === "premium" || userProfile?.role === "admin";
 
   // O'z ovozini yozib olish (Voice Recorder) states & refs
   interface RecordingState {
@@ -180,9 +182,15 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
     const code = err?.message || String(err);
     if (code === "AUTH_REQUIRED") {
       alert("AI ovoz yaratish uchun avval Google hisobingiz bilan kiring. Savollaringiz saqlanib qoladi.");
-    } else if (code === "TTS_LIMIT") {
+      onRequireAuth();
+    } else if (code === "TTS_LIMIT" || code === "PLAN_LIMIT" || code === "VIDEO_LIMIT") {
       alert("AI ovoz limitingiz tugagan. Davom etish uchun Premium yoki 10 talik paketni oling.");
       onOpenPaywall();
+    } else if (code === "PREMIUM_VOICE_REQUIRED") {
+      alert("Bu ovoz faqat faol Premium tarifda mavjud.");
+      onOpenPaywall();
+    } else if (code === "RATE_LIMITED") {
+      alert("Juda ko'p AI so'rovi yuborildi. Biroz kutib, qayta urinib ko'ring.");
     } else if (code === "QUOTA_EXCEEDED") {
       alert("AI Ovoz yaratish uchun API kvotasi tugadi. Boshqa vaqt qayta urinib ko'ring.");
     } else {
@@ -304,6 +312,10 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
 
   const handleAIGenerate = async () => {
     if (!aiTopic) return;
+    if (!user) {
+      onRequireAuth();
+      return;
+    }
 
     const isLimitReached = userProfile && (
       (userProfile.role === "free" && userProfile.videosCreated >= 1) ||
@@ -362,15 +374,19 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
       } else {
         alert("AI yordamida savollar yaratishda xatolik yuz berdi.");
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert("Xatolik yuz berdi.");
+      handleTTSError(err);
     } finally {
       setIsGeneratingAI(false);
     }
   };
 
   const handleBulkImageGenerate = async () => {
+    if (!user) {
+      onRequireAuth();
+      return;
+    }
     if (!quiz.questions || quiz.questions.length === 0) {
       alert("Avval test savollarini qo'shing yoki yaratib oling.");
       return;
@@ -394,15 +410,19 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
       } else {
         alert("AI orqali kalit so'zlarni tahlil qilishda xatolik yuz berdi. Iltimos qaytadan urinib ko'ring.");
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert("Rasmlarni ommaviy qidirishda kutilmagan xatolik yuz berdi.");
+      handleTTSError(err);
     } finally {
       setIsGeneratingBulkImages(false);
     }
   };
 
   const handleBulkVoiceGenerate = async () => {
+    if (!user) {
+      onRequireAuth();
+      return;
+    }
     if (!quiz.questions || quiz.questions.length === 0) {
       alert("Avval test savollarini qo'shing yoki yaratib oling.");
       return;
@@ -443,6 +463,10 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
   };
 
   const handleExport = async () => {
+    if (!user) {
+      onRequireAuth();
+      return;
+    }
     const isLimitReached = userProfile && (
       (userProfile.role === "free" && userProfile.videosCreated >= 1) ||
       (userProfile.role === "pack10" && userProfile.videosCreated >= 10)
@@ -459,10 +483,14 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
     try {
       const quizToRender = {
         ...quiz,
-        watermark: userProfile?.role === "premium" ? quiz.watermark : "@QuizVideo",
+        watermark: hasPremiumAccess ? quiz.watermark : "@QuizVideo",
       };
       const renderer = new QuizRenderer(quizToRender);
       renderer.onProgress = (p) => setExportProgress(p);
+      renderer.onBeforeRecording = async () => {
+        const result = await consumeVideoCredit();
+        onVideoCreated?.(result);
+      };
       renderer.onComplete = async (url, extension) => {
         const a = document.createElement('a');
         a.href = url;
@@ -470,27 +498,15 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
         a.click();
         setIsExporting(false);
 
-        if (user && user.uid !== "guest") {
-          try {
-            const userRef = doc(db, "users", user.uid);
-            await updateDoc(userRef, {
-              videosCreated: increment(1)
-            });
-          } catch (err) {
-            console.error("Failed to increment videosCreated:", err);
-          }
-        } else {
-          const currentCount = parseInt(localStorage.getItem("guest_videos_created") || "0", 10);
-          localStorage.setItem("guest_videos_created", (currentCount + 1).toString());
-          if (onVideoCreated) {
-            onVideoCreated();
-          }
-        }
       };
       await renderer.start();
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert("Video yaratishda xatolik yuz berdi.");
+      const code = err?.message || "";
+      if (code === "AUTH_REQUIRED") onRequireAuth();
+      else if (code === "VIDEO_LIMIT" || code === "PLAN_LIMIT") onOpenPaywall();
+      else if (code === "RATE_LIMITED") alert("Juda ko'p urinish. Bir daqiqadan keyin qayta urinib ko'ring.");
+      else alert("Video yaratishda xatolik yuz berdi.");
       setIsExporting(false);
     }
   };
@@ -746,7 +762,7 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
             <div>
               <label className="block text-sm font-medium text-neutral-300 mb-2 flex items-center justify-between">
                 <span>Suxandon ovozi (AI)</span>
-                {userProfile?.role !== "premium" && (
+                {!hasPremiumAccess && (
                   <span className="text-[10px] bg-amber-500/10 text-amber-400 px-2 py-0.5 rounded-full border border-amber-500/20 font-bold uppercase tracking-wider">
                     🔒 Premium
                   </span>
@@ -757,7 +773,7 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
                   value={quiz.voiceName || "Kore"}
                   onChange={(e) => {
                     const selectedVal = e.target.value;
-                    if (selectedVal !== "Kore" && userProfile?.role !== "premium") {
+                    if (selectedVal !== "Kore" && !hasPremiumAccess) {
                       onOpenPaywall();
                       return;
                     }
@@ -766,10 +782,10 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
                   className="w-full bg-black/40 backdrop-blur-md border border-white/10 rounded-xl px-4 py-3.5 text-white focus:outline-none focus:border-emerald-500/50 focus:ring-2 focus:ring-emerald-500/20 transition-all appearance-none cursor-pointer"
                 >
                   <option value="Kore" className="bg-neutral-900">Kore (Ayol, sokin)</option>
-                  <option value="Aoede" className="bg-neutral-900">Aoede (Ayol, jarangdor) {userProfile?.role !== "premium" ? "🔒" : ""}</option>
-                  <option value="Puck" className="bg-neutral-900">Puck (Erkak, energiya) {userProfile?.role !== "premium" ? "🔒" : ""}</option>
-                  <option value="Charon" className="bg-neutral-900">Charon (Erkak, jiddiy) {userProfile?.role !== "premium" ? "🔒" : ""}</option>
-                  <option value="Fenrir" className="bg-neutral-900">Fenrir (Erkak, chuqur) {userProfile?.role !== "premium" ? "🔒" : ""}</option>
+                  <option value="Aoede" className="bg-neutral-900">Aoede (Ayol, jarangdor) {!hasPremiumAccess ? "🔒" : ""}</option>
+                  <option value="Puck" className="bg-neutral-900">Puck (Erkak, energiya) {!hasPremiumAccess ? "🔒" : ""}</option>
+                  <option value="Charon" className="bg-neutral-900">Charon (Erkak, jiddiy) {!hasPremiumAccess ? "🔒" : ""}</option>
+                  <option value="Fenrir" className="bg-neutral-900">Fenrir (Erkak, chuqur) {!hasPremiumAccess ? "🔒" : ""}</option>
                 </select>
                 <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-neutral-400">
                   <ArrowDown size={16} />
@@ -843,7 +859,7 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
                   { id: 'sunset', name: 'Sunset', desc: 'Iliq/Gradient', premium: false },
                   { id: 'chalk', name: 'Chalk Board', desc: 'Doska/Bo\'r', premium: true }
                 ].map((preset) => {
-                  const isLocked = preset.premium && userProfile?.role !== "premium";
+                  const isLocked = preset.premium && !hasPremiumAccess;
                   return (
                     <button
                       key={preset.id}
@@ -896,7 +912,7 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
             <div>
               <label className="block text-sm font-medium text-neutral-300 mb-2 flex items-center justify-between">
                 <span>Watermark (@username)</span>
-                {userProfile?.role !== "premium" && (
+                {!hasPremiumAccess && (
                   <span className="text-[10px] bg-amber-500/10 text-amber-400 px-2 py-0.5 rounded-full border border-amber-500/20 flex items-center gap-1 font-bold uppercase tracking-wider">
                     🔒 Premium
                   </span>
@@ -905,25 +921,25 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
               <input
                 type="text"
                 placeholder="@TarixQuiz"
-                readOnly={userProfile?.role !== "premium"}
+                readOnly={!hasPremiumAccess}
                 onClick={() => {
-                  if (userProfile?.role !== "premium") {
+                  if (!hasPremiumAccess) {
                     onOpenPaywall();
                   }
                 }}
-                value={userProfile?.role === "premium" ? (quiz.watermark || "") : "@QuizVideo"}
+                value={hasPremiumAccess ? (quiz.watermark || "") : "@QuizVideo"}
                 onChange={(e) => {
-                  if (userProfile?.role !== "premium") {
+                  if (!hasPremiumAccess) {
                     onOpenPaywall();
                     return;
                   }
                   setQuiz({ ...quiz, watermark: e.target.value });
                 }}
                 className={`w-full bg-black/40 backdrop-blur-md border border-white/10 rounded-xl px-4 py-3.5 text-white focus:outline-none focus:border-emerald-500/50 focus:ring-2 focus:ring-emerald-500/20 transition-all ${
-                  userProfile?.role !== "premium" ? "opacity-50 cursor-pointer select-none bg-slate-950/50" : ""
+                  !hasPremiumAccess ? "opacity-50 cursor-pointer select-none bg-slate-950/50" : ""
                 }`}
               />
-              {userProfile?.role !== "premium" && (
+              {!hasPremiumAccess && (
                 <p className="text-[10px] text-amber-400/80 mt-1.5 font-medium leading-relaxed">
                   * Bepul va oddiy tariflarda suv belgisi majburiy bo'lib, uni o'chirish faqat premium foydalanuvchilar uchun ruxsat etiladi.
                 </p>
@@ -1194,8 +1210,9 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
                                   ...q,
                                   backgroundImage
                                 });
-                              } catch (err) {
+                              } catch (err: any) {
                                 console.error(err);
+                                handleTTSError(err);
                               } finally {
                                 if (btn) {
                                   btn.disabled = false;
@@ -1221,8 +1238,9 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
                                 ...q,
                                 backgroundImage
                               });
-                            } catch (err) {
+                            } catch (err: any) {
                               console.error(err);
+                              handleTTSError(err);
                             } finally {
                               btn.disabled = false;
                               btn.textContent = prevText;

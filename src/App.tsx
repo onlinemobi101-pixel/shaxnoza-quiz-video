@@ -47,6 +47,17 @@ const defaultQuiz: Quiz = {
 
 const AUTOSAVE_KEY = "qv_autosaved_quiz";
 
+function getEffectiveRole(
+  role: UserProfile["role"] | undefined,
+  premiumUntil: string | null,
+  email: string | null,
+): UserProfile["role"] {
+  if (email === "onlinemobi101@gmail.com" || role === "admin") return "admin";
+  if (role !== "premium") return role || "free";
+  const expiresAt = premiumUntil ? Date.parse(premiumUntil) : Number.NaN;
+  return Number.isFinite(expiresAt) && expiresAt > Date.now() ? "premium" : "free";
+}
+
 export default function App() {
   // Oxirgi ish avtosaqlangan bo'lsa, o'shandan boshlaymiz (audio qayta yaratiladi)
   const [quiz, setQuiz] = useState<Quiz>(() => {
@@ -97,17 +108,27 @@ export default function App() {
   // Modals States
   const [isPaywallOpen, setIsPaywallOpen] = useState(false);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const hasPremiumAccess = userProfile?.role === "premium" || userProfile?.role === "admin";
+
+  // Ochiq sahifada ham premium muddati tugashi bilan UI huquqlarini yangilaymiz.
+  useEffect(() => {
+    if (userProfile?.role !== "premium" || !userProfile.premiumUntil) return;
+    const interval = window.setInterval(() => {
+      if (Date.parse(userProfile.premiumUntil!) <= Date.now()) {
+        setUserProfile((current) => current?.role === "premium" ? { ...current, role: "free" } : current);
+      }
+    }, 60_000);
+    return () => window.clearInterval(interval);
+  }, [userProfile?.role, userProfile?.premiumUntil]);
 
   // Monitor Auth State
   useEffect(() => {
     // Instantly load guest profile as a fallback starting point
-    const localCount = parseInt(localStorage.getItem("guest_videos_created") || "0", 10);
-    const localRole = (localStorage.getItem("guest_role") as "free" | "premium" | "pack10") || "free";
     setUserProfile({
       uid: "guest",
       email: null,
-      role: localRole,
-      videosCreated: localCount,
+      role: "free",
+      videosCreated: 0,
       premiumUntil: null,
     });
 
@@ -154,6 +175,8 @@ export default function App() {
           async (docSnap) => {
             if (docSnap.exists()) {
               const data = docSnap.data();
+              const premiumUntil = data.premiumUntil || null;
+              const role = getEffectiveRole(data.role, premiumUntil, currentUser.email);
               
               // Automatically elevate owner email to admin in Firestore
               if (currentUser.email === "onlinemobi101@gmail.com" && data.role !== "admin") {
@@ -167,9 +190,9 @@ export default function App() {
               setUserProfile({
                 uid: currentUser.uid,
                 email: currentUser.email,
-                role: currentUser.email === "onlinemobi101@gmail.com" ? "admin" : (data.role || "free"),
+                role,
                 videosCreated: data.videosCreated || 0,
-                premiumUntil: data.premiumUntil || null,
+                premiumUntil,
               });
             } else {
               // Profile document doesn't exist yet, create it
@@ -298,7 +321,7 @@ export default function App() {
               )}
 
               {/* Upgrade or Sign In CTAs */}
-              {userProfile?.role !== "premium" && (
+              {!hasPremiumAccess && (
                 <button
                   id="header-upgrade-btn"
                   onClick={() => setIsPaywallOpen(true)}
@@ -368,16 +391,21 @@ export default function App() {
             user={user}
             userProfile={userProfile}
             onOpenPaywall={() => setIsPaywallOpen(true)}
-            onVideoCreated={() => {
-              const localCount = parseInt(localStorage.getItem("guest_videos_created") || "0", 10);
-              setUserProfile(prev => prev ? { ...prev, videosCreated: localCount } : null);
+            onRequireAuth={() => setIsAuthOpen(true)}
+            onVideoCreated={(result) => {
+              setUserProfile(prev => prev ? {
+                ...prev,
+                role: result.role,
+                videosCreated: result.videosCreated,
+                premiumUntil: result.premiumUntil,
+              } : null);
             }}
           />
         ) : (
           <Player
             quiz={{
               ...quiz,
-              watermark: userProfile?.role === "premium" ? quiz.watermark : "@QuizVideo",
+              watermark: hasPremiumAccess ? quiz.watermark : "@QuizVideo",
             }}
             onExit={() => setMode("editor")}
           />
@@ -389,18 +417,6 @@ export default function App() {
         isOpen={isPaywallOpen}
         onClose={() => setIsPaywallOpen(false)}
         userId={user?.uid || "guest"}
-        onUpgradeSuccess={() => {
-          const localRole = (localStorage.getItem("guest_role") as "free" | "premium" | "pack10") || "free";
-          if (localRole === "premium") {
-            alert("Tabriklaymiz! Hisobingiz muvaffaqiyatli Premium tarifga o'tkazildi.");
-          } else if (localRole === "pack10") {
-            alert("Tabriklaymiz! 10 ta video paketingiz muvaffaqiyatli faollashtirildi.");
-          } else {
-            alert("Xarid muvaffaqiyatli yakunlandi.");
-          }
-          const localCount = parseInt(localStorage.getItem("guest_videos_created") || "0", 10);
-          setUserProfile(prev => prev ? { ...prev, role: localRole, videosCreated: localCount } : null);
-        }}
       />
 
       <AuthModal

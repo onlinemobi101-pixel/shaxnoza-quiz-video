@@ -6,12 +6,11 @@ interface PaywallModalProps {
   isOpen: boolean;
   onClose: () => void;
   userId: string | null;
-  onUpgradeSuccess?: () => void;
 }
 
 type PlanId = "pack10" | "premium";
 
-export function PaywallModal({ isOpen, onClose, userId, onUpgradeSuccess }: PaywallModalProps) {
+export function PaywallModal({ isOpen, onClose, userId }: PaywallModalProps) {
   const [selectedPlan, setSelectedPlan] = useState<PlanId>("premium");
   const [step, setStep] = useState<1 | 2>(1);
   const [copied, setCopied] = useState(false);

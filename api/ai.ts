@@ -2,6 +2,8 @@
 // GEMINI_API_KEY faqat server muhitida saqlanadi va klient bundle'iga tushmaydi.
 import { GoogleGenAI, Type, Modality } from "@google/genai";
 import type { IncomingMessage, ServerResponse } from "http";
+import { FieldValue, Timestamp } from "firebase-admin/firestore";
+import { adminAuth, adminDb } from "./firebase-admin";
 
 const CURATED_IMAGES: Record<string, string> = {
   history: "https://images.unsplash.com/photo-1461360370896-922624d12aa1?q=80&w=1080&auto=format&fit=crop",
@@ -43,62 +45,114 @@ const CURATED_IMAGES: Record<string, string> = {
 const FALLBACK_IMAGE = "https://images.unsplash.com/photo-1505506874110-6a7a48e14c49?q=80&w=1080&auto=format&fit=crop";
 
 // Firebase autentifikatsiya va profil tekshiruvi (TTS faqat ruxsatli foydalanuvchilarga)
-const FIREBASE_API_KEY = "AIzaSyDWBgBGukUFeB9TeIan3VN86QwufySwyqY";
-const FIRESTORE_BASE =
-  "https://firestore.googleapis.com/v1/projects/gen-lang-client-0398801666/databases/ai-studio-quizvideogenerat-b76222ad-cbef-4099-98d0-287a876f919d/documents";
 const OWNER_EMAIL = "onlinemobi101@gmail.com";
 
-async function verifyIdToken(idToken: string): Promise<{ uid: string; email?: string } | null> {
-  try {
-    const resp = await fetch(
-      `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${FIREBASE_API_KEY}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ idToken }),
-      }
-    );
-    if (!resp.ok) return null;
-    const data: any = await resp.json();
-    const u = data.users?.[0];
-    return u ? { uid: u.localId, email: u.email } : null;
-  } catch {
-    return null;
+type Role = "free" | "premium" | "pack10" | "admin";
+type ApiAction = "generateQuiz" | "analyzeImages" | "imageKeyword" | "tts" | "consumeVideoCredit";
+type AuthenticatedUser = { uid: string; email?: string };
+type UserProfile = { role: Role; videosCreated: number; premiumUntil: string | null };
+
+class ApiError extends Error {
+  constructor(public status: number, message: string) {
+    super(message);
   }
 }
 
-async function getUserProfile(uid: string, idToken: string): Promise<{ role: string; videosCreated: number }> {
+const RATE_LIMITS: Record<ApiAction, { max: number; windowMs: number }> = {
+  generateQuiz: { max: 12, windowMs: 60 * 60 * 1000 },
+  analyzeImages: { max: 20, windowMs: 60 * 60 * 1000 },
+  imageKeyword: { max: 40, windowMs: 60 * 60 * 1000 },
+  tts: { max: 40, windowMs: 10 * 60 * 1000 },
+  consumeVideoCredit: { max: 10, windowMs: 60 * 1000 },
+};
+
+function getBearerToken(req: IncomingMessage): string {
+  const authHeader = String(req.headers?.authorization || "");
+  return authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
+}
+
+async function requireUser(req: IncomingMessage): Promise<AuthenticatedUser> {
+  const token = getBearerToken(req);
+  if (!token) throw new ApiError(401, "AUTH_REQUIRED");
   try {
-    // Foydalanuvchining o'z tokeni bilan o'z hujjatini o'qiymiz (rules ruxsat beradi)
-    const resp = await fetch(`${FIRESTORE_BASE}/users/${uid}`, {
-      headers: { Authorization: `Bearer ${idToken}` },
+    const decoded = await adminAuth.verifyIdToken(token, true);
+    return { uid: decoded.uid, email: decoded.email };
+  } catch {
+    throw new ApiError(401, "AUTH_REQUIRED");
+  }
+}
+
+function normalizeProfile(data: FirebaseFirestore.DocumentData | undefined): UserProfile {
+  const knownRoles = ["free", "premium", "pack10", "admin"];
+  return {
+    role: (knownRoles.includes(data?.role) ? data?.role : "free") as Role,
+    videosCreated: Number.isFinite(data?.videosCreated) ? data!.videosCreated : 0,
+    premiumUntil: typeof data?.premiumUntil === "string" ? data.premiumUntil : null,
+  };
+}
+
+function effectiveRole(profile: UserProfile, email?: string): Role {
+  if (email === OWNER_EMAIL || profile.role === "admin") return "admin";
+  if (profile.role !== "premium") return profile.role;
+  const expiresAt = profile.premiumUntil ? Date.parse(profile.premiumUntil) : Number.NaN;
+  return Number.isFinite(expiresAt) && expiresAt > Date.now() ? "premium" : "free";
+}
+
+async function getUserProfile(uid: string): Promise<UserProfile> {
+  const snapshot = await adminDb.collection("users").doc(uid).get();
+  if (!snapshot.exists) throw new ApiError(409, "PROFILE_REQUIRED");
+  return normalizeProfile(snapshot.data());
+}
+
+async function enforceRateLimit(uid: string, action: ApiAction): Promise<void> {
+  const config = RATE_LIMITS[action];
+  const ref = adminDb.collection("apiUsage").doc(uid);
+  await adminDb.runTransaction(async (transaction) => {
+    const snapshot = await transaction.get(ref);
+    const data = snapshot.data() || {};
+    const windowField = `${action}WindowStart`;
+    const countField = `${action}Count`;
+    const previousStart = data[windowField] instanceof Timestamp ? data[windowField].toMillis() : 0;
+    const now = Date.now();
+    const windowExpired = !previousStart || now - previousStart >= config.windowMs;
+    const count = windowExpired ? 0 : Number(data[countField] || 0);
+    if (count >= config.max) throw new ApiError(429, "RATE_LIMITED");
+    transaction.set(ref, {
+      [windowField]: windowExpired ? Timestamp.fromMillis(now) : data[windowField],
+      [countField]: count + 1,
+      updatedAt: FieldValue.serverTimestamp(),
+    }, { merge: true });
+  });
+}
+
+async function requirePlanAccess(user: AuthenticatedUser, errorCode = "PLAN_LIMIT"): Promise<UserProfile & { effectiveRole: Role }> {
+  const profile = await getUserProfile(user.uid);
+  const role = effectiveRole(profile, user.email);
+  const limit = role === "pack10" ? 10 : 1;
+  if (role !== "admin" && role !== "premium" && profile.videosCreated >= limit) {
+    throw new ApiError(403, errorCode);
+  }
+  return { ...profile, effectiveRole: role };
+}
+
+async function consumeVideoCredit(user: AuthenticatedUser) {
+  const ref = adminDb.collection("users").doc(user.uid);
+  return adminDb.runTransaction(async (transaction) => {
+    const snapshot = await transaction.get(ref);
+    if (!snapshot.exists) throw new ApiError(409, "PROFILE_REQUIRED");
+    const profile = normalizeProfile(snapshot.data());
+    const role = effectiveRole(profile, user.email);
+    if (role === "admin" || role === "premium") return { ...profile, role };
+
+    const limit = role === "pack10" ? 10 : 1;
+    if (profile.videosCreated >= limit) throw new ApiError(403, "VIDEO_LIMIT");
+    const videosCreated = profile.videosCreated + 1;
+    transaction.update(ref, {
+      videosCreated,
+      lastVideoReservedAt: FieldValue.serverTimestamp(),
     });
-    if (!resp.ok) return { role: "free", videosCreated: 0 };
-    const doc: any = await resp.json();
-    return {
-      role: doc.fields?.role?.stringValue || "free",
-      videosCreated: parseInt(doc.fields?.videosCreated?.integerValue || "0", 10),
-    };
-  } catch {
-    return { role: "free", videosCreated: 0 };
-  }
-}
-
-// TTS siyosati: login shart; premium/pack10/admin — cheksiz (pack10 o'z limiti doirasida),
-// bepul foydalanuvchi faqat birinchi videosi uchun ishlata oladi.
-async function checkTTSAccess(idToken: string): Promise<{ ok: boolean; status?: number; error?: string }> {
-  if (!idToken) return { ok: false, status: 401, error: "AUTH_REQUIRED" };
-  const user = await verifyIdToken(idToken);
-  if (!user) return { ok: false, status: 401, error: "AUTH_REQUIRED" };
-  if (user.email === OWNER_EMAIL) return { ok: true };
-
-  const profile = await getUserProfile(user.uid, idToken);
-  if (profile.role === "admin" || profile.role === "premium") return { ok: true };
-  if (profile.role === "pack10") {
-    return profile.videosCreated < 10 ? { ok: true } : { ok: false, status: 403, error: "TTS_LIMIT" };
-  }
-  // free
-  return profile.videosCreated < 1 ? { ok: true } : { ok: false, status: 403, error: "TTS_LIMIT" };
+    return { ...profile, role, videosCreated };
+  });
 }
 
 function getAI(): GoogleGenAI {
@@ -240,11 +294,17 @@ async function generateTTS(text: string, voiceName: string): Promise<string | nu
 // Vite dev-middleware'da esa oqimdan o'zimiz o'qiymiz.
 async function readBody(req: IncomingMessage & { body?: any }): Promise<any> {
   if (req.body !== undefined) {
+    const serialized = typeof req.body === "string" ? req.body : JSON.stringify(req.body);
+    if (Buffer.byteLength(serialized, "utf-8") > 64 * 1024) throw new ApiError(413, "PAYLOAD_TOO_LARGE");
     return typeof req.body === "string" ? JSON.parse(req.body) : req.body;
   }
   const chunks: Buffer[] = [];
+  let totalBytes = 0;
   for await (const chunk of req) {
-    chunks.push(typeof chunk === "string" ? Buffer.from(chunk) : chunk);
+    const buffer = typeof chunk === "string" ? Buffer.from(chunk) : chunk;
+    totalBytes += buffer.length;
+    if (totalBytes > 64 * 1024) throw new ApiError(413, "PAYLOAD_TOO_LARGE");
+    chunks.push(buffer);
   }
   const raw = Buffer.concat(chunks).toString("utf-8");
   return raw ? JSON.parse(raw) : {};
@@ -265,67 +325,76 @@ export default async function handler(req: IncomingMessage & { body?: any }, res
   let body: any;
   try {
     body = await readBody(req);
-  } catch {
-    sendJSON(res, 400, { error: "Invalid JSON body" });
+  } catch (error) {
+    const apiError = error instanceof ApiError ? error : null;
+    sendJSON(res, apiError?.status || 400, { error: apiError?.message || "Invalid JSON body" });
     return;
   }
 
-  const { action } = body || {};
+  const action = body?.action as ApiAction;
 
   try {
+    if (!Object.prototype.hasOwnProperty.call(RATE_LIMITS, action)) {
+      throw new ApiError(400, "Noma'lum action");
+    }
+    const user = await requireUser(req);
+    await enforceRateLimit(user.uid, action);
+
     switch (action) {
       case "generateQuiz": {
         const { topic, language } = body;
-        if (!topic || typeof topic !== "string") {
-          sendJSON(res, 400, { error: "topic majburiy" });
-          return;
-        }
-        const questions = await generateQuiz(topic, language || "uz");
+        if (!topic || typeof topic !== "string" || topic.trim().length > 200) throw new ApiError(400, "INVALID_TOPIC");
+        const selectedLanguage = ["uz", "en", "ru", "tr"].includes(language) ? language : "uz";
+        await requirePlanAccess(user);
+        const questions = await generateQuiz(topic.trim(), selectedLanguage);
         sendJSON(res, 200, { questions });
         return;
       }
       case "analyzeImages": {
         const { questions } = body;
-        if (!Array.isArray(questions)) {
-          sendJSON(res, 400, { error: "questions majburiy" });
-          return;
+        if (!Array.isArray(questions) || questions.length < 1 || questions.length > 20 ||
+            questions.some((q: any) => typeof q?.text !== "string" || q.text.length > 500)) {
+          throw new ApiError(400, "INVALID_QUESTIONS");
         }
+        await requirePlanAccess(user);
         const keywords = await analyzeQuestionsForImages(questions);
         sendJSON(res, 200, { keywords });
         return;
       }
       case "imageKeyword": {
         const { keyword } = body;
-        if (!keyword || typeof keyword !== "string") {
-          sendJSON(res, 400, { error: "keyword majburiy" });
-          return;
-        }
-        const url = await getUnsplashImageForKeyword(keyword);
+        if (!keyword || typeof keyword !== "string" || keyword.trim().length > 100) throw new ApiError(400, "INVALID_KEYWORD");
+        await requirePlanAccess(user);
+        const url = await getUnsplashImageForKeyword(keyword.trim());
         sendJSON(res, 200, { url });
         return;
       }
       case "tts": {
         const { text, voiceName } = body;
-        if (!text || typeof text !== "string") {
-          sendJSON(res, 400, { error: "text majburiy" });
-          return;
+        if (!text || typeof text !== "string" || text.length > 2000) throw new ApiError(400, "INVALID_TEXT");
+        const allowedVoices = ["Kore", "Aoede", "Puck", "Charon", "Fenrir"];
+        const selectedVoice = allowedVoices.includes(voiceName) ? voiceName : "Kore";
+        const profile = await requirePlanAccess(user, "TTS_LIMIT");
+        if (selectedVoice !== "Kore" && profile.effectiveRole !== "premium" && profile.effectiveRole !== "admin") {
+          throw new ApiError(403, "PREMIUM_VOICE_REQUIRED");
         }
-        const authHeader = String(req.headers?.authorization || "");
-        const idToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
-        const access = await checkTTSAccess(idToken);
-        if (!access.ok) {
-          sendJSON(res, access.status || 403, { error: access.error || "FORBIDDEN" });
-          return;
-        }
-        const audio = await generateTTS(text, voiceName || "Kore");
+        const audio = await generateTTS(text, selectedVoice);
         sendJSON(res, 200, { audio });
         return;
       }
-      default:
-        sendJSON(res, 400, { error: "Noma'lum action" });
+      case "consumeVideoCredit": {
+        const result = await consumeVideoCredit(user);
+        sendJSON(res, 200, result);
         return;
+      }
+      default:
+        throw new ApiError(400, "Noma'lum action");
     }
   } catch (error: any) {
+    if (error instanceof ApiError) {
+      sendJSON(res, error.status, { error: error.message });
+      return;
+    }
     const message = error?.message || String(error);
     const isRateLimited = error?.status === 429 || message.includes("429");
     if (isRateLimited) {

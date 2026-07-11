@@ -58,7 +58,7 @@ export function Landing({ onStart, onShowPricing }: LandingProps) {
             </button>
           </div>
           <p className="text-xs text-slate-500 mt-4">
-            Ro'yxatdan o'tmasdan ham 1 ta video bepul • Karta ma'lumotlari so'ralmaydi
+            Google orqali kirib 1 ta video bepul yarating • Karta ma'lumotlari so'ralmaydi
           </p>
         </motion.div>
 

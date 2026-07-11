@@ -15,6 +15,11 @@ View your app in AI Studio: https://ai.studio/apps/b76222ad-cbef-4099-98d0-287a8
 
 1. Install dependencies:
    `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
+2. Copy `.env.example` to `.env.local` and set `GEMINI_API_KEY`.
+3. Add `FIREBASE_SERVICE_ACCOUNT_JSON` for server-side token verification, rate limits,
+   and atomic video-credit transactions. Keep this value server-side only.
+4. Run the app:
    `npm run dev`
+
+Deploy `firestore.rules` together with the app. AI endpoints require a Firebase ID token;
+the first video is free after Google sign-in.

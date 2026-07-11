@@ -40,6 +40,7 @@ export class QuizRenderer {
   onProgress?: (progress: number) => void;
   onComplete?: (url: string, extension: string) => void;
   onError?: (err: any) => void;
+  onBeforeRecording?: () => Promise<void>;
 
   constructor(quiz: Quiz) {
     this.quiz = quiz;
@@ -179,6 +180,7 @@ export class QuizRenderer {
     };
     document.addEventListener('visibilitychange', this.handleVisibilityChange);
     await this.loadImages();
+    await this.onBeforeRecording?.();
     
     if (this.quiz.bgmEnabled) {
       startProceduralBGM(this.masterGain, this.quiz.bgmType);

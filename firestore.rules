@@ -23,23 +23,23 @@ service cloud.firestore {
       // Egasi emaili istisno — u 'admin' rol bilan ochishi mumkin.
       allow create: if request.auth != null && request.auth.uid == userId && (
         isOwnerEmail() || (
+          request.resource.data.keys().hasOnly(['role', 'videosCreated', 'premiumUntil', 'email', 'createdAt']) &&
           request.resource.data.role == 'free' &&
           request.resource.data.videosCreated == 0 &&
-          request.resource.data.premiumUntil == null
+          request.resource.data.premiumUntil == null &&
+          request.resource.data.email == request.auth.token.email
         )
       );
 
-      // Yangilash: admin hammasini o'zgartira oladi.
-      // Oddiy foydalanuvchi faqat videosCreated ni +1 ga oshira oladi (video yaratganda).
-      // role, premiumUntil kabi maydonlarni foydalanuvchi O'ZGARTIRA OLMAYDI.
-      allow update: if isAdmin() || (
-        request.auth != null &&
-        request.auth.uid == userId &&
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['videosCreated']) &&
-        request.resource.data.videosCreated == resource.data.videosCreated + 1
-      );
+      // Video krediti va tarif faqat ishonchli server (Admin SDK) yoki admin tomonidan o'zgartiriladi.
+      allow update: if isAdmin();
 
       allow delete: if isAdmin();
+    }
+
+    // API rate-limit hisoblagichlari faqat serverdagi Admin SDK uchun.
+    match /apiUsage/{userId} {
+      allow read, write: if false;
     }
   }
 }
