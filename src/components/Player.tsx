@@ -194,10 +194,10 @@ export function Player({ quiz, onExit }: PlayerProps) {
   const presets = {
     default: {
       container: "relative w-full max-w-[420px] max-h-[85vh] aspect-[9/16] bg-neutral-900 rounded-[3rem] overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.5)] ring-[8px] ring-neutral-900/90 box-border",
-      overlay: "absolute inset-0 bg-gradient-to-b from-black/50 via-black/20 to-black/90 pointer-events-none",
-      progress: "absolute top-8 left-8 sm:left-8 bg-black/30 backdrop-blur-xl px-4 py-1.5 rounded-full border border-white/10 text-white/90 font-mono text-sm font-bold shadow-lg",
-      questionBox: "bg-white/95 backdrop-blur-3xl text-neutral-900 w-full rounded-[2rem] p-6 sm:p-8 shadow-[0_8px_32px_rgba(0,0,0,0.3)] mb-8 sm:mb-12 text-center relative border border-white/40",
-      questionText: "text-xl sm:text-2xl md:text-3xl font-display font-black leading-tight tracking-tight drop-shadow-sm text-black",
+      overlay: "absolute inset-0 bg-gradient-to-b from-black/70 via-black/35 to-black/95 pointer-events-none",
+      progress: "absolute top-8 left-8 sm:left-8 bg-black/55 backdrop-blur-md px-4 py-1.5 rounded-2xl border border-white/10 text-white/95 font-sans text-xs font-bold tracking-widest uppercase shadow-lg flex items-center gap-1.5",
+      questionBox: "bg-black/40 backdrop-blur-md text-white w-full rounded-[2rem] p-6 sm:p-8 shadow-[0_12px_40px_rgba(0,0,0,0.4)] mb-8 sm:mb-12 text-center relative border border-white/10",
+      questionText: "text-xl sm:text-2xl md:text-3xl font-display font-black leading-tight tracking-tight drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)] text-white",
       optionNormal: "bg-white/10 backdrop-blur-2xl text-white border-white/20 hover:bg-white/20",
       optionCorrect: `bg-gradient-to-r ${activeTheme.from} ${activeTheme.to} ${activeTheme.border} text-white font-bold drop-shadow-md shadow-[0_0_20px_rgba(16,185,129,0.4)]`,
       optionIncorrect: "bg-black/50 backdrop-blur-xl text-white/30 border-white/5",
@@ -344,7 +344,8 @@ export function Player({ quiz, onExit }: PlayerProps) {
           
           {/* Progress Indicator */}
           <div className={`${activePreset.progress} z-10`}>
-            {currentQuestionIndex + 1} / {quiz.questions.length}
+            <span className="w-2 h-2 rounded-full bg-current animate-pulse opacity-80" />
+            <span>SAVOL: {currentQuestionIndex + 1} / {quiz.questions.length}</span>
           </div>
 
           <div className="flex-1 flex flex-col justify-center relative">
