@@ -20,6 +20,16 @@ export function Player({ quiz, onExit }: PlayerProps) {
 
   const question = quiz.questions[currentQuestionIndex];
 
+  // BGM butun preview davomida bitta joydan boshqariladi (savol almashganda uzilmasin)
+  useEffect(() => {
+    if (quiz.bgmEnabled) {
+      startProceduralBGM(undefined, quiz.bgmType);
+    }
+    return () => {
+      stopProceduralBGM();
+    };
+  }, [quiz.bgmEnabled, quiz.bgmType]);
+
   useEffect(() => {
     if (!question) return;
 
@@ -28,10 +38,6 @@ export function Player({ quiz, onExit }: PlayerProps) {
     const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
     const runSequence = async () => {
-      if (currentQuestionIndex === 0 && phase === 'init' && quiz.bgmEnabled) {
-          startProceduralBGM(undefined, quiz.bgmType);
-      }
-
       setPhase("init");
       await sleep(500);
       if (isCancelled) return;
@@ -106,16 +112,15 @@ export function Player({ quiz, onExit }: PlayerProps) {
       }
     };
 
-    if (phase !== 'outro' && phase !== 'done') {
-      runSequence();
-    }
+    runSequence();
 
     return () => {
       isCancelled = true;
       stopPCM();
-      stopProceduralBGM();
     };
-  }, [currentQuestionIndex, phase, quiz.questions.length]);
+    // MUHIM: `phase` bu ro'yxatga qo'shilmasin — setPhase har safar effektni qayta
+    // ishga tushirib, ketma-ketlikni bekor qiladi (init<->question cheksiz aylanish).
+  }, [currentQuestionIndex, quiz.questions.length]);
 
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
