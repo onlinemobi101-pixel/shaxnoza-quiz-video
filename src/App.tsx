@@ -52,7 +52,8 @@ function getEffectiveRole(
   premiumUntil: string | null,
   email: string | null,
 ): UserProfile["role"] {
-  if (email === "onlinemobi101@gmail.com" || role === "admin") return "admin";
+  const adminEmails = ["onlinemobi101@gmail.com", "optombazar9@gmail.com"];
+  if ((email && adminEmails.includes(email)) || role === "admin") return "admin";
   if (role !== "premium") return role || "free";
   const expiresAt = premiumUntil ? Date.parse(premiumUntil) : Number.NaN;
   return Number.isFinite(expiresAt) && expiresAt > Date.now() ? "premium" : "free";
@@ -179,7 +180,8 @@ export default function App() {
               const role = getEffectiveRole(data.role, premiumUntil, currentUser.email);
               
               // Automatically elevate owner email to admin in Firestore
-              if (currentUser.email === "onlinemobi101@gmail.com" && data.role !== "admin") {
+              const adminEmails = ["onlinemobi101@gmail.com", "optombazar9@gmail.com"];
+              if (currentUser.email && adminEmails.includes(currentUser.email) && data.role !== "admin") {
                 try {
                   await setDoc(userDocRef, { role: "admin" }, { merge: true });
                 } catch (e) {
@@ -196,8 +198,9 @@ export default function App() {
               });
             } else {
               // Profile document doesn't exist yet, create it
+              const adminEmails = ["onlinemobi101@gmail.com", "optombazar9@gmail.com"];
               const defaultProfile = {
-                role: currentUser.email === "onlinemobi101@gmail.com" ? "admin" : "free",
+                role: (currentUser.email && adminEmails.includes(currentUser.email)) ? "admin" : "free",
                 videosCreated: 0,
                 premiumUntil: null,
                 email: currentUser.email,

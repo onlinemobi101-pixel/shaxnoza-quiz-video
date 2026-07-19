@@ -156,12 +156,47 @@ async function consumeVideoCredit(user: AuthenticatedUser) {
   });
 }
 
-function getAI(): GoogleGenAI {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    throw new Error("GEMINI_API_KEY sozlanmagan. Vercel Environment Variables-ga GEMINI_API_KEY qo'shing.");
+// Vertex AI rejimi: API kalit o'rniga service account ishlatiladi (shahnoza loyihasidagi sxema).
+// Matn modellari "global" lokatsiyada, TTS esa "us-central1" da ishlaydi.
+const VERTEX_PROJECT = "gen-lang-client-0017562692";
+
+function getVertexCredentials() {
+  const raw = process.env.GCP_SERVICE_ACCOUNT_JSON;
+  if (!raw) {
+    throw new Error("GCP_SERVICE_ACCOUNT_JSON sozlanmagan. Vercel Environment Variables-ga Vertex service account JSON qo'shing.");
   }
-  return new GoogleGenAI({ apiKey });
+  const sa = JSON.parse(raw);
+  if (typeof sa.private_key === "string") {
+    sa.private_key = sa.private_key.replace(/\\n/g, "\n");
+  }
+  return sa;
+}
+
+let cachedAI: GoogleGenAI | null = null;
+let cachedTTSAI: GoogleGenAI | null = null;
+
+function getAI(): GoogleGenAI {
+  if (!cachedAI) {
+    cachedAI = new GoogleGenAI({
+      vertexai: true,
+      project: VERTEX_PROJECT,
+      location: "global",
+      googleAuthOptions: { credentials: getVertexCredentials(), scopes: ["https://www.googleapis.com/auth/cloud-platform"] },
+    });
+  }
+  return cachedAI;
+}
+
+function getTTSAI(): GoogleGenAI {
+  if (!cachedTTSAI) {
+    cachedTTSAI = new GoogleGenAI({
+      vertexai: true,
+      project: VERTEX_PROJECT,
+      location: "us-central1",
+      googleAuthOptions: { credentials: getVertexCredentials(), scopes: ["https://www.googleapis.com/auth/cloud-platform"] },
+    });
+  }
+  return cachedTTSAI;
 }
 
 async function getUnsplashImageForKeyword(keyword: string): Promise<string> {
@@ -179,7 +214,7 @@ async function getUnsplashImageForKeyword(keyword: string): Promise<string> {
   try {
     const ai = getAI();
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-3-flash-preview",
       contents: `Find a highly-popular, valid, active, and high-resolution Unsplash photo ID that perfectly matches the following search query/keyword: "${keyword}".
 The photo must be vertical (or suitable for portrait 1080x1920 cropping), beautiful, atmospheric, and have rich background colors (avoid plain white or overly bright backgrounds since this is used as a full-screen vertical background for a video player).
 
@@ -217,7 +252,7 @@ async function generateQuiz(topic: string, language: string) {
   const promptDetails = langPromptMap[language] || langPromptMap.uz;
 
   const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash",
+    model: "gemini-3-flash-preview",
     contents: `Mavzu: ${topic}. Shu mavzuda 5 ta qiziqarli test savolini ${promptDetails}`,
     config: {
       responseMimeType: "application/json",
@@ -253,7 +288,7 @@ async function generateQuiz(topic: string, language: string) {
 async function analyzeQuestionsForImages(questions: { text: string }[]): Promise<string[]> {
   const ai = getAI();
   const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash",
+    model: "gemini-3-flash-preview",
     contents: `Quyidagi test savollarini tahlil qiling va har biriga mos keladigan eng muvofiq, inglizcha bitta so'zdan iborat kalit so'z (image search keyword) bering (masalan: history, galaxy, math, science, nature).
 
 Savollar:
@@ -274,7 +309,7 @@ Javobni quyidagi JSON formatida qaytaring:
 }
 
 async function generateTTS(text: string, voiceName: string): Promise<string | null> {
-  const ai = getAI();
+  const ai = getTTSAI();
   const response = await ai.models.generateContent({
     model: "gemini-3.1-flash-tts-preview",
     contents: [{ parts: [{ text }] }],

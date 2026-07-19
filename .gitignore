@@ -8,3 +8,4 @@ coverage/
 !.env.example
 
 .vercel
+gen-lang-client-*.json

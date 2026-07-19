@@ -5,13 +5,15 @@ import {defineConfig, loadEnv, Plugin} from 'vite';
 import apiHandler from './api/ai';
 
 // Lokal dev'da Vercel serverless funksiyasini (/api/ai) Vite serverida ishga tushiradi.
-// GEMINI_API_KEY faqat server jarayonida qoladi — klient bundle'iga kirmaydi.
+// Maxfiy kalitlar faqat server jarayonida qoladi — klient bundle'iga kirmaydi.
 function apiDevServer(env: Record<string, string>): Plugin {
   return {
     name: 'api-dev-server',
     configureServer(server) {
-      if (env.GEMINI_API_KEY && !process.env.GEMINI_API_KEY) {
-        process.env.GEMINI_API_KEY = env.GEMINI_API_KEY;
+      for (const key of ['GCP_SERVICE_ACCOUNT_JSON', 'FIREBASE_SERVICE_ACCOUNT_JSON']) {
+        if (env[key] && !process.env[key]) {
+          process.env[key] = env[key];
+        }
       }
       server.middlewares.use('/api/ai', (req, res) => {
         apiHandler(req, res).catch((err) => {
