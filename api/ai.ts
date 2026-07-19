@@ -3,7 +3,7 @@
 import { GoogleGenAI, Type, Modality } from "@google/genai";
 import type { IncomingMessage, ServerResponse } from "http";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
-import { adminAuth, adminDb } from "./firebase-admin";
+import { adminAuth, adminDb } from "./firebase-admin.js";
 
 const CURATED_IMAGES: Record<string, string> = {
   history: "https://images.unsplash.com/photo-1461360370896-922624d12aa1?q=80&w=1080&auto=format&fit=crop",
