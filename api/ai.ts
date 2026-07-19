@@ -312,7 +312,7 @@ async function generateTTS(text: string, voiceName: string): Promise<string | nu
   const ai = getTTSAI();
   const response = await ai.models.generateContent({
     model: "gemini-3.1-flash-tts-preview",
-    contents: [{ parts: [{ text }] }],
+    contents: text,
     config: {
       responseModalities: [Modality.AUDIO],
       speechConfig: {
