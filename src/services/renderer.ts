@@ -18,6 +18,7 @@ export class QuizRenderer {
   recorder: MediaRecorder;
   audioCtx: AudioContext;
   masterGain: GainNode;
+  limiter: DynamicsCompressorNode;
   dest: MediaStreamAudioDestinationNode;
   worker: Worker;
   
@@ -25,6 +26,7 @@ export class QuizRenderer {
   currentQuestionIndex = 0;
   phase = 'init';
   phaseStartTime = 0;
+  qStartTime = 0; // Ken Burns zoom uchun savol boshlangan vaqt
   isRecording = false;
   recordedChunks: Blob[] = [];
   isCancelled = false;
@@ -51,11 +53,21 @@ export class QuizRenderer {
     
     this.audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
     this.masterGain = this.audioCtx.createGain();
+    this.masterGain.gain.value = 0.9;
     this.dest = this.audioCtx.createMediaStreamDestination();
-    
-    // Connect master gain to both the recording destination and the speakers
-    this.masterGain.connect(this.dest);
-    this.masterGain.connect(this.audioCtx.destination);
+
+    // Limiter: TTS + SFX + BGM yig'indisi 0 dBFS shiftiga urilib buzilmasligi uchun
+    this.limiter = this.audioCtx.createDynamicsCompressor();
+    this.limiter.threshold.value = -6;
+    this.limiter.knee.value = 4;
+    this.limiter.ratio.value = 12;
+    this.limiter.attack.value = 0.003;
+    this.limiter.release.value = 0.25;
+
+    // masterGain -> limiter -> (yozuv + karnay)
+    this.masterGain.connect(this.limiter);
+    this.limiter.connect(this.dest);
+    this.limiter.connect(this.audioCtx.destination);
     
     // Keep audio stream active to prevent WebM encoder from dropping silent frames (fixes A/V desync)
     this.silenceOscillator = this.audioCtx.createOscillator();
@@ -187,20 +199,26 @@ export class QuizRenderer {
     }
     
     this.isRecording = true;
+    this.qStartTime = performance.now();
     this.drawFrame();
     this.recorder.start();
     this.worker.postMessage('start');
-    
+
+    // Hook-intro: skroll to'xtatish uchun 2 soniyalik kirish ekrani
+    this.setPhase('intro');
+    playPop(this.masterGain);
+    await this.sleep(2000);
+
     for (let i = 0; i < this.quiz.questions.length; i++) {
       if (this.isCancelled) break;
       this.currentQuestionIndex = i;
       await this.runQuestionSequence(this.quiz.questions[i]);
     }
-    
+
     if (!this.isCancelled) {
       this.setPhase('outro');
       playSuccess(this.masterGain);
-      await this.sleep(4000);
+      await this.sleep(3500);
     }
     
     stopProceduralBGM();
@@ -249,11 +267,11 @@ export class QuizRenderer {
     const w = this.canvas.width;
     const h = this.canvas.height;
     
-    // Background
+    // Background (Ken Burns: savol davomida sekin kattalashadi — statik his yo'qoladi)
     const bgImg = this.bgImages[this.currentQuestionIndex];
     if (bgImg && bgImg.complete && bgImg.naturalWidth > 0) {
-      // Cover mode
-      const scale = Math.max(w / bgImg.width, h / bgImg.height);
+      const kenBurns = 1 + 0.07 * Math.min(1, (performance.now() - this.qStartTime) / 22000);
+      const scale = Math.max(w / bgImg.width, h / bgImg.height) * kenBurns;
       const x = (w / 2) - (bgImg.width / 2) * scale;
       const y = (h / 2) - (bgImg.height / 2) * scale;
       this.ctx.drawImage(bgImg, x, y, bgImg.width * scale, bgImg.height * scale);
@@ -261,12 +279,12 @@ export class QuizRenderer {
       this.ctx.fillStyle = '#111';
       this.ctx.fillRect(0, 0, w, h);
     }
-    
-    // Dark overlay
+
+    // Dark overlay (yangi dizayn: quyuqroq — oq matn aniq o'qiladi)
     const gradient = this.ctx.createLinearGradient(0, 0, 0, h);
-    gradient.addColorStop(0, 'rgba(0,0,0,0.5)');
-    gradient.addColorStop(0.5, 'rgba(0,0,0,0.2)');
-    gradient.addColorStop(1, 'rgba(0,0,0,0.9)');
+    gradient.addColorStop(0, 'rgba(0,0,0,0.65)');
+    gradient.addColorStop(0.5, 'rgba(0,0,0,0.35)');
+    gradient.addColorStop(1, 'rgba(0,0,0,0.92)');
     this.ctx.fillStyle = gradient;
     this.ctx.fillRect(0, 0, w, h);
 
@@ -311,19 +329,82 @@ export class QuizRenderer {
       return;
     }
 
-    // Progress
-    this.ctx.fillStyle = 'rgba(0,0,0,0.3)';
-    this.drawRoundedRect(60, 80, 180, 60, 30);
+    if (this.phase === 'intro') {
+      // Hook-intro: mavzu nomi + savollar soni (skroll to'xtatuvchi kirish)
+      const p = Math.min(1, phaseTime / 400);
+      this.ctx.save();
+      this.ctx.translate(w / 2, h / 2);
+      this.ctx.scale(0.92 + 0.08 * p, 0.92 + 0.08 * p);
+      this.ctx.globalAlpha = p;
+
+      this.ctx.textAlign = 'center';
+      this.ctx.textBaseline = 'middle';
+
+      // Tema rangli badge
+      this.ctx.fillStyle = activeTheme.main;
+      this.drawRoundedRect(-270, -340, 540, 78, 39);
+      this.ctx.fill();
+      this.ctx.fillStyle = '#fff';
+      this.ctx.font = '900 34px system-ui, -apple-system, sans-serif';
+      this.ctx.fillText("NECHTASINI TOPASIZ?", 0, -301);
+
+      // Sarlavha (mavzu)
+      const title = (this.quiz.title || 'QUIZ').toUpperCase();
+      this.ctx.fillStyle = '#fff';
+      this.ctx.font = '900 92px system-ui, -apple-system, sans-serif';
+      this.ctx.shadowColor = 'rgba(0,0,0,0.7)';
+      this.ctx.shadowBlur = 24;
+      const words = title.split(' ');
+      const lines: string[] = [];
+      let line = '';
+      for (let n = 0; n < words.length; n++) {
+        const t = line + words[n] + ' ';
+        if (this.ctx.measureText(t).width > 880 && n > 0) {
+          lines.push(line.trim());
+          line = words[n] + ' ';
+        } else {
+          line = t;
+        }
+      }
+      lines.push(line.trim());
+      const shown = lines.slice(0, 3);
+      const lh = 108;
+      const startY = -((shown.length - 1) * lh) / 2 - 30;
+      shown.forEach((l, i) => this.ctx.fillText(l, 0, startY + i * lh));
+      this.ctx.shadowColor = 'transparent';
+
+      this.ctx.fillStyle = 'rgba(255,255,255,0.85)';
+      this.ctx.font = '600 44px system-ui, -apple-system, sans-serif';
+      this.ctx.fillText(`${this.quiz.questions.length} ta savol • Javoblari ichida`, 0, startY + shown.length * lh + 40);
+
+      this.ctx.restore();
+      return;
+    }
+
+    // Progress badge (yangi dizayn: pulsli nuqta + "SAVOL n/N")
+    const badgeText = `SAVOL ${this.currentQuestionIndex + 1}/${this.quiz.questions.length}`;
+    this.ctx.font = '800 30px system-ui, -apple-system, sans-serif';
+    const badgeW = this.ctx.measureText(badgeText).width + 100;
+    this.ctx.fillStyle = 'rgba(0,0,0,0.55)';
+    this.drawRoundedRect(60, 80, badgeW, 64, 32);
     this.ctx.fill();
-    this.ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+    this.ctx.strokeStyle = 'rgba(255,255,255,0.12)';
     this.ctx.lineWidth = 2;
     this.ctx.stroke();
-    
-    this.ctx.fillStyle = 'rgba(255,255,255,0.9)';
-    this.ctx.font = 'bold 30px monospace';
-    this.ctx.textAlign = 'center';
+
+    const pulse = 0.55 + 0.45 * Math.abs(Math.sin(now / 450));
+    this.ctx.globalAlpha = pulse;
+    this.ctx.fillStyle = activeTheme.light;
+    this.ctx.beginPath();
+    this.ctx.arc(96, 112, 9, 0, Math.PI * 2);
+    this.ctx.fill();
+    this.ctx.globalAlpha = 1;
+
+    this.ctx.fillStyle = 'rgba(255,255,255,0.95)';
+    this.ctx.textAlign = 'left';
     this.ctx.textBaseline = 'middle';
-    this.ctx.fillText(`${this.currentQuestionIndex + 1} / ${this.quiz.questions.length}`, 150, 110);
+    this.ctx.fillText(badgeText, 120, 114);
+    this.ctx.textAlign = 'center';
 
     // Question Box
     if (this.phase !== 'init') {
@@ -340,28 +421,9 @@ export class QuizRenderer {
       this.ctx.translate(w/2, boxY);
       this.ctx.scale(boxScale, boxScale);
       this.ctx.globalAlpha = boxOpacity;
-      
-      this.ctx.shadowColor = 'rgba(0,0,0,0.3)';
-      this.ctx.shadowBlur = 40;
-      this.ctx.shadowOffsetY = 15;
-      
-      this.ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
-      this.drawRoundedRect(-440, -150, 880, 300, 45); // Made wider to match padding
-      this.ctx.fill();
-      
-      this.ctx.shadowColor = 'transparent';
-      
-      // Question box border
-      this.ctx.strokeStyle = 'rgba(255,255,255,0.4)';
-      this.ctx.lineWidth = 2;
-      this.ctx.stroke();
-      
-      this.ctx.fillStyle = '#0a0a0a'; 
-      this.ctx.font = '900 55px system-ui, -apple-system, sans-serif'; // Bolder font
-      this.ctx.textAlign = 'center';
-      this.ctx.textBaseline = 'middle';
-      
-      // Measure and wrap text
+
+      // Matnni oldindan o'lchaymiz — karta balandligi matnga moslashadi
+      this.ctx.font = '900 55px system-ui, -apple-system, sans-serif';
       let lines = this.cachedLines[this.currentQuestionIndex];
       if (!lines) {
         const words = q.text.split(' ');
@@ -379,13 +441,36 @@ export class QuizRenderer {
         lines.push(line);
         this.cachedLines[this.currentQuestionIndex] = lines;
       }
-      
       const lineHeight = 65;
+      const cardH = Math.max(230, lines.length * lineHeight + 130);
+
+      this.ctx.shadowColor = 'rgba(0,0,0,0.45)';
+      this.ctx.shadowBlur = 40;
+      this.ctx.shadowOffsetY = 15;
+
+      // Dark glassmorphism karta (yangi Player dizayni bilan bir xil)
+      this.ctx.fillStyle = 'rgba(10, 12, 18, 0.62)';
+      this.drawRoundedRect(-440, -cardH / 2, 880, cardH, 45);
+      this.ctx.fill();
+
+      this.ctx.shadowColor = 'transparent';
+
+      this.ctx.strokeStyle = 'rgba(255,255,255,0.14)';
+      this.ctx.lineWidth = 2;
+      this.ctx.stroke();
+
+      this.ctx.fillStyle = '#ffffff';
+      this.ctx.textAlign = 'center';
+      this.ctx.textBaseline = 'middle';
+      this.ctx.shadowColor = 'rgba(0,0,0,0.6)';
+      this.ctx.shadowBlur = 10;
+
       const startY = -((lines.length - 1) * lineHeight) / 2;
       lines.forEach((l, i) => {
         this.ctx.fillText(l, 0, startY + i * lineHeight);
       });
-      
+      this.ctx.shadowColor = 'transparent';
+
       this.ctx.restore();
     }
 
@@ -420,7 +505,8 @@ export class QuizRenderer {
             if (idx === q.correctOptionIndex) {
               bgColor = activeTheme.main;
               borderColor = activeTheme.light;
-              optScale = 1.05;
+              // Yengil puls — to'g'ri javob "nafas oladi"
+              optScale = 1.05 + 0.015 * Math.sin(phaseTime / 120);
             } else {
               bgColor = 'rgba(0, 0, 0, 0.6)';
               textColor = 'rgba(255,255,255,0.4)';
@@ -432,10 +518,16 @@ export class QuizRenderer {
           this.ctx.translate(w/2 + optX, startY + idx * 150);
           this.ctx.scale(optScale, optScale);
 
-          // Shadow for options
-          this.ctx.shadowColor = 'rgba(0,0,0,0.3)';
-          this.ctx.shadowBlur = 15;
-          this.ctx.shadowOffsetY = 5;
+          // Shadow for options (to'g'ri javobda tema rangli nur)
+          if (this.phase === 'reveal' && idx === q.correctOptionIndex) {
+            this.ctx.shadowColor = activeTheme.main;
+            this.ctx.shadowBlur = 32;
+            this.ctx.shadowOffsetY = 0;
+          } else {
+            this.ctx.shadowColor = 'rgba(0,0,0,0.3)';
+            this.ctx.shadowBlur = 15;
+            this.ctx.shadowOffsetY = 5;
+          }
           
           this.ctx.fillStyle = bgColor;
           this.drawRoundedRect(-420, 0, 840, 120, 30);
@@ -476,7 +568,8 @@ export class QuizRenderer {
     // Timer
     if (this.phase === 'timer' || this.phase === 'reveal') {
       this.ctx.save();
-      this.ctx.translate(w/2, 1650);
+      // 1560: TikTok/Instagram caption zonasidan yuqorida (xavfsiz zona)
+      this.ctx.translate(w/2, 1560);
       
       this.ctx.fillStyle = 'rgba(255,255,255,0.9)';
       this.ctx.font = '900 24px system-ui, -apple-system, sans-serif';
@@ -520,8 +613,9 @@ export class QuizRenderer {
     }
 
     if (this.quiz.watermark) {
+      // Xavfsiz zona: platforma UI (caption/tugmalar) ostida qolmasin
       this.ctx.fillStyle = 'rgba(0,0,0,0.2)';
-      this.drawRoundedRect(w/2 - 200, h - 80 - 45, 400, 60, 30);
+      this.drawRoundedRect(w/2 - 200, h - 215, 400, 60, 30);
       this.ctx.fill();
       this.ctx.strokeStyle = 'rgba(255,255,255,0.05)';
       this.ctx.lineWidth = 2;
@@ -531,7 +625,7 @@ export class QuizRenderer {
       this.ctx.font = 'bold 30px system-ui, -apple-system, sans-serif';
       this.ctx.textAlign = 'center';
       this.ctx.textBaseline = 'middle';
-      this.ctx.fillText(this.quiz.watermark, w/2, h - 80 - 15);
+      this.ctx.fillText(this.quiz.watermark, w/2, h - 185);
     }
   }
 
@@ -546,20 +640,21 @@ export class QuizRenderer {
 
   async runQuestionSequence(q: Question) {
     if (this.isCancelled) return;
-    
+
+    this.qStartTime = performance.now();
     this.setPhase('init');
-    await this.sleep(500);
+    await this.sleep(300);
     if (this.isCancelled) return;
 
     this.setPhase('question');
-    
+
     let audioPromise = Promise.resolve();
     if (q.audioBase64) {
       audioPromise = playPCMAsync(q.audioBase64, 24000, this.masterGain);
     }
 
-    // Wait 2 seconds for the user to read the question while audio starts
-    await this.sleep(2000);
+    // Savolni o'qib olish uchun qisqa pauza (audio parallel boshlanadi)
+    await this.sleep(1400);
     if (this.isCancelled) return;
 
     this.setPhase('options');
@@ -567,11 +662,11 @@ export class QuizRenderer {
       if (this.isCancelled) return;
       setTimeout(() => {
         if (!this.isCancelled) playPop(this.masterGain);
-      }, idx * 150);
+      }, idx * 120);
     }
-    
+
     // Wait for options animation to finish
-    await this.sleep(q.options.length * 150 + 500);
+    await this.sleep(q.options.length * 120 + 400);
     if (this.isCancelled) return;
 
     // IMPORTANT: Wait for the audio to completely finish before starting the timer
@@ -579,7 +674,7 @@ export class QuizRenderer {
     if (this.isCancelled) return;
 
     // Small pause after audio finishes
-    await this.sleep(500);
+    await this.sleep(350);
     if (this.isCancelled) return;
 
     this.setPhase('timer');
@@ -597,12 +692,12 @@ export class QuizRenderer {
     if (q.correctAudioBase64) {
       revealAudioPromise = playPCMAsync(q.correctAudioBase64, 24000, this.masterGain);
     }
-    
-    await Promise.all([revealAudioPromise, this.sleep(3000)]);
+
+    await Promise.all([revealAudioPromise, this.sleep(2400)]);
     if (this.isCancelled) return;
 
     this.setPhase('end');
-    await this.sleep(500);
+    await this.sleep(350);
     
     if (this.onProgress) {
       this.onProgress((this.currentQuestionIndex + 1) / this.quiz.questions.length);

@@ -203,9 +203,8 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
     setGeneratingAudioId(`${q.id}-${type}`);
     try {
       if (type === "question") {
-        const letters = ["A", "B", "C", "D"];
-        const optionsText = q.options.map((opt, idx) => `${letters[idx]}) ${opt}`).join(". ");
-        const textToRead = `${q.text}. Variantlar: ${optionsText}.`;
+        // Faqat savol o'qiladi — variantlar ekranda; video sur'ati tez qoladi
+        const textToRead = q.text;
         const audioBase64 = await generateTTS(textToRead, quiz.voiceName || "Kore");
         if (audioBase64) {
           updateQuestion(qIndex, { ...q, audioBase64 });
@@ -289,8 +288,8 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
   const handleGenerateAudio = async (qIndex: number, q: Question) => {
     setGeneratingAudioId(q.id);
     const letters = ['A', 'B', 'C', 'D'];
-    const optionsText = q.options.map((opt, idx) => `${letters[idx]}) ${opt}`).join(". ");
-    const textToRead = `${q.text}. Variantlar: ${optionsText}.`;
+    // Faqat savol o'qiladi — variantlar ekranda; video sur'ati tez qoladi
+    const textToRead = q.text;
     const correctTextToRead = `To'g'ri javob: ${letters[q.correctOptionIndex]}, ${q.options[q.correctOptionIndex]}.`;
 
     try {
@@ -339,13 +338,11 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
         setGeneratingAudioId("batch");
         try {
           const letters = ['A', 'B', 'C', 'D'];
-          const items = newQuestions.flatMap((q) => {
-            const optionsText = q.options.map((opt, idx) => `${letters[idx]}) ${opt}`).join(". ");
-            return [
-              { text: `${q.text}. Variantlar: ${optionsText}.` },
-              { text: `To'g'ri javob: ${letters[q.correctOptionIndex]}, ${q.options[q.correctOptionIndex]}.` },
-            ];
-          });
+          // Faqat savol o'qiladi — variantlar ekranda; video sur'ati tez qoladi
+          const items = newQuestions.flatMap((q) => [
+            { text: q.text },
+            { text: `To'g'ri javob: ${letters[q.correctOptionIndex]}, ${q.options[q.correctOptionIndex]}.` },
+          ]);
           const audios = await generateTTSBatch(items, quiz.voiceName || "Kore");
           const withAudio = newQuestions.map((q, i) => ({
             ...q,
@@ -428,13 +425,11 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
     setGeneratingAudioId("batch");
     try {
       const letters = ['A', 'B', 'C', 'D'];
-      const items = quiz.questions.flatMap((q) => {
-        const optionsText = q.options.map((opt, idx) => `${letters[idx]}) ${opt}`).join(". ");
-        return [
-          { text: `${q.text}. Variantlar: ${optionsText}.` },
-          { text: `To'g'ri javob: ${letters[q.correctOptionIndex]}, ${q.options[q.correctOptionIndex]}.` },
-        ];
-      });
+      // Faqat savol o'qiladi — variantlar ekranda; video sur'ati tez qoladi
+      const items = quiz.questions.flatMap((q) => [
+        { text: q.text },
+        { text: `To'g'ri javob: ${letters[q.correctOptionIndex]}, ${q.options[q.correctOptionIndex]}.` },
+      ]);
       const audios = await generateTTSBatch(items, quiz.voiceName || "Kore");
       const updatedQuestions = quiz.questions.map((q, i) => ({
         ...q,
