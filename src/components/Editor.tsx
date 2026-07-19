@@ -21,7 +21,7 @@ import {
   Pause,
   VolumeX,
 } from "lucide-react";
-import { generateTTS } from "../services/tts";
+import { generateTTS, generateTTSBatch } from "../services/tts";
 import { generateQuizAI, analyzeQuestionsForImages, getUnsplashImageForKeyword } from "../services/ai";
 import { QuizRenderer } from "../services/renderer";
 import { consumeVideoCredit, VideoCreditResult } from "../services/access";
@@ -291,14 +291,14 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
     const letters = ['A', 'B', 'C', 'D'];
     const optionsText = q.options.map((opt, idx) => `${letters[idx]}) ${opt}`).join(". ");
     const textToRead = `${q.text}. Variantlar: ${optionsText}.`;
-    
+    const correctTextToRead = `To'g'ri javob: ${letters[q.correctOptionIndex]}, ${q.options[q.correctOptionIndex]}.`;
+
     try {
-      const audioBase64 = await generateTTS(textToRead, quiz.voiceName || "Kore");
-      await new Promise(r => setTimeout(r, 4000));
-      
-      const correctTextToRead = `To'g'ri javob: ${letters[q.correctOptionIndex]}, ${q.options[q.correctOptionIndex]}.`;
-      const correctAudioBase64 = await generateTTS(correctTextToRead, quiz.voiceName || "Kore");
-      
+      // Ikkala klip bitta so'rovda — ilgarigi 4s kutish shart emas.
+      const [audioBase64, correctAudioBase64] = await generateTTSBatch(
+        [{ text: textToRead }, { text: correctTextToRead }],
+        quiz.voiceName || "Kore",
+      );
       if (audioBase64) {
         updateQuestion(qIndex, { ...q, audioBase64, correctAudioBase64: correctAudioBase64 || undefined });
       } else {
@@ -335,27 +335,24 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
         // Avval savollarni ekranga chiqaramiz
         setQuiz({ ...quiz, title: aiTopic, questions: newQuestions, language: selectedLanguage });
         
-        // Keyin har bir savol uchun avtomatik ovoz yaratamiz
-        let updatedQuestions = [...newQuestions];
+        // Keyin barcha savollar uchun ovozlarni bitta batch so'rovda yaratamiz
+        setGeneratingAudioId("batch");
         try {
-          for (let i = 0; i < updatedQuestions.length; i++) {
-            const q = updatedQuestions[i];
-            setGeneratingAudioId(q.id);
-            const letters = ['A', 'B', 'C', 'D'];
+          const letters = ['A', 'B', 'C', 'D'];
+          const items = newQuestions.flatMap((q) => {
             const optionsText = q.options.map((opt, idx) => `${letters[idx]}) ${opt}`).join(". ");
-            const textToRead = `${q.text}. Variantlar: ${optionsText}.`;
-            const audioBase64 = await generateTTS(textToRead, quiz.voiceName || "Kore");
-            await new Promise(r => setTimeout(r, 4000));
-            
-            const correctTextToRead = `To'g'ri javob: ${letters[q.correctOptionIndex]}, ${q.options[q.correctOptionIndex]}.`;
-            const correctAudioBase64 = await generateTTS(correctTextToRead, quiz.voiceName || "Kore");
-            await new Promise(r => setTimeout(r, 4000));
-            
-            if (audioBase64) {
-              updatedQuestions[i] = { ...updatedQuestions[i], audioBase64, correctAudioBase64: correctAudioBase64 || undefined };
-              setQuiz({ ...quiz, title: aiTopic, questions: [...updatedQuestions], language: selectedLanguage });
-            }
-          }
+            return [
+              { text: `${q.text}. Variantlar: ${optionsText}.` },
+              { text: `To'g'ri javob: ${letters[q.correctOptionIndex]}, ${q.options[q.correctOptionIndex]}.` },
+            ];
+          });
+          const audios = await generateTTSBatch(items, quiz.voiceName || "Kore");
+          const withAudio = newQuestions.map((q, i) => ({
+            ...q,
+            audioBase64: audios[2 * i] || undefined,
+            correctAudioBase64: audios[2 * i + 1] || undefined,
+          }));
+          setQuiz({ ...quiz, title: aiTopic, questions: withAudio, language: selectedLanguage });
         } catch (ttsErr: any) {
           // Savollar allaqachon yaratildi — ovoz xatosi ularni yo'qotmasin
           const code = ttsErr?.message || "";
@@ -428,31 +425,23 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
       return;
     }
     setIsGeneratingBulkVoices(true);
-    let updatedQuestions = [...quiz.questions];
+    setGeneratingAudioId("batch");
     try {
-      for (let i = 0; i < updatedQuestions.length; i++) {
-        const q = updatedQuestions[i];
-        setGeneratingAudioId(q.id);
-        const letters = ['A', 'B', 'C', 'D'];
+      const letters = ['A', 'B', 'C', 'D'];
+      const items = quiz.questions.flatMap((q) => {
         const optionsText = q.options.map((opt, idx) => `${letters[idx]}) ${opt}`).join(". ");
-        const textToRead = `${q.text}. Variantlar: ${optionsText}.`;
-        
-        const audioBase64 = await generateTTS(textToRead, quiz.voiceName || "Kore");
-        await new Promise(r => setTimeout(r, 4000));
-        
-        const correctTextToRead = `To'g'ri javob: ${letters[q.correctOptionIndex]}, ${q.options[q.correctOptionIndex]}.`;
-        const correctAudioBase64 = await generateTTS(correctTextToRead, quiz.voiceName || "Kore");
-        await new Promise(r => setTimeout(r, 4000));
-        
-        if (audioBase64) {
-          updatedQuestions[i] = { 
-            ...updatedQuestions[i], 
-            audioBase64, 
-            correctAudioBase64: correctAudioBase64 || undefined 
-          };
-          setQuiz({ ...quiz, questions: [...updatedQuestions] });
-        }
-      }
+        return [
+          { text: `${q.text}. Variantlar: ${optionsText}.` },
+          { text: `To'g'ri javob: ${letters[q.correctOptionIndex]}, ${q.options[q.correctOptionIndex]}.` },
+        ];
+      });
+      const audios = await generateTTSBatch(items, quiz.voiceName || "Kore");
+      const updatedQuestions = quiz.questions.map((q, i) => ({
+        ...q,
+        audioBase64: audios[2 * i] || q.audioBase64,
+        correctAudioBase64: audios[2 * i + 1] || q.correctAudioBase64,
+      }));
+      setQuiz({ ...quiz, questions: updatedQuestions });
       alert("Barcha savollar uchun ovozlar muvaffaqiyatli yaratildi va o'rnatildi!");
     } catch (ttsErr: any) {
       handleTTSError(ttsErr);

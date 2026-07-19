@@ -48,7 +48,7 @@ const FALLBACK_IMAGE = "https://images.unsplash.com/photo-1505506874110-6a7a48e1
 const OWNER_EMAIL = "onlinemobi101@gmail.com";
 
 type Role = "free" | "premium" | "pack10" | "admin";
-type ApiAction = "generateQuiz" | "analyzeImages" | "imageKeyword" | "tts" | "consumeVideoCredit";
+type ApiAction = "generateQuiz" | "analyzeImages" | "imageKeyword" | "tts" | "ttsBatch" | "consumeVideoCredit";
 type AuthenticatedUser = { uid: string; email?: string };
 type UserProfile = { role: Role; videosCreated: number; premiumUntil: string | null };
 
@@ -63,6 +63,7 @@ const RATE_LIMITS: Record<ApiAction, { max: number; windowMs: number }> = {
   analyzeImages: { max: 20, windowMs: 60 * 60 * 1000 },
   imageKeyword: { max: 40, windowMs: 60 * 60 * 1000 },
   tts: { max: 40, windowMs: 10 * 60 * 1000 },
+  ttsBatch: { max: 60, windowMs: 10 * 60 * 1000 },
   consumeVideoCredit: { max: 10, windowMs: 60 * 1000 },
 };
 
@@ -104,7 +105,7 @@ async function getUserProfile(uid: string): Promise<UserProfile> {
   return normalizeProfile(snapshot.data());
 }
 
-async function enforceRateLimit(uid: string, action: ApiAction): Promise<void> {
+async function enforceRateLimit(uid: string, action: ApiAction, cost = 1): Promise<void> {
   const config = RATE_LIMITS[action];
   const ref = adminDb.collection("apiUsage").doc(uid);
   await adminDb.runTransaction(async (transaction) => {
@@ -116,10 +117,10 @@ async function enforceRateLimit(uid: string, action: ApiAction): Promise<void> {
     const now = Date.now();
     const windowExpired = !previousStart || now - previousStart >= config.windowMs;
     const count = windowExpired ? 0 : Number(data[countField] || 0);
-    if (count >= config.max) throw new ApiError(429, "RATE_LIMITED");
+    if (count + cost > config.max) throw new ApiError(429, "RATE_LIMITED");
     transaction.set(ref, {
       [windowField]: windowExpired ? Timestamp.fromMillis(now) : data[windowField],
-      [countField]: count + 1,
+      [countField]: count + cost,
       updatedAt: FieldValue.serverTimestamp(),
     }, { merge: true });
   });
@@ -290,6 +291,52 @@ async function generateTTS(text: string, voiceName: string): Promise<string | nu
   return response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data || null;
 }
 
+// Bir nechta yozuvni cheklangan parallellik bilan qayta ishlaydi (bir vaqtda ko'pi bilan `limit` ta).
+async function mapWithConcurrency<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let cursor = 0;
+  async function worker() {
+    while (cursor < items.length) {
+      const index = cursor++;
+      results[index] = await fn(items[index]);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return results;
+}
+
+// Vaqtinchalik 429 (rate limit) xatolarida qisqa backoff bilan qayta urinadi.
+async function generateTTSWithRetry(text: string, voiceName: string, retries = 2): Promise<string | null> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await generateTTS(text, voiceName);
+    } catch (error: any) {
+      const message = error?.message || String(error);
+      const is429 = error?.status === 429 || message.includes("429");
+      if (is429 && !message.includes("quota") && attempt < retries) {
+        await new Promise((r) => setTimeout(r, (attempt + 1) * 2000));
+        continue;
+      }
+      throw error;
+    }
+  }
+}
+
+// Bitta so'rovda bir nechta klipni yaratadi. Kvota/rate-limit xatosi butun batch'ni to'xtatadi
+// (foydalanuvchi sababini ko'radi), boshqa vaqtinchalik xatolarda esa shu klip null bo'lib qoladi.
+async function generateTTSBatch(items: { text: string; voiceName: string }[]): Promise<(string | null)[]> {
+  return mapWithConcurrency(items, 3, async (item) => {
+    try {
+      return await generateTTSWithRetry(item.text, item.voiceName);
+    } catch (error: any) {
+      const message = error?.message || String(error);
+      if (message.includes("quota") || error?.status === 429 || message.includes("429")) throw error;
+      console.error("Batch TTS klipi muvaffaqiyatsiz:", message);
+      return null;
+    }
+  });
+}
+
 // Vercel Node funksiyasida req.body avtomatik parse qilinadi,
 // Vite dev-middleware'da esa oqimdan o'zimiz o'qiymiz.
 async function readBody(req: IncomingMessage & { body?: any }): Promise<any> {
@@ -338,7 +385,11 @@ export default async function handler(req: IncomingMessage & { body?: any }, res
       throw new ApiError(400, "Noma'lum action");
     }
     const user = await requireUser(req);
-    await enforceRateLimit(user.uid, action);
+    // Batch TTS narxi = kliplar soni (bitta tranzaksiyada), qolganlari uchun 1.
+    const cost = action === "ttsBatch" && Array.isArray(body?.items)
+      ? Math.min(Math.max(body.items.length, 1), 8)
+      : 1;
+    await enforceRateLimit(user.uid, action, cost);
 
     switch (action) {
       case "generateQuiz": {
@@ -380,6 +431,28 @@ export default async function handler(req: IncomingMessage & { body?: any }, res
         }
         const audio = await generateTTS(text, selectedVoice);
         sendJSON(res, 200, { audio });
+        return;
+      }
+      case "ttsBatch": {
+        const { items } = body;
+        if (!Array.isArray(items) || items.length < 1 || items.length > 8) throw new ApiError(400, "INVALID_BATCH");
+        const allowedVoices = ["Kore", "Aoede", "Puck", "Charon", "Fenrir"];
+        const normalized = items.map((item: any) => {
+          if (!item || typeof item.text !== "string" || !item.text.trim() || item.text.length > 2000) {
+            throw new ApiError(400, "INVALID_TEXT");
+          }
+          return {
+            text: item.text,
+            voiceName: allowedVoices.includes(item.voiceName) ? item.voiceName : "Kore",
+          };
+        });
+        const profile = await requirePlanAccess(user, "TTS_LIMIT");
+        const usesPremiumVoice = normalized.some((item) => item.voiceName !== "Kore");
+        if (usesPremiumVoice && profile.effectiveRole !== "premium" && profile.effectiveRole !== "admin") {
+          throw new ApiError(403, "PREMIUM_VOICE_REQUIRED");
+        }
+        const audios = await generateTTSBatch(normalized);
+        sendJSON(res, 200, { audios });
         return;
       }
       case "consumeVideoCredit": {

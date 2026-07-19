@@ -49,6 +49,68 @@ export async function generateTTS(text: string, voiceName: string = "Kore", retr
   }
 }
 
+// Bir nechta klipni bitta so'rovda yaratadi — 10 ta alohida chaqiruv o'rniga.
+// Server auth va rate-limitni bir marta tekshiradi hamda parallel generatsiya qiladi.
+export async function generateTTSBatch(
+  items: { text: string; voiceName?: string }[],
+  voiceFallback: string = "Kore",
+  retryCount = 0,
+): Promise<(string | null)[]> {
+  if (items.length === 0) return [];
+
+  // Vercel javob hajmi limiti (~4.5MB) uchun bitta so'rovda ko'pi bilan 6 klip.
+  const CHUNK = 6;
+  if (items.length > CHUNK) {
+    const out: (string | null)[] = [];
+    for (let i = 0; i < items.length; i += CHUNK) {
+      const part = await generateTTSBatch(items.slice(i, i + CHUNK), voiceFallback);
+      out.push(...part);
+    }
+    return out;
+  }
+
+  const idToken = await auth.currentUser?.getIdToken().catch(() => null);
+  if (!idToken) throw new Error("AUTH_REQUIRED");
+
+  const payloadItems = items.map((it) => ({
+    text: it.text,
+    voiceName: it.voiceName || voiceFallback,
+  }));
+
+  const response = await fetch("/api/ai", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${idToken}`,
+    },
+    body: JSON.stringify({ action: "ttsBatch", items: payloadItems }),
+  });
+
+  const data = await response.json().catch(() => ({}));
+
+  if (response.status === 401) throw new Error("AUTH_REQUIRED");
+  if (response.status === 403) {
+    if (data?.error === "PREMIUM_VOICE_REQUIRED") throw new Error("PREMIUM_VOICE_REQUIRED");
+    throw new Error(data?.error === "TTS_LIMIT" ? "TTS_LIMIT" : "AUTH_REQUIRED");
+  }
+  if (response.status === 429) {
+    if (data?.error === "QUOTA_EXCEEDED") throw new Error("QUOTA_EXCEEDED");
+    if (retryCount < 3) {
+      console.warn(`TTS batch rate limited. Retrying in ${(retryCount + 1) * 5} seconds...`);
+      await new Promise((r) => setTimeout(r, (retryCount + 1) * 5000));
+      return generateTTSBatch(items, voiceFallback, retryCount + 1);
+    }
+    throw new Error("RATE_LIMITED");
+  }
+  if (!response.ok) {
+    throw new Error(data?.error || `TTS API xatosi (${response.status})`);
+  }
+
+  const audios = Array.isArray(data.audios) ? data.audios : [];
+  // Natija uzunligini kirish bilan moslashtiramiz (yetishmagani null bo'ladi).
+  return items.map((_, i) => audios[i] ?? null);
+}
+
 let sharedAudioContext: AudioContext | null = null;
 const getSharedAudioContext = () => {
   if (!sharedAudioContext) {
