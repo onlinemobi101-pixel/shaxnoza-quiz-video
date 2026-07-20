@@ -1,6 +1,6 @@
 # Quiz Video Generator — marketing va obuna sotish rejasi
 
-> Versiya: 1.0
+> Versiya: 1.1
 >
 > Sana: 20-iyul, 2026
 >
@@ -41,11 +41,13 @@ Muhim: reklamaga “2 daqiqada tayyor video” kabi qat’iy va’da qo‘ymasli
 3. Paketdan foydalangan faol mijozni Premiumga o‘tkazish.
 4. Mijozning ikkinchi va keyingi oyda ham obunani davom ettirishini ta’minlash.
 
-### Asosiy o‘sish ko‘rsatkichi
+### Asosiy o‘sish ko‘rsatkichlari
 
-**Birinchi videosini muvaffaqiyatli eksport qilgan foydalanuvchilar soni.**
+**Activation:** ro‘yxatdan o‘tgandan keyin birinchi videoni muvaffaqiyatli eksport qilgan foydalanuvchi.
 
-Ro‘yxatdan o‘tishning o‘zi yetarli emas. Mahsulot qiymatini foydalanuvchi birinchi videoni ko‘rib va yuklab olganda tushunadi.
+**Asosiy mahsulot KPI:** ro‘yxatdan o‘tgandan keyin 7 kun ichida kamida 2 ta muvaffaqiyatli eksport qilgan foydalanuvchi — `second_export_7d`.
+
+Birinchi eksport foydalanuvchi mahsulotni sinaganini, ikkinchi eksport esa uni ish jarayoniga kirita boshlaganini ko‘rsatadi. Reklamaning dastlabki tezkor signali `export_completed`, uzoqroq muddatdagi sifat signali esa `second_export_7d` bo‘ladi.
 
 ## 3. Maqsadli auditoriya
 
@@ -84,13 +86,13 @@ Ro‘yxatdan o‘tishning o‘zi yetarli emas. Mahsulot qiymatini foydalanuvchi 
 - Kanalida yangi format sinamoqchi bo‘lgan blogerlar.
 - Auditoriya faolligini savol-javob bilan oshirmoqchi bo‘lgan sahifalar.
 
-### Birinchi reklama uchun ustuvor segmentlar
+### Segmentlarni sinash tartibi
 
-1. Faceless YouTube/Shorts kontentiga qiziquvchilar.
-2. SMM mutaxassislari va freelancerlar.
-3. Ingliz tili o‘qituvchilari.
+1. **Birinchi kampaniya:** faqat faceless YouTube creator.
+2. **Ikkinchi mustaqil test:** SMM mutaxassislari va freelancerlar.
+3. **Uchinchi mustaqil test:** ingliz tili o‘qituvchilari.
 
-Har bir segment uchun alohida reklama videosi va alohida matn ishlatiladi. Bitta umumiy reklamada hammaga murojaat qilish konversiyani pasaytiradi.
+Har bir segment uchun alohida reklama, landing va natija va’dasi ishlatiladi. Bir ad set yoki creative ichida faceless creator va SMM auditoriyasi birlashtirilmaydi.
 
 ## 4. Tariflar va sotuv mantig‘i
 
@@ -98,13 +100,15 @@ Har bir segment uchun alohida reklama videosi va alohida matn ishlatiladi. Bitta
 |---|---:|---|---|
 | Free | 0 so‘m | Mahsulot qiymatini ko‘rsatish | Yangi foydalanuvchi |
 | Pack | 20 000 so‘m | Birinchi oson xarid | Oyiga kam video qiladiganlar |
-| Premium | 99 000 so‘m/oy | Asosiy taklif | Faol yaratuvchi va SMM |
+| Premium | 99 000 so‘m/oy | Asosiy taklif | Faol yaratuvchi |
 
 ### Free
 
 - 1 ta to‘liq video.
 - AI savollar va ovoz.
 - Ilova watermark’i.
+- Bir Google akkaunt uchun faqat bitta bepul eksport.
+- Eng qimmat ovoz/render variantlari Free’da berilmaydi.
 
 CTA: **“Birinchi videoni bepul yarating”**
 
@@ -120,9 +124,11 @@ Bu tarif “obunaga hali tayyor emasman” degan e’tirozni yo‘qotadi. Bir vi
 ### Premium
 
 - Oyiga 99 000 so‘m.
-- Cheksiz video.
+- Ishga tushirish davrida oyiga 100 ta eksport.
 - Watermark yo‘q.
 - Premium ovoz va dizaynlar.
+
+“Cheksiz video” da’vosi real tannarx va heavy-user xulqi o‘lchanmaguncha ishlatilmaydi. Dastlabki xavfsiz limit — oyiga 100 ta eksport. Foydalanuvchiga 80% va 90% sarfda ogohlantirish ko‘rsatiladi. Limit real foydalanish va contribution margin ma’lumotlari asosida keyin oshirilishi yoki fair-use modeliga almashtirilishi mumkin.
 
 Premium taklifi foydalanuvchi:
 
@@ -133,6 +139,53 @@ Premium taklifi foydalanuvchi:
 ### Keyin sinovdan o‘tkaziladigan taklif
 
 `899 000 so‘m/yil` yillik tarifni A/B test qilish mumkin. Bu taxminiy taklif; avval oylik obunaning xarid va davom ettirish ko‘rsatkichlari o‘lchanadi.
+
+### Unit economics — reklama yoqilishidan oldingi hisob
+
+Narx yoki tushumning o‘zi CAC limitini belgilamaydi. Avval bitta videoning real o‘zgaruvchan tannarxi hisoblanadi.
+
+| Xarajat | Hisoblash usuli | Real qiymat |
+|---|---|---:|
+| Savol generatsiyasi | AI token/model xarajati | to‘ldiriladi |
+| Ovoz generatsiyasi | daqiqa yoki belgi bo‘yicha | to‘ldiriladi |
+| AI rasm | rasm soni × birlik narxi | to‘ldiriladi |
+| Render | render daqiqasi × compute narxi | to‘ldiriladi |
+| Storage | fayl hajmi × saqlash muddati | to‘ldiriladi |
+| Trafik/egress | yuklab olingan GB × tarif | to‘ldiriladi |
+| To‘lov komissiyasi | tushum × komissiya foizi | to‘ldiriladi |
+| Support | oylik support / pullik mijozlar | to‘ldiriladi |
+| Refund | tushum × refund ulushi | to‘ldiriladi |
+
+```text
+Bitta video tannarxi =
+AI savol + AI ovoz + AI rasm + render + storage + trafik
+
+Premium 1 oylik contribution margin =
+99 000
+− to‘lov komissiyasi
+− refund
+− (o‘rtacha eksport soni × bitta video tannarxi)
+− bir mijozga support va storage
+
+90 kunlik contribution margin =
+1-oy margin
++ (2-oy margin × M1 renewal)
++ (3-oy margin × M2 renewal)
+
+Ruxsat etilgan CAC =
+90 kunlik contribution margin × xavfsizlik koeffitsiyenti
+```
+
+Boshlang‘ich xavfsizlik koeffitsiyenti `0.5` olinadi: 90 kunlik contribution margin’ning ko‘pi bilan yarmi yangi mijoz jalb qilishga sarflanadi. `60–70 ming so‘m CAC` avtomatik maqsad emas; u faqat yuqoridagi hisob bunga ruxsat bersa ishlatiladi.
+
+Har hafta alohida kuzatiladi:
+
+- Premium foydalanuvchining o‘rtacha eksportlari.
+- Bitta video tannarxi.
+- Pack → Premium 30 kunlik konversiyasi.
+- Premium M1 va M2 renewal.
+- Refund va chargeback ulushi.
+- Bir pullik foydalanuvchiga support xarajati.
 
 ## 5. Savdo voronkasi
 
@@ -199,11 +252,35 @@ Quyidagi hodisalar yozilishi shart:
 | `preview_opened` | Preview ochilganda |
 | `export_started` | Eksport boshlanganda |
 | `export_completed` | Video yuklab olinganda |
+| `export_failed` | Eksport xato bilan tugaganda; `error_code` yoziladi |
+| `render_duration` | Render davomiyligi va video davomiyligi yozilganda |
+| `second_export_7d` | Signup’dan keyin 7 kun ichida ikkinchi eksport bo‘lganda |
+| `video_feedback` | Eksportdan keyingi foydali/foydasiz baho |
 | `paywall_viewed` | Tarif oynasi ko‘rsatilganda |
 | `plan_selected` | Pack yoki Premium tanlanganda |
 | `checkout_started` | To‘lov jarayoni boshlanganda |
 | `payment_submitted` | To‘lov yuborilganda |
+| `payment_success` | Provayder haqiqiy to‘lovni tasdiqlaganda |
 | `subscription_activated` | Tarif faollashganda |
+| `renewal_success` | Premium keyingi oyga uzaytirilganda |
+| `subscription_cancelled` | Obuna bekor qilinganda; sabab yoziladi |
+| `free_export_blocked` | Bepul limit takror ishlatilishga uringanda |
+
+Muhim ta’riflar:
+
+- `plan_selected` — niyat, daromad emas.
+- `checkout_started` — to‘lov oynasi ochilgan, daromad emas.
+- `payment_success` — provayder tomonidan tasdiqlangan haqiqiy xarid.
+- `subscription_activated` — to‘lovdan keyin mahsulot ruxsati muvaffaqiyatli berilgan.
+- Monetizatsiya hisobotida faqat `payment_success` daromad sifatida sanaladi.
+
+`export_started`, `export_completed` va `export_failed` hodisalariga kamida quyidagi parametrlar qo‘shiladi:
+
+```text
+user_id, plan, format, target_duration, question_count,
+render_duration_seconds, output_size_mb, estimated_cost,
+success, error_code
+```
 
 Har bir reklama havolasida UTM ishlatiladi:
 
@@ -211,7 +288,17 @@ Har bir reklama havolasida UTM ishlatiladi:
 ?utm_source=instagram&utm_medium=paid_social&utm_campaign=uz_creators_july&utm_content=before_after_v1
 ```
 
-### 6.3. Ishonch elementlari
+### 6.3. Free abuse nazorati
+
+- Bitta Firebase/Google `uid` uchun bitta bepul eksport.
+- Bepul eksport ishlatilgani server tarafda saqlanadi; faqat brauzer local storage’iga ishonilmaydi.
+- Watermark bepul videoda majburiy.
+- Premium ovoz va eng qimmat render variantlari Free’da cheklanadi.
+- AI generatsiya va yakuniy eksport xarajatlari alohida o‘lchanadi.
+- Bir qurilma/IP’dan noodatiy ko‘p yangi akkaunt ochilishi faqat risk signali sifatida yoziladi; foydalanuvchi avtomatik bloklanishidan oldin qo‘shimcha tekshiruv bo‘ladi.
+- Bepul foydalanuvchi tannarxi reklama CAC hisobiga qo‘shiladi.
+
+### 6.4. Ishonch elementlari
 
 Landing sahifaga quyidagilar qo‘shiladi:
 
@@ -444,30 +531,33 @@ Reklama bilan bir paytda har kuni kamida 1 ta Shorts/Reels chiqariladi:
 
 ### Tarif CTA
 
-> Avval bepul videoni yarating. Ko‘proq kerak bo‘lsa, 20 000 so‘mlik Pack yoki cheksiz Premium’ni tanlang.
+> Avval bepul videoni yarating. Ko‘proq kerak bo‘lsa, 20 000 so‘mlik Pack yoki oyiga 100 eksportli Premium’ni tanlang.
 
 ## 12. 30 kunlik reklama rejasi
 
 ### 1-hafta — tayyorlash
 
+- Bitta videoning real tannarxini o‘lchash.
+- Premium 100 eksport limitini mahsulot va tarif matnida bir xil ko‘rsatish.
 - Analitika hodisalarini ulash.
 - Meta Pixel va Google tag o‘rnatish.
 - To‘lov oqimini avtomatlashtirish yoki tezkor vaqtinchalik jarayon qilish.
-- 4 ta yuqoridagi reklama videosini tayyorlash.
+- Faceless creator uchun A va C reklamalarini tayyorlash.
 - 3 ta real eksport namunasi yaratish.
-- Landing sahifani “birinchi video bepul” xabariga moslash.
+- `/youtube-quiz` landing sahifasini “birinchi video bepul” xabariga moslash.
 - Privacy, Terms va Refund sahifalarini tayyorlash.
+- 10–15 nafar real foydalanuvchi bilan onboarding testini o‘tkazish.
 
 ### 2-hafta — kichik test
 
-- Meta’da 2 auditoriya × 2 creative test.
-- Har bir creative uchun bir xil taklif va landing.
+- Meta’da faqat faceless YouTube segmenti ichida 2 creative — A va C — ni test qilish.
+- Ikkala creative uchun bir xil taklif va `/youtube-quiz` landing ishlatish.
 - Organik ravishda har kuni 1 ta Shorts/Reels.
-- Reklama klikidan birinchi eksportgacha bo‘lgan oqimni tekshirish.
+- Reklama klikidan birinchi eksportgacha bo‘lgan oqim va eksport xatolarini tekshirish.
 
 ### 3-hafta — g‘oliblarni ajratish
 
-- CTR emas, `export_completed` narxiga qarab creative tanlash.
+- Yetarli eksport ma’lumoti bo‘lsa `export_completed`, keyin `second_export_7d` narxiga qarab creative tanlash.
 - Saytga kirgan, lekin eksport qilmaganlarga retargeting.
 - Eksport qilgan, lekin to‘lamaganlarga Pack/Premium reklamasi.
 - Past konversiyali sahifa yoki bosqichni tuzatish.
@@ -478,6 +568,8 @@ Reklama bilan bir paytda har kuni kamida 1 ta Shorts/Reels chiqariladi:
 - Pack xaridorlari uchun Premium upsell.
 - Paywall sarlavha va tarif tartibini A/B test.
 - Birinchi cohort’ning 7 va 30 kunlik faolligini ko‘rish.
+- Premium cancellation sabablarini yig‘ish.
+- Cohort bo‘yicha AI, render va support xarajatini hisoblash.
 
 ## 13. Budjet variantlari
 
@@ -489,12 +581,22 @@ Quyidagi summalar bozor fakti emas, boshlang‘ich test rejasidir.
 | Standard | 3 000 000 so‘m | 100 000 so‘m | Tracking va to‘lov ishlaganda |
 | Growth | 6 000 000 so‘m | 200 000 so‘m | Rentabelli reklama isbotlangandan keyin |
 
-### Standard budjet taqsimoti
+### Boshlang‘ich budjet taqsimoti
 
-- 60% — Meta yangi auditoriya.
-- 20% — Meta retargeting.
-- 15% — YouTube Shorts test.
+Retargeting auditoriyasi hali kichik bo‘lgan birinchi haftalarda:
+
+- 90% — Meta yangi faceless creator auditoriyasi.
+- 10% — yangi creative sinovlari.
+- Retargeting — ichki mezon sifatida kamida 1 000 mos tashrifchi to‘plangandan keyin yoqiladi.
+
+Retargeting auditoriyasi yetarli bo‘lgach:
+
+- 70% — Meta yangi auditoriya.
+- 15% — Meta retargeting.
+- 10% — YouTube Shorts test.
 - 5% — yangi creative’larni sinash.
+
+Retargeting chastotasi 7 kunda 3 martadan oshsa, budjet kamaytiriladi yoki creative yangilanadi.
 
 Telegram joylashtirishlar alohida UTM bilan alohida test budjetidan olinadi.
 
@@ -502,25 +604,46 @@ Telegram joylashtirishlar alohida UTM bilan alohida test budjetidan olinadi.
 
 Reklama faqat quyidagi uchta shart bajarilganda kengaytiriladi:
 
-1. `export_completed` barqaror o‘smoqda.
+1. `export_completed` va `second_export_7d` barqaror o‘smoqda.
 2. To‘lov va tarif faollashishi xatosiz ishlamoqda.
-3. Mijoz jalb qilish narxi mijozdan olinadigan yalpi foydadan past.
+3. CAC 90 kunlik contribution margin asosidagi ruxsat etilgan limitdan past.
 
 ## 14. Boshlang‘ich KPI gipotezalari
 
-Bu ko‘rsatkichlar kafolat yoki umumiy bozor standarti emas. Birinchi 2–4 haftalik test uchun ichki maqsadlar:
+Bu ko‘rsatkichlar kafolat yoki umumiy bozor standarti emas. Ular birinchi 2–4 haftalik test uchun aniq nomlangan ichki gipotezalar:
 
-| Bosqich | Boshlang‘ich maqsad |
-|---|---:|
-| Reklama CTR | 1.5% yoki yuqori |
-| Landing → bepul boshlash | 15% yoki yuqori |
-| Ro‘yxatdan o‘tish → birinchi eksport | 35% yoki yuqori |
-| Bepul eksport → Pack/Premium | 5–10% |
-| Checkout → muvaffaqiyatli to‘lov | 60% yoki yuqori |
-| Premium birinchi oy CAC | 60 000–70 000 so‘mdan past |
-| Pack xaridi CAC | 20 000 so‘mlik tushumdan ancha past |
+| Bosqich | Formula | Boshlang‘ich maqsad |
+|---|---|---:|
+| Reklama CTR | klik / impression | 1.5% yoki yuqori |
+| Landing → CTA | `cta_start / landing_view` | 15% yoki yuqori |
+| CTA → Google kirish | `google_sign_in / cta_start` | o‘lchanadi, keyin baseline |
+| Kirish → quiz | `quiz_generated / google_sign_in` | 60% yoki yuqori |
+| Quiz → eksport | `export_completed / quiz_generated` | 60% yoki yuqori |
+| Signup → birinchi eksport | `export_completed / google_sign_in` | 35% yoki yuqori |
+| Birinchi → ikkinchi eksport | `second_export_7d / first_export_users` | 20% yoki yuqori |
+| Paywall → plan tanlash | `plan_selected / paywall_viewed` | o‘lchanadi, keyin baseline |
+| Plan → checkout | `checkout_started / plan_selected` | o‘lchanadi, keyin baseline |
+| Checkout → haqiqiy to‘lov | `payment_success / checkout_started` | 60% yoki yuqori |
+| To‘lov → aktiv tarif | `subscription_activated / payment_success` | 98% yoki yuqori |
+| Birinchi eksport → haqiqiy to‘lov | `payment_success / first_export_users` | 5–10% |
+| Premium M1 renewal | `renewal_success / renewal_due` | baseline yig‘iladi |
 
-Pack reklamasida to‘g‘ridan-to‘g‘ri birinchi xaridda zarar qilish xavfi bor. Shuning uchun Pack mijozining keyin Premiumga o‘tishi va AI xarajatlari hisoblanmasdan budjet oshirilmaydi.
+`Birinchi eksport → haqiqiy to‘lov 5–10%` allaqachon yakuniy xarid konversiyasidir; unga checkout foizi yana ko‘paytirilmaydi.
+
+Klikdan xaridgacha konversiya faqat bir-birini takrorlamaydigan bosqichlar bilan hisoblanadi:
+
+```text
+click_to_payment =
+landing_to_cta
+× cta_to_signin
+× signin_to_first_export
+× first_export_to_payment
+
+Kutilgan CAC =
+o‘rtacha CPC / click_to_payment
+```
+
+Pack reklamasida to‘g‘ridan-to‘g‘ri birinchi xaridda zarar qilish xavfi bor. Pack uchun ruxsat etilgan CAC ham Pack contribution margin va 30 kunlik Pack → Premium konversiyasi bilan hisoblanadi.
 
 ### To‘g‘ri CAC formulasi
 
@@ -533,6 +656,34 @@ Ruxsat etilgan CAC =
 ```
 
 Premium faqat birinchi oy narxi bilan emas, real davom ettirish muddati bilan baholanadi.
+
+### Test dizayni va qaror qoidalari
+
+**Primary business metric:** `payment_success` va contribution margin.
+
+**Primary product metric:** `second_export_7d`.
+
+**Tezkor leading metric:** `export_completed`.
+
+**Diagnostic metriclar:** hook/CTR, CTA start, signup, quiz generation, export failure.
+
+Minimal ma’lumotsiz creative “g‘olib” yoki “yutqazgan” deb belgilanmaydi:
+
+| Tekshiruv | Minimal signal | Qaror |
+|---|---:|---|
+| Creative | 3 000 impression | CTR 0.8% dan past va kampaniya medianidan 30% yomon bo‘lsa pauza |
+| Landing | 100 noyob tashrif | CTA 10% dan past bo‘lsa xabar/CTA tekshiriladi |
+| Onboarding | 30 signup | Quiz generation past bo‘lsa onboarding tuzatiladi |
+| Eksport | 20 export attempt | Failure 10% dan yuqori bo‘lsa reklama masshtablanmaydi |
+| Monetizatsiya | 10 payment | Faqat yo‘nalish signali; qat’iy xulosa emas |
+| Monetizatsiya | 30 payment | CAC va contribution margin bo‘yicha kuchliroq qaror |
+
+Qo‘shimcha qoidalar:
+
+- Ruxsat etilgan CAC’ning 1.5 baravari sarflanib, birorta `payment_success` bo‘lmasa va leading metriclar ham yomon bo‘lsa ad set pauza qilinadi.
+- CTR yomon bo‘lsa creative, CTA yomon bo‘lsa landing, quiz/export yomon bo‘lsa onboarding yoki mahsulot tuzatiladi.
+- Natijalar teng bo‘lsa avval `second_export_7d` narxi, keyin birinchi eksport narxi, keyin CTR solishtiriladi.
+- Bir vaqtda faqat bitta katta o‘zgaruvchi — creative, auditoriya, landing yoki taklif — almashtiriladi.
 
 ## 15. Analitika va atributsiya
 
@@ -561,13 +712,53 @@ Reklama cookie va tracking ishlatsa, foydalanuvchiga maxfiylik xabari hamda tegi
 
 ### Bepul eksport qildi, lekin sotib olmadi
 
-> Keyingi 10 ta videoni 20 000 so‘mlik Pack bilan yarating yoki Premium’da cheksiz davom eting.
+> Keyingi 10 ta videoni 20 000 so‘mlik Pack bilan yarating yoki Premium’da oyiga 100 ta eksport bilan davom eting.
 
 ### Pack limitiga yaqinlashdi
 
-> Kontentni to‘xtatmang. Premium bilan cheksiz video, watermarksiz eksport va premium ovozlardan foydalaning.
+> Kontentni to‘xtatmang. Premium bilan oyiga 100 ta eksport, watermarksiz video va premium ovozlardan foydalaning.
 
-## 17. 30 kunlik organik kontent mavzulari
+## 17. Retention va obunani davom ettirish
+
+Reklama mijoz olib keladi, ammo quyidagi mahsulot mexanizmlari obunani saqlab qoladi:
+
+### Birinchi 7 kun
+
+- Eksportdan keyin “yana shunga o‘xshash video yaratish” tugmasi.
+- Avvalgi quiz’ni bir tugmada nusxalash.
+- 24 soat ichida ikkinchi video uchun mavzu tavsiyasi.
+- 3-kuni hali ikkinchi eksport bo‘lmasa Telegram/e-mail eslatma.
+- 7-kuni yaratilgan va eksport qilingan videolar hisoboti.
+
+### Har hafta
+
+- 5 ta yangi quiz mavzusi.
+- Saqlangan brand preset: rang, shrift, ovoz va format.
+- “Har dushanba yangi video yarating” eslatmasi.
+- Foydalanilmagan tarif qiymatini ko‘rsatish: qolgan eksportlar va yangi shablonlar.
+- “Bu hafta nechta montaj qadami tejaldi?” kabi isbotlanadigan value recap.
+
+### Keyingi mahsulot funksiyalari
+
+- Batch generation.
+- Kontent kalendari.
+- Uzun videodan avtomatik Shorts variantlari.
+- Quiz’ni nusxalash va faqat mavzuni almashtirish.
+- Jamoa/agency workspace.
+
+Retention hodisalari:
+
+```text
+second_export_7d
+weekly_active_creator
+exports_per_paid_user
+pack_to_premium_30d
+renewal_success
+subscription_cancelled
+cancellation_reason
+```
+
+## 18. 30 kunlik organik kontent mavzulari
 
 Kontentni bir o‘tirishda 7–10 tadan tayyorlab, navbat bilan chiqarish mumkin.
 
@@ -602,26 +793,33 @@ Kontentni bir o‘tirishda 7–10 tadan tayyorlab, navbat bilan chiqarish mumkin
 29. Yangi dizayn/shablon namoyishi.
 30. Bepul video yaratish bo‘yicha to‘liq mini qo‘llanma.
 
-## 18. Ishlar ustuvorligi
+## 19. Ishlar ustuvorligi
 
 ### P0 — reklama boshlanishidan oldin
 
+- [ ] Bitta videoning real tannarxini hisoblash.
+- [ ] Premium’da oyiga 100 eksport limitini mahsulot va marketing matnida bir xil ko‘rsatish.
 - [ ] To‘lov va tarif faollashishini avtomatlashtirish.
 - [ ] Barcha funnel event’larini yozish.
+- [ ] `payment_success`, `export_failed`, `render_duration` va `second_export_7d`ni ulash.
+- [ ] Free eksportni server tarafda bir akkauntga bir marta cheklash.
 - [ ] Meta Pixel, Conversions API va Google tag ulash.
-- [ ] Bitta aniq marketing landing sahifa tayyorlash.
+- [ ] Faceless creator uchun `/youtube-quiz` landing sahifasini tayyorlash.
 - [ ] 30–45 soniyalik real demo qo‘yish.
 - [ ] Uchta tayyor video namunasi qo‘yish.
 - [ ] Privacy, Terms va Refund sahifalarini qo‘shish.
 - [ ] Mobil telefonda yaratish va to‘lov oqimini to‘liq tekshirish.
+- [ ] 10–15 real foydalanuvchi bilan onboarding testini o‘tkazish.
 
 ### P1 — birinchi test davomida
 
-- [ ] Segmentlar uchun alohida landing sahifalar.
+- [ ] `second_export_7d` cohort hisobotini yaratish.
+- [ ] SMM va o‘qituvchi segmentlari uchun alohida landing sahifalar.
 - [ ] Pack’dan Premiumga avtomatik upsell.
-- [ ] Promo-kod va referral kodi.
 - [ ] E-mail yoki Telegram orqali tugallanmagan eksportni eslatish.
 - [ ] Paywall A/B testlari.
+- [ ] Cohort bo‘yicha AI/render xarajatini kuzatish.
+- [ ] Premium cancellation sabablarini yig‘ish.
 
 ### P2 — rentabellik isbotlangandan keyin
 
@@ -629,39 +827,102 @@ Kontentni bir o‘tirishda 7–10 tadan tayyorlab, navbat bilan chiqarish mumkin
 - [ ] Affiliate dasturi.
 - [ ] O‘qituvchi va agentliklar uchun jamoaviy tarif.
 - [ ] Foydalanuvchi shablonlari va brend preset’lari.
-- [ ] Mijozlarni qaytarish kampaniyalari.
+- [ ] Batch video yaratish.
+- [ ] Uzun videodan avtomatik Shorts yaratish.
+- [ ] Referral va mijozlarni qaytarish kampaniyalari.
 
-## 19. Reklama ishga tushirish checklist’i
+## 20. Reklama ishga tushirish checklist’i
 
 Reklama budjeti faqat quyidagilarga “ha” bo‘lsa yoqiladi:
 
 - [ ] Yangi foydalanuvchi Google orqali xatosiz kira oladi.
 - [ ] Bepul quiz yaratib, preview ko‘ra oladi.
+- [ ] Bepul eksportni qayta olishga urinish server tarafda to‘xtatiladi.
 - [ ] Video eksporti ishlaydi va kutiladigan vaqt ko‘rsatiladi.
+- [ ] Export failure va render davomiyligi analitikada ko‘rinadi.
 - [ ] Tariflar va limitlar tushunarli.
+- [ ] Bitta video tannarxi va ruxsat etilgan CAC hisoblangan.
 - [ ] To‘lovdan keyin tarif tez yoki avtomatik yoqiladi.
+- [ ] `payment_success` va `subscription_activated` alohida tekshirilgan.
 - [ ] Barcha analitika event’lari testdan o‘tgan.
 - [ ] Har bir reklamada UTM mavjud.
-- [ ] Kamida 3 xil creative tayyor.
+- [ ] Faceless creator uchun A va C creative’lari tayyor.
 - [ ] Reklamadagi va’da real mahsulotga mos.
 - [ ] Mobil landing tez va to‘g‘ri ishlaydi.
 - [ ] Support aloqa kanali ko‘rinib turadi.
 - [ ] Privacy, Terms va Refund sahifalari mavjud.
+- [ ] 10–15 real foydalanuvchi onboarding’ni sinab ko‘rgan.
 
-## 20. Birinchi amaliy kampaniya
+## 21. Birinchi amaliy kampaniya
 
 **Taklif:** `Birinchi to‘liq quiz video bepul`
 
-**Auditoriya:** O‘zbekistondagi faceless YouTube va SMM’ga qiziquvchilar
+**Auditoriya:** faqat O‘zbekistondagi faceless YouTube creator’lar
 
 **Kanal:** Instagram Reels
 
-**Creative:** Ssenariy A va Ssenariy B
+**Creative:** Ssenariy A va Ssenariy C
+
+**Landing:** `/youtube-quiz`
 
 **Landing CTA:** `1 videoni bepul yarating`
 
-**Asosiy konversiya:** `export_completed`
+**Tezkor konversiya:** `export_completed`
 
-**Yakuniy konversiya:** `subscription_activated`
+**Asosiy mahsulot KPI:** `second_export_7d`
 
-Birinchi testning vazifasi darhol katta foyda qilish emas. Avval qaysi auditoriya va creative foydalanuvchini haqiqiy video eksportigacha olib kelishini aniqlash kerak. Shundan keyingina Pack va Premium sotuviga optimallashtiriladi.
+**Yakuniy biznes konversiyasi:** `payment_success`
+
+Birinchi testning vazifasi darhol katta foyda qilish emas. Avval faceless creator segmentida qaysi creative foydalanuvchini birinchi va ikkinchi eksportgacha olib kelishini aniqlash kerak. Shundan keyingina Pack va Premium contribution margin bo‘yicha optimallashtiriladi. SMM segmenti keyingi alohida kampaniyada sinovdan o‘tkaziladi.
+
+## 22. Haftalik boshqaruv dashboard’i
+
+Har dushanba bitta cohort dashboard’da quyidagi ko‘rsatkichlar ko‘riladi:
+
+| Qism | KPI | Asosiy savol |
+|---|---|---|
+| Reklama | CPM, CTR, CPC | Creative e’tibor olyaptimi? |
+| Landing | CTA start rate | Taklif tushunarlimi? |
+| Onboarding | Signup → quiz generated | Foydalanuvchi boshlay olyaptimi? |
+| Activation | Signup → first export | Birinchi qiymatga yetyaptimi? |
+| Habit | `second_export_7d` | Mahsulotni qayta ishlatyaptimi? |
+| Tezlik | Median time to first export | Qiymatga yetish tezmi? |
+| Sifat | Export failure rate | Texnik yo‘qotish qancha? |
+| Monetizatsiya | First export → payment success | Sinov xaridga aylanyaptimi? |
+| To‘lov | Checkout success rate | Checkout ishlayaptimi? |
+| Xarajat | CAC Pack / CAC Premium | Mijoz qancha turmoqda? |
+| Foydalanish | Avg. exports per paid user | Heavy-user xavfi bormi? |
+| Retention | Premium M1/M2 renewal | Obuna davom etyaptimi? |
+| Iqtisodiyot | Contribution margin per cohort | O‘sish foydalimi? |
+
+Dashboard kesimlari:
+
+- acquisition source va campaign;
+- tarif — Free, Pack, Premium;
+- ro‘yxatdan o‘tgan hafta/cohort;
+- video formati — 16:9 yoki 9:16;
+- til;
+- qurilma va brauzer.
+
+## 23. Huquqiy va kontent xavfsizligi
+
+Reklama boshlanishidan oldin Terms va Privacy hujjatlarida quyidagilar aniq yoziladi:
+
+- AI rasm, musiqa, font va ovozlarning tijoriy foydalanish huquqi.
+- Foydalanuvchi kiritgan matn va yuklagan fayllar uchun uning javobgarligi.
+- Mualliflik huquqini buzuvchi materiallarni taqiqlash va shikoyat jarayoni.
+- Haqoratli, zo‘ravonlikka undovchi yoki noqonuniy kontent moderatsiyasi.
+- Ovoz klonlash bo‘lsa, ovoz egasining aniq roziligi talabi.
+- Bolalarga mo‘ljallangan kontent va platforma belgilash majburiyatlari.
+- Quiz, render va foydalanuvchi fayllarini saqlash muddati hamda o‘chirish yo‘li.
+- Refund shartlari va obunani bekor qilish tartibi.
+
+Moderatsiya oqimi:
+
+```text
+Kiritilgan mavzu/fayl
+→ avtomatik xavfsizlik tekshiruvi
+→ kerak bo‘lsa generatsiyani rad etish
+→ foydalanuvchiga tushunarli sabab
+→ shikoyat yoki qayta ko‘rib chiqish kanali
+```
