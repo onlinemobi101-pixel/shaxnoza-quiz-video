@@ -31,6 +31,13 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
           setError(`Google orqali kirishda xatolik yuz berdi (${redirErr.code || redirErr.message}).`);
           setIsLoading(false);
         }
+      } else if (err.code === "auth/unauthorized-domain") {
+        const currentDomain = window.location.host;
+        setError(
+          `Bu manzil Firebase Authentication'da ruxsat etilmagan (${currentDomain}). ` +
+          "Lokal ishlash uchun ilovani http://localhost:3000 orqali oching.",
+        );
+        setIsLoading(false);
       } else if (err.code !== "auth/popup-closed-by-user") {
         setError(`Google orqali kirishda xatolik yuz berdi (${err.code || err.message || "noma'lum xato"}).`);
         setIsLoading(false);
@@ -54,6 +61,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
             <button
               id="auth-close-btn"
               onClick={onClose}
+              aria-label="Kirish oynasini yopish"
               className="absolute top-4 right-4 p-2 rounded-full hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
             >
               <X size={20} />

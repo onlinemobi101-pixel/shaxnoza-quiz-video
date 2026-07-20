@@ -239,21 +239,25 @@ Return ONLY the Unsplash photo ID as plain text (for example: photo-154135992727
   return FALLBACK_IMAGE;
 }
 
-async function generateQuiz(topic: string, language: string) {
+async function generateQuiz(topic: string, language: string, count: number) {
   const ai = getAI();
 
   const langPromptMap: Record<string, string> = {
-    uz: "o'zbek tilida tuzing. Har bir savol 3 ta variantdan iborat bo'lsin. To'g'ri javob indeksini (0, 1 yoki 2) ko'rsating. Shu savol mavzusiga mos keluvchi 1 ta inglizcha so'z bering (masalan: history, space, nature) - bu 'imageKeyword' bo'ladi. Savol matni va variantlar faqat o'zbek tilida bo'lsin.",
-    en: "in English. Each question must have 3 options. Provide the correct option index (0, 1, or 2). Provide 1 English keyword matching the question topic (e.g. history, space, nature) - this will be 'imageKeyword'. The question text and options must be in English.",
-    ru: "на русском языке. Каждый вопрос должен состоять из 3 вариантов. Укажите индекс правильного ответа (0, 1 или 2). Дайте 1 английское слово, соответствующее теме вопроса (например: history, space, nature) — это будет 'imageKeyword'. Текст вопроса и варианты ответов должны быть на русском языке.",
-    tr: "Türkçe olarak oluşturun. Her soru 3 seçenekten oluşmalıdır. Doğru cevap indeksini (0, 1 veya 2) belirtin. Soru konusuna uygun 1 İngilizce kelime verin (örneğin: history, space, nature) - bu 'imageKeyword' olacaktır. Soru metni ve seçenekler Türkçe olmalıdır."
+    uz: "o'zbek tilida tuzing. Har bir savol 3 ta variantdan iborat bo'lsin. To'g'ri javob indeksini (0, 1 yoki 2) ko'rsating. Har bir javob uchun 8–18 so'zli, takrorlanmaydigan qisqa tushuntirish yozing. Savol matni, variantlar va tushuntirish o'zbek tilida bo'lsin.",
+    en: "in natural English. Each question must have exactly 3 options. Provide the correct option index (0, 1, or 2). Add a unique, accurate 8–18 word English explanation that teaches why the answer is correct. The question, options, and explanation must all be in English.",
+    ru: "на русском языке. Каждый вопрос должен состоять ровно из 3 вариантов. Укажите индекс правильного ответа (0, 1 или 2). Добавьте уникальное точное объяснение ответа длиной 8–18 слов. Вопрос, варианты и объяснение должны быть на русском языке.",
+    tr: "Türkçe olarak oluşturun. Her soru tam 3 seçenekten oluşmalıdır. Doğru cevap indeksini (0, 1 veya 2) belirtin. Doğru cevabı öğreten, 8–18 kelimelik özgün ve doğru bir açıklama ekleyin. Soru, seçenekler ve açıklama Türkçe olmalıdır."
   };
 
   const promptDetails = langPromptMap[language] || langPromptMap.uz;
 
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
-    contents: `Mavzu: ${topic}. Shu mavzuda 5 ta qiziqarli test savolini ${promptDetails}`,
+    contents: `Topic: ${topic}.
+Create exactly ${count} varied quiz questions ${promptDetails}
+Avoid duplicate facts, near-identical wording, trick questions, and ambiguous answers.
+Set imageKeyword to exactly one of these supported English categories:
+history, space, science, nature, math, geography, art, music, sport, tech, literature, animals, food, business, medicine, english.`,
     config: {
       responseMimeType: "application/json",
       responseSchema: {
@@ -264,9 +268,10 @@ async function generateQuiz(topic: string, language: string) {
             text: { type: Type.STRING, description: "Savol matni / Question text" },
             options: { type: Type.ARRAY, items: { type: Type.STRING }, description: "3 ta variant / 3 options" },
             correctOptionIndex: { type: Type.INTEGER, description: "To'g'ri javob indeksi (0, 1 yoki 2) / Correct answer index (0, 1 or 2)" },
+            explanation: { type: Type.STRING, description: "8–18 so'zli qisqa tushuntirish / Concise 8–18 word explanation" },
             imageKeyword: { type: Type.STRING, description: "Mavzuga doir bitta inglizcha so'z / One English word for the topic" }
           },
-          required: ["text", "options", "correctOptionIndex", "imageKeyword"]
+          required: ["text", "options", "correctOptionIndex", "explanation", "imageKeyword"]
         }
       }
     }
@@ -428,11 +433,15 @@ export default async function handler(req: IncomingMessage & { body?: any }, res
 
     switch (action) {
       case "generateQuiz": {
-        const { topic, language } = body;
+        const { topic, language, count } = body;
         if (!topic || typeof topic !== "string" || topic.trim().length > 200) throw new ApiError(400, "INVALID_TOPIC");
+        const requestedCount = Number(count ?? 5);
+        if (!Number.isInteger(requestedCount) || requestedCount < 5 || requestedCount > 30) {
+          throw new ApiError(400, "INVALID_QUESTION_COUNT");
+        }
         const selectedLanguage = ["uz", "en", "ru", "tr"].includes(language) ? language : "uz";
         await requirePlanAccess(user);
-        const questions = await generateQuiz(topic.trim(), selectedLanguage);
+        const questions = await generateQuiz(topic.trim(), selectedLanguage, requestedCount);
         sendJSON(res, 200, { questions });
         return;
       }

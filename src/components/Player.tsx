@@ -5,6 +5,7 @@ import { X, Maximize2, RotateCcw, Heart } from "lucide-react";
 import { playPCMAsync, stopPCM } from "../services/tts";
 import { playPop, playTick, playSuccess, startProceduralBGM, stopProceduralBGM } from "../services/sfx";
 import { getVideoStrings } from "../services/i18n";
+import { getOutroDurationMs, getTargetQuestionDurationMs } from "../services/videoPlan";
 
 interface PlayerProps {
   quiz: Quiz;
@@ -14,12 +15,13 @@ interface PlayerProps {
 export function Player({ quiz, onExit }: PlayerProps) {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [phase, setPhase] = useState<
-    "init" | "question" | "options" | "timer" | "reveal" | "end"
+    "init" | "question" | "options" | "timer" | "reveal" | "end" | "outro" | "done"
   >("init");
   const [timerCountdown, setTimerCountdown] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const question = quiz.questions[currentQuestionIndex];
+  const isYouTubeFormat = quiz.videoFormat === "youtube";
   // Video matnlari quiz tiliga mos (preview eksport bilan bir xil ko'rinsin)
   const vs = getVideoStrings(quiz.language);
 
@@ -41,6 +43,7 @@ export function Player({ quiz, onExit }: PlayerProps) {
     const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
     const runSequence = async () => {
+      const questionStartedAt = performance.now();
       setPhase("init");
       await sleep(500);
       if (isCancelled) return;
@@ -94,8 +97,15 @@ export function Player({ quiz, onExit }: PlayerProps) {
         revealAudioPromise = playPCMAsync(question.correctAudioBase64);
       }
       
-      // Wait for at least 3 seconds or until the audio finishes
-      await Promise.all([revealAudioPromise, sleep(3000)]);
+      const revealMinimumMs = isYouTubeFormat ? 5200 : 3000;
+      await Promise.all([revealAudioPromise, sleep(revealMinimumMs)]);
+      if (isCancelled) return;
+
+      const targetQuestionMs = getTargetQuestionDurationMs(quiz);
+      if (targetQuestionMs) {
+        const remainingMs = targetQuestionMs - (performance.now() - questionStartedAt) - 500;
+        if (remainingMs > 0) await sleep(remainingMs);
+      }
       if (isCancelled) return;
 
       setPhase("end");
@@ -107,7 +117,7 @@ export function Player({ quiz, onExit }: PlayerProps) {
       } else {
         setPhase("outro");
         playSuccess(); // Small chime for outro
-        await sleep(4000);
+        await sleep(getOutroDurationMs(quiz));
         if (isCancelled) return;
         
         stopProceduralBGM();
@@ -123,7 +133,14 @@ export function Player({ quiz, onExit }: PlayerProps) {
     };
     // MUHIM: `phase` bu ro'yxatga qo'shilmasin — setPhase har safar effektni qayta
     // ishga tushirib, ketma-ketlikni bekor qiladi (init<->question cheksiz aylanish).
-  }, [currentQuestionIndex, quiz.questions.length]);
+  }, [
+    currentQuestionIndex,
+    isYouTubeFormat,
+    question,
+    quiz.questions.length,
+    quiz.targetDuration,
+    quiz.timerDuration,
+  ]);
 
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
@@ -305,22 +322,26 @@ export function Player({ quiz, onExit }: PlayerProps) {
       <div className="absolute top-6 right-6 z-50 flex gap-3">
         <button
           onClick={toggleFullscreen}
+          aria-label="To'liq ekranga o'tish"
           className="p-3 bg-neutral-800/80 hover:bg-neutral-700 backdrop-blur rounded-full text-white transition-colors shadow-lg"
         >
           <Maximize2 size={20} />
         </button>
         <button
           onClick={onExit}
+          aria-label="Ko'rishni yopish"
           className="p-3 bg-neutral-800/80 hover:bg-neutral-700 backdrop-blur rounded-full text-white transition-colors shadow-lg"
         >
           <X size={20} />
         </button>
       </div>
 
-      {/* 9:16 Video Container (Simulated Device) */}
+      {/* Video container: Shorts 9:16 yoki YouTube 16:9 */}
       <div
         ref={containerRef}
-        className={`${activePreset.container} relative overflow-hidden`}
+        className={`${isYouTubeFormat
+          ? "relative w-full max-w-[1200px] max-h-[85vh] aspect-video bg-neutral-900 rounded-3xl shadow-[0_20px_60px_rgba(0,0,0,0.55)] ring-[6px] ring-neutral-900/90"
+          : activePreset.container} relative overflow-hidden`}
       >
         {/* Background Image with Transition */}
         <AnimatePresence mode="popLayout">
@@ -348,7 +369,7 @@ export function Player({ quiz, onExit }: PlayerProps) {
         </div>
 
         {/* Content */}
-        <div className="absolute inset-0 flex flex-col p-6 sm:p-8 z-10">
+        <div className={`absolute inset-0 flex flex-col z-10 ${isYouTubeFormat ? "p-5 sm:p-7" : "p-6 sm:p-8"}`}>
           
           {/* Progress Indicator */}
           <div className={`${activePreset.progress} z-10`}>
@@ -356,7 +377,7 @@ export function Player({ quiz, onExit }: PlayerProps) {
             <span>{vs.questionBadge}: {currentQuestionIndex + 1} / {quiz.questions.length}</span>
           </div>
 
-          <div className="flex-1 flex flex-col justify-center relative">
+          <div className={`flex-1 flex flex-col justify-center relative ${isYouTubeFormat ? "pt-12" : ""}`}>
             <AnimatePresence mode="wait">
               <motion.div
                 key={currentQuestionIndex}
@@ -378,9 +399,9 @@ export function Player({ quiz, onExit }: PlayerProps) {
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, scale: 0.95, y: -20 }}
                       transition={{ type: "spring", stiffness: 300, damping: 25 }}
-                      className={activePreset.questionBox}
+                      className={`${activePreset.questionBox} ${isYouTubeFormat ? "!p-3 !mb-3" : ""}`}
                     >
-                      <h2 className={activePreset.questionText}>
+                      <h2 className={`${activePreset.questionText} ${isYouTubeFormat ? "!text-xl sm:!text-2xl !leading-tight" : ""}`}>
                         {question.text}
                       </h2>
                     </motion.div>
@@ -388,7 +409,7 @@ export function Player({ quiz, onExit }: PlayerProps) {
                 </AnimatePresence>
 
                 {/* Options */}
-                <div className="w-full space-y-3 sm:space-y-4">
+                <div className={`w-full ${isYouTubeFormat ? "space-y-1.5" : "space-y-3 sm:space-y-4"}`}>
                   <AnimatePresence>
                     {(phase === "options" ||
                       phase === "timer" ||
@@ -421,7 +442,9 @@ export function Player({ quiz, onExit }: PlayerProps) {
                               stiffness: 300,
                               damping: 25,
                             }}
-                            className={`w-full border-[1.5px] rounded-2xl p-4 sm:p-5 text-center text-lg sm:text-xl font-semibold transition-all duration-500 shadow-xl ${optionStyle}`}
+                            className={`w-full border-[1.5px] rounded-2xl text-center font-semibold transition-all duration-500 shadow-xl ${
+                              isYouTubeFormat ? "p-2.5 text-sm sm:text-base" : "p-4 sm:p-5 text-lg sm:text-xl"
+                            } ${optionStyle}`}
                           >
                             <div className="flex items-center">
                               <div className={`w-8 h-8 sm:w-10 sm:h-10 shrink-0 flex items-center justify-center rounded-full text-sm sm:text-base font-bold shadow-inner mr-3 ${activePreset.letter}`}>
@@ -436,12 +459,25 @@ export function Player({ quiz, onExit }: PlayerProps) {
                       })}
                   </AnimatePresence>
                 </div>
+
+                {(phase === "reveal" || phase === "end") && question.explanation && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className={`mt-3 rounded-2xl border border-white/15 bg-black/55 backdrop-blur-xl text-white ${
+                      isYouTubeFormat ? "px-5 py-2 text-xs sm:text-sm" : "px-4 py-3 text-sm"
+                    }`}
+                  >
+                    <span className="font-black text-emerald-300 mr-2">WHY?</span>
+                    {question.explanation}
+                  </motion.div>
+                )}
               </motion.div>
             </AnimatePresence>
           </div>
 
           {/* Timer Bar */}
-          <div className="min-h-[100px] flex items-center justify-center pb-4 sm:pb-6 mt-2">
+          <div className={`${isYouTubeFormat ? "min-h-[68px] pb-1 mt-1" : "min-h-[100px] pb-4 sm:pb-6 mt-2"} flex items-center justify-center`}>
             <AnimatePresence>
               {(phase === "timer" || phase === "reveal") && (
                 <motion.div
@@ -554,7 +590,14 @@ export function Player({ quiz, onExit }: PlayerProps) {
           </div>
           
           {/* Watermark overlay - floating/bouncing across the screen */}
-          {quiz.watermark && (
+          {quiz.watermark && (isYouTubeFormat ? (
+            <div
+              className="absolute top-5 right-7 z-40 text-white/45 font-bold tracking-widest text-xs bg-black/25 px-3 py-1.5 rounded-full border border-white/5 pointer-events-none"
+              style={{ textShadow: "0 1px 4px rgba(0,0,0,0.8)" }}
+            >
+              {quiz.watermark}
+            </div>
+          ) : (
             <motion.div
               animate={{
                 left: ["5%", "70%", "10%", "75%", "25%", "70%", "5%"],
@@ -573,7 +616,7 @@ export function Player({ quiz, onExit }: PlayerProps) {
             >
               {quiz.watermark}
             </motion.div>
-          )}
+          ))}
         </div>
       </div>
     </div>

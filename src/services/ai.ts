@@ -30,12 +30,21 @@ export async function getUnsplashImageForKeyword(keyword: string): Promise<strin
   return "https://images.unsplash.com/photo-1505506874110-6a7a48e14c49?q=80&w=1080&auto=format&fit=crop";
 }
 
-export async function generateQuizAI(topic: string, language: string = "uz"): Promise<Question[] | null> {
-  const data = await callAPI({ action: "generateQuiz", topic, language });
+export async function generateQuizAI(topic: string, language: string = "uz", count: number = 5): Promise<Question[] | null> {
+  const data = await callAPI({ action: "generateQuiz", topic, language, count });
   return data.questions || null;
 }
 
 export async function analyzeQuestionsForImages(questions: { text: string }[]): Promise<string[] | null> {
+  if (questions.length > 20) {
+    const keywords: string[] = [];
+    for (let index = 0; index < questions.length; index += 20) {
+      const chunk = await analyzeQuestionsForImages(questions.slice(index, index + 20));
+      if (!chunk) return null;
+      keywords.push(...chunk);
+    }
+    return keywords;
+  }
   const data = await callAPI({
     action: "analyzeImages",
     questions: questions.map((q) => ({ text: q.text })),

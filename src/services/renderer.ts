@@ -2,6 +2,7 @@ import { Quiz, Question } from "../types";
 import { playPCMAsync, stopPCM } from "./tts";
 import { playPop, playTick, playSuccess, startProceduralBGM, stopProceduralBGM } from "./sfx";
 import { getVideoStrings, VideoStrings } from "./i18n";
+import { getIntroDurationMs, getOutroDurationMs, getTargetQuestionDurationMs } from "./videoPlan";
 
 const THEME_COLORS: Record<string, { main: string; light: string }> = {
   emerald: { main: '#10b981', light: '#34d399' },
@@ -56,8 +57,9 @@ export class QuizRenderer {
     this.quiz = quiz;
     this.strings = getVideoStrings(quiz.language);
     this.canvas = document.createElement('canvas');
-    this.canvas.width = 1080;
-    this.canvas.height = 1920;
+    const isYouTube = quiz.videoFormat === "youtube";
+    this.canvas.width = isYouTube ? 1920 : 1080;
+    this.canvas.height = isYouTube ? 1080 : 1920;
     this.ctx = this.canvas.getContext('2d')!;
     
     this.audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -88,8 +90,8 @@ export class QuizRenderer {
     const blob = new Blob([`
       let intervalId = null;
       self.onmessage = function(e) {
-        if (e.data === 'start') {
-          intervalId = setInterval(() => self.postMessage('tick'), 1000 / 30);
+        if (e.data?.type === 'start') {
+          intervalId = setInterval(() => self.postMessage('tick'), 1000 / e.data.fps);
         } else if (e.data === 'stop') {
           clearInterval(intervalId);
         }
@@ -101,7 +103,8 @@ export class QuizRenderer {
     };
     
     // @ts-ignore
-    const canvasStream = this.canvas.captureStream(30); // 30 FPS for smoother video without overloading
+    const fps = isYouTube ? 24 : 30;
+    const canvasStream = this.canvas.captureStream(fps);
     const tracks = [...canvasStream.getVideoTracks(), ...this.dest.stream.getAudioTracks()];
     this.stream = new MediaStream(tracks);
     
@@ -134,7 +137,9 @@ export class QuizRenderer {
       }
       
       const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-      options.videoBitsPerSecond = isMobile ? 2500000 : 8000000; // 2.5 Mbps for mobile, 8 Mbps for desktop
+      options.videoBitsPerSecond = isYouTube
+        ? (isMobile ? 2200000 : 4000000)
+        : (isMobile ? 2500000 : 6000000);
       
       this.recorder = new MediaRecorder(this.stream, options);
     } catch (e) {
@@ -164,17 +169,25 @@ export class QuizRenderer {
     };
     this.recorder.onstop = () => {
       const blob = new Blob(this.recordedChunks, { type: this.recorder.mimeType || mimeType });
+      this.recordedChunks = [];
       const url = URL.createObjectURL(blob);
       if (this.onComplete) this.onComplete(url, this.extension);
     };
   }
   
   async loadImages() {
+    const cache = new Map<string, HTMLImageElement>();
     for (const q of this.quiz.questions) {
+      const cached = cache.get(q.backgroundImage);
+      if (cached) {
+        this.bgImages.push(cached);
+        continue;
+      }
       const img = new Image();
       img.crossOrigin = "anonymous";
       img.src = q.backgroundImage;
       await new Promise(r => { img.onload = r; img.onerror = r; });
+      cache.set(q.backgroundImage, img);
       this.bgImages.push(img);
     }
   }
@@ -215,13 +228,14 @@ export class QuizRenderer {
     this.isRecording = true;
     this.qStartTime = performance.now();
     this.drawFrame();
-    this.recorder.start();
-    this.worker.postMessage('start');
+    // Kichik data bo'laklari uzoq eksportda bitta ulkan ichki buffer hosil bo'lishini kamaytiradi.
+    this.recorder.start(2000);
+    this.worker.postMessage({ type: 'start', fps: this.quiz.videoFormat === "youtube" ? 24 : 30 });
 
     // Hook-intro: skroll to'xtatish uchun 2 soniyalik kirish ekrani
     this.setPhase('intro');
     playPop(this.masterGain);
-    await this.sleep(2000);
+    await this.sleep(getIntroDurationMs(this.quiz));
 
     for (let i = 0; i < this.quiz.questions.length; i++) {
       if (this.isCancelled) break;
@@ -232,7 +246,7 @@ export class QuizRenderer {
     if (!this.isCancelled) {
       this.setPhase('outro');
       playSuccess(this.masterGain);
-      await this.sleep(3500);
+      await this.sleep(getOutroDurationMs(this.quiz));
     }
     
     stopProceduralBGM();
@@ -275,11 +289,250 @@ export class QuizRenderer {
     return currentY + lineHeight;
   }
 
+  getWrappedLines(text: string, maxWidth: number, maxLines = 3): string[] {
+    const words = text.split(/\s+/).filter(Boolean);
+    const lines: string[] = [];
+    let line = "";
+
+    for (const word of words) {
+      const candidate = line ? `${line} ${word}` : word;
+      if (this.ctx.measureText(candidate).width > maxWidth && line) {
+        lines.push(line);
+        line = word;
+        if (lines.length === maxLines - 1) break;
+      } else {
+        line = candidate;
+      }
+    }
+
+    if (line && lines.length < maxLines) {
+      const consumedWords = lines.join(" ").split(/\s+/).filter(Boolean).length;
+      const remaining = words.slice(consumedWords).join(" ");
+      let finalLine = remaining || line;
+      while (this.ctx.measureText(finalLine).width > maxWidth && finalLine.length > 1) {
+        finalLine = finalLine.slice(0, -1);
+      }
+      if (finalLine !== remaining) finalLine = `${finalLine.trimEnd()}…`;
+      lines.push(finalLine);
+    }
+
+    return lines;
+  }
+
+  drawYouTubeFrame() {
+    const w = this.canvas.width;
+    const h = this.canvas.height;
+    const q = this.quiz.questions[this.currentQuestionIndex];
+    if (!q) return;
+
+    const activeTheme = THEME_COLORS[this.quiz.themeColor || "emerald"];
+    const now = performance.now();
+    const phaseTime = now - this.phaseStartTime;
+    const bgImg = this.bgImages[this.currentQuestionIndex];
+
+    if (bgImg?.complete && bgImg.naturalWidth > 0) {
+      const kenBurns = 1 + 0.045 * Math.min(1, (now - this.qStartTime) / 24000);
+      const scale = Math.max(w / bgImg.width, h / bgImg.height) * kenBurns;
+      const x = (w - bgImg.width * scale) / 2;
+      const y = (h - bgImg.height * scale) / 2;
+      this.ctx.drawImage(bgImg, x, y, bgImg.width * scale, bgImg.height * scale);
+    } else {
+      this.ctx.fillStyle = "#0b1020";
+      this.ctx.fillRect(0, 0, w, h);
+    }
+
+    const overlay = this.ctx.createLinearGradient(0, 0, w, h);
+    overlay.addColorStop(0, "rgba(3,7,18,0.91)");
+    overlay.addColorStop(0.55, "rgba(3,7,18,0.68)");
+    overlay.addColorStop(1, "rgba(3,7,18,0.94)");
+    this.ctx.fillStyle = overlay;
+    this.ctx.fillRect(0, 0, w, h);
+
+    if (this.phase === "intro") {
+      const p = Math.min(1, phaseTime / 500);
+      this.ctx.save();
+      this.ctx.globalAlpha = p;
+      this.ctx.textAlign = "center";
+      this.ctx.textBaseline = "middle";
+
+      this.ctx.font = '900 34px system-ui, -apple-system, sans-serif';
+      const badgeWidth = Math.max(430, this.ctx.measureText(this.strings.introBadge).width + 100);
+      this.ctx.fillStyle = activeTheme.main;
+      this.drawRoundedRect((w - badgeWidth) / 2, 205, badgeWidth, 76, 38);
+      this.ctx.fill();
+      this.ctx.fillStyle = "#fff";
+      this.ctx.fillText(this.strings.introBadge, w / 2, 243);
+
+      this.ctx.font = '900 100px system-ui, -apple-system, sans-serif';
+      const titleLines = this.getWrappedLines((this.quiz.title || "QUIZ").toUpperCase(), 1540, 3);
+      const titleStart = 435 - ((titleLines.length - 1) * 110) / 2;
+      this.ctx.shadowColor = "rgba(0,0,0,0.65)";
+      this.ctx.shadowBlur = 28;
+      titleLines.forEach((line, index) => this.ctx.fillText(line, w / 2, titleStart + index * 110));
+      this.ctx.shadowColor = "transparent";
+
+      this.ctx.fillStyle = "rgba(255,255,255,0.82)";
+      this.ctx.font = '600 42px system-ui, -apple-system, sans-serif';
+      this.ctx.fillText(this.strings.introCount(this.quiz.questions.length), w / 2, 690);
+      this.ctx.fillStyle = activeTheme.light;
+      this.ctx.fillRect(620, 765, 680, 8);
+      this.ctx.restore();
+      return;
+    }
+
+    if (this.phase === "outro") {
+      this.ctx.fillStyle = "rgba(3,7,18,0.42)";
+      this.ctx.fillRect(0, 0, w, h);
+      this.ctx.textAlign = "center";
+      this.ctx.textBaseline = "middle";
+      this.ctx.fillStyle = activeTheme.main;
+      this.ctx.beginPath();
+      this.ctx.arc(w / 2, 290, 70, 0, Math.PI * 2);
+      this.ctx.fill();
+      this.ctx.fillStyle = "#fff";
+      this.ctx.font = '900 72px system-ui, -apple-system, sans-serif';
+      this.ctx.fillText(this.strings.outroTitle, w / 2, 475);
+      this.ctx.fillStyle = "rgba(255,255,255,0.82)";
+      this.ctx.font = '600 42px system-ui, -apple-system, sans-serif';
+      this.ctx.fillText(this.strings.outroSubtitle, w / 2, 560);
+      if (this.quiz.watermark) {
+        this.ctx.fillStyle = "rgba(255,255,255,0.12)";
+        this.drawRoundedRect(w / 2 - 260, 660, 520, 72, 36);
+        this.ctx.fill();
+        this.ctx.fillStyle = "#fff";
+        this.ctx.font = '700 30px monospace';
+        this.ctx.fillText(this.quiz.watermark, w / 2, 696);
+      }
+      return;
+    }
+
+    if (this.phase === "init") return;
+
+    const badgeText = `${this.strings.questionBadge} ${this.currentQuestionIndex + 1}/${this.quiz.questions.length}`;
+    this.ctx.font = '800 28px system-ui, -apple-system, sans-serif';
+    const badgeWidth = this.ctx.measureText(badgeText).width + 92;
+    this.ctx.fillStyle = "rgba(2,6,23,0.72)";
+    this.drawRoundedRect(78, 54, badgeWidth, 58, 29);
+    this.ctx.fill();
+    this.ctx.strokeStyle = "rgba(255,255,255,0.14)";
+    this.ctx.lineWidth = 2;
+    this.ctx.stroke();
+    this.ctx.fillStyle = activeTheme.light;
+    this.ctx.beginPath();
+    this.ctx.arc(112, 83, 8, 0, Math.PI * 2);
+    this.ctx.fill();
+    this.ctx.fillStyle = "#fff";
+    this.ctx.textAlign = "left";
+    this.ctx.textBaseline = "middle";
+    this.ctx.fillText(badgeText, 136, 84);
+
+    this.ctx.fillStyle = "rgba(2,6,23,0.72)";
+    this.drawRoundedRect(120, 145, 1680, 205, 34);
+    this.ctx.fill();
+    this.ctx.strokeStyle = "rgba(255,255,255,0.14)";
+    this.ctx.stroke();
+    this.ctx.fillStyle = "#fff";
+    this.ctx.font = '900 58px system-ui, -apple-system, sans-serif';
+    this.ctx.textAlign = "center";
+    const questionLines = this.getWrappedLines(q.text, 1510, 2);
+    const questionStart = 247 - ((questionLines.length - 1) * 68) / 2;
+    questionLines.forEach((line, index) => this.ctx.fillText(line, w / 2, questionStart + index * 68));
+
+    if (this.phase === "options" || this.phase === "timer" || this.phase === "reveal" || this.phase === "end") {
+      q.options.forEach((option, index) => {
+        const rowY = 390 + index * 132;
+        const isCorrect = index === q.correctOptionIndex;
+        const isReveal = this.phase === "reveal" || this.phase === "end";
+        let opacity = 1;
+        if (this.phase === "options") {
+          opacity = Math.max(0, Math.min(1, (phaseTime - index * 140) / 280));
+        }
+
+        this.ctx.save();
+        this.ctx.globalAlpha = opacity;
+        this.ctx.fillStyle = isReveal
+          ? (isCorrect ? activeTheme.main : "rgba(2,6,23,0.62)")
+          : "rgba(15,23,42,0.86)";
+        this.drawRoundedRect(290, rowY, 1340, 106, 28);
+        this.ctx.fill();
+        this.ctx.strokeStyle = isReveal && isCorrect ? activeTheme.light : "rgba(255,255,255,0.16)";
+        this.ctx.lineWidth = isReveal && isCorrect ? 4 : 2;
+        this.ctx.stroke();
+
+        this.ctx.fillStyle = "rgba(0,0,0,0.25)";
+        this.ctx.beginPath();
+        this.ctx.arc(355, rowY + 53, 35, 0, Math.PI * 2);
+        this.ctx.fill();
+        this.ctx.fillStyle = isReveal && !isCorrect ? "rgba(255,255,255,0.42)" : "#fff";
+        this.ctx.font = '800 32px system-ui, -apple-system, sans-serif';
+        this.ctx.textAlign = "center";
+        this.ctx.fillText(["A", "B", "C", "D"][index], 355, rowY + 54);
+        this.ctx.font = isReveal && isCorrect
+          ? '800 38px system-ui, -apple-system, sans-serif'
+          : '600 36px system-ui, -apple-system, sans-serif';
+        this.ctx.textAlign = "left";
+        this.ctx.fillText(option, 425, rowY + 54);
+        this.ctx.restore();
+      });
+    }
+
+    if ((this.phase === "reveal" || this.phase === "end") && q.explanation) {
+      this.ctx.fillStyle = "rgba(2,6,23,0.82)";
+      this.drawRoundedRect(290, 790, 1340, 112, 24);
+      this.ctx.fill();
+      this.ctx.strokeStyle = activeTheme.main;
+      this.ctx.lineWidth = 2;
+      this.ctx.stroke();
+      this.ctx.fillStyle = activeTheme.light;
+      this.ctx.font = '800 24px system-ui, -apple-system, sans-serif';
+      this.ctx.textAlign = "left";
+      this.ctx.fillText("WHY?", 330, 826);
+      this.ctx.fillStyle = "#fff";
+      this.ctx.font = '600 30px system-ui, -apple-system, sans-serif';
+      const explanationLines = this.getWrappedLines(q.explanation, 1120, 2);
+      explanationLines.forEach((line, index) => this.ctx.fillText(line, 455, 820 + index * 38));
+    }
+
+    if (this.phase === "timer" || this.phase === "reveal" || this.phase === "end") {
+      this.ctx.fillStyle = "rgba(255,255,255,0.88)";
+      this.ctx.font = '900 23px system-ui, -apple-system, sans-serif';
+      this.ctx.textAlign = "center";
+      this.ctx.fillText(this.phase === "timer" ? this.strings.thinking : this.strings.correctAnswer, w / 2, 958);
+      this.ctx.fillStyle = "rgba(255,255,255,0.14)";
+      this.drawRoundedRect(290, 986, 1340, 24, 12);
+      this.ctx.fill();
+      if (this.phase === "timer") {
+        const duration = this.quiz.timerDuration || 10;
+        const progress = 1 - Math.min(1, phaseTime / (duration * 1000));
+        if (progress > 0) {
+          const timerGradient = this.ctx.createLinearGradient(290, 0, 1630, 0);
+          timerGradient.addColorStop(0, activeTheme.light);
+          timerGradient.addColorStop(1, activeTheme.main);
+          this.ctx.fillStyle = timerGradient;
+          this.drawRoundedRect(290, 986, 1340 * progress, 24, 12);
+          this.ctx.fill();
+        }
+      }
+    }
+
+    if (this.quiz.watermark) {
+      this.ctx.fillStyle = "rgba(255,255,255,0.48)";
+      this.ctx.font = '700 23px monospace';
+      this.ctx.textAlign = "right";
+      this.ctx.fillText(this.quiz.watermark, w - 82, 84);
+    }
+  }
+
   drawFrame() {
     if (!this.isRecording || this.isPaused) return;
     
     const w = this.canvas.width;
     const h = this.canvas.height;
+
+    if (this.quiz.videoFormat === "youtube") {
+      this.drawYouTubeFrame();
+      return;
+    }
     
     // Background (Ken Burns: savol davomida sekin kattalashadi — statik his yo'qoladi)
     const bgImg = this.bgImages[this.currentQuestionIndex];
@@ -740,7 +993,15 @@ export class QuizRenderer {
       revealAudioPromise = playPCMAsync(q.correctAudioBase64, 24000, this.masterGain);
     }
 
-    await Promise.all([revealAudioPromise, this.sleep(2400)]);
+    const revealMinimumMs = this.quiz.videoFormat === "youtube" ? 5200 : 2400;
+    await Promise.all([revealAudioPromise, this.sleep(revealMinimumMs)]);
+    if (this.isCancelled) return;
+
+    const targetQuestionMs = getTargetQuestionDurationMs(this.quiz);
+    if (targetQuestionMs) {
+      const remainingMs = targetQuestionMs - (performance.now() - this.qStartTime) - 350;
+      if (remainingMs > 0) await this.sleep(remainingMs);
+    }
     if (this.isCancelled) return;
 
     this.setPhase('end');

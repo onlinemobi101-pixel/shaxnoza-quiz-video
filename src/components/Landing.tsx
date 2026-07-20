@@ -36,11 +36,11 @@ export function Landing({ onStart, onShowPricing }: LandingProps) {
               Quiz videolar
             </span>
             <br />
-            TikTok va Shorts uchun
+            YouTube, Shorts va Reels uchun
           </h1>
           <p className="text-slate-400 text-lg leading-relaxed mb-8 max-w-md">
             Mavzuni yozing — AI savollarni tuzadi, professional ovoz bilan o'qiydi va tayyor
-            vertikal videoni yuklab beradi. Montaj ham, studiya ham kerak emas.
+            16:9 uzun yoki 9:16 vertikal videoni yuklab beradi. Montaj ham, studiya ham kerak emas.
           </p>
           <div className="flex flex-col sm:flex-row gap-3">
             <button
@@ -133,7 +133,7 @@ export function Landing({ onStart, onShowPricing }: LandingProps) {
               icon: <Wand2 size={22} />,
               step: "1",
               title: "Mavzuni yozing",
-              text: "\"Tarix\", \"Kosmos\", \"Sport\"... AI 5 ta savolni variantlari va mos fon rasmlari bilan tuzib beradi.",
+              text: "\"English\", \"Business\", \"Science\"... AI 5–30 ta savolni variantlari, izohlari va mos fon rasmlari bilan tuzib beradi.",
               iconClass: "bg-indigo-500/15 text-indigo-300 border-indigo-500/20",
             },
             {
@@ -147,7 +147,7 @@ export function Landing({ onStart, onShowPricing }: LandingProps) {
               icon: <Download size={22} />,
               step: "3",
               title: "Videoni yuklab oling",
-              text: "1080×1920 vertikal video tayyor — TikTok, Reels va Shorts'ga to'g'ridan-to'g'ri joylang.",
+              text: "1920×1080 YouTube Long yoki 1080×1920 Shorts video tayyor — platformaga to'g'ridan-to'g'ri joylang.",
               iconClass: "bg-cyan-500/15 text-cyan-300 border-cyan-500/20",
             },
           ].map((item) => (
@@ -177,7 +177,7 @@ export function Landing({ onStart, onShowPricing }: LandingProps) {
           {[
             { icon: <Sparkles size={20} />, title: "AI savol generatori", text: "4 tilda (o'zbek, ingliz, rus, turk) savollar bir necha soniyada" },
             { icon: <Volume2 size={20} />, title: "AI suxandon ovozi", text: "5 xil professional ovoz — matnni tabiiy o'qib beradi" },
-            { icon: <Clapperboard size={20} />, title: "Tayyor video format", text: "1080×1920, taymer, effektlar, fon musiqasi — hammasi ichida" },
+            { icon: <Clapperboard size={20} />, title: "Ikki tayyor video format", text: "1920×1080 va 1080×1920, taymer, izohlar, effektlar va fon musiqasi" },
           ].map((f) => (
             <div key={f.title} className="flex items-start gap-4 bg-white/5 border border-white/10 rounded-2xl p-5">
               <div className="p-2.5 rounded-xl bg-emerald-500/15 text-emerald-300 border border-emerald-500/20 shrink-0">

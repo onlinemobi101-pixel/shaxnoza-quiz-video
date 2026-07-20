@@ -10,42 +10,9 @@ import { AuthModal } from "./components/AuthModal";
 import { PaywallModal } from "./components/PaywallModal";
 import { Landing } from "./components/Landing";
 import { Crown, LogIn, LogOut, Sparkles, Loader2, User as UserIcon, Shield } from "lucide-react";
+import { firstQuiz } from "./data/firstQuiz";
 
-const defaultQuiz: Quiz = {
-  title: "Tarix Testi",
-  themeColor: "emerald",
-  themePreset: "default",
-  timerStyle: "line",
-  transitionEffect: "slide",
-  questions: [
-    {
-      id: "1",
-      text: "Amir Temur davlatiga qaysi yilda asos solingan?",
-      options: ["1360-yil", "1370-yil", "1380-yil"],
-      correctOptionIndex: 1,
-      backgroundImage:
-        "https://images.unsplash.com/photo-1541359927273-d76820fc43f9?q=80&w=1000&auto=format&fit=crop",
-    },
-    {
-      id: "2",
-      text: "Mirzo Ulug'bek Samarqandda qanday inshoot qurdirgan?",
-      options: ["Registon madrasasi", "Rasadxona", "Bibixonim masjidi"],
-      correctOptionIndex: 1,
-      backgroundImage:
-        "https://images.unsplash.com/photo-1584286595398-a59f21d313f5?q=80&w=1000&auto=format&fit=crop",
-    },
-    {
-      id: "3",
-      text: "'Tib qonunlari' asari muallifi kim?",
-      options: ["Abu Rayhon Beruniy", "Al-Xorazmiy", "Ibn Sino"],
-      correctOptionIndex: 2,
-      backgroundImage:
-        "https://images.unsplash.com/photo-1585036156171-384164a8c675?q=80&w=1000&auto=format&fit=crop",
-    },
-  ],
-};
-
-const AUTOSAVE_KEY = "qv_autosaved_quiz";
+const AUTOSAVE_KEY = "qv_autosaved_quiz_v3";
 
 function getEffectiveRole(
   role: UserProfile["role"] | undefined,
@@ -67,13 +34,16 @@ export default function App() {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed && Array.isArray(parsed.questions) && parsed.questions.length > 0) {
-          return parsed as Quiz;
+          const isLegacyStarterQuiz =
+            parsed.title === "English Knowledge Challenge" &&
+            parsed.questions.length <= 3;
+          if (!isLegacyStarterQuiz) return parsed as Quiz;
         }
       }
     } catch (e) {
       console.warn("Autosave restore failed:", e);
     }
-    return defaultQuiz;
+    return firstQuiz;
   });
   // Birinchi tashrifda landing sahifani ko'rsatamiz
   const [mode, setMode] = useState<"landing" | "editor" | "player" | "admin">(() =>
@@ -268,7 +238,7 @@ export default function App() {
           </div>
           <div>
             <h2 className="text-md font-display font-bold text-white tracking-wide">Quiz Video Generator</h2>
-            <p className="text-[10px] text-slate-400 font-medium">Frictionless TikTok, Shorts & Reels Creator</p>
+            <p className="text-[10px] text-slate-400 font-medium">YouTube Long, Shorts & Reels Creator</p>
           </div>
         </button>
 

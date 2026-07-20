@@ -14,7 +14,7 @@ export interface VideoStrings {
   outroSubtitle: string;
   seconds: string; // preview taymeridagi "Soniya"
   ready: string; // preview taymeridagi "Tayyor"
-  ttsCorrect: (letter: string, option: string) => string; // TTS o'qiydigan javob jumlasi
+  ttsCorrect: (letter: string, option: string, explanation?: string) => string; // TTS o'qiydigan javob va izoh
 }
 
 const STRINGS: Record<QuizLanguage, VideoStrings> = {
@@ -28,7 +28,8 @@ const STRINGS: Record<QuizLanguage, VideoStrings> = {
     outroSubtitle: "Kanalga obuna bo'lishni unutmang",
     seconds: "Soniya",
     ready: "Tayyor",
-    ttsCorrect: (letter, option) => `To'g'ri javob: ${letter}, ${option}.`,
+    ttsCorrect: (letter, option, explanation) =>
+      `To'g'ri javob: ${letter}, ${option}.${explanation ? ` ${explanation}` : ""}`,
   },
   en: {
     questionBadge: "QUESTION",
@@ -40,7 +41,8 @@ const STRINGS: Record<QuizLanguage, VideoStrings> = {
     outroSubtitle: "Don't forget to subscribe",
     seconds: "Seconds",
     ready: "Done",
-    ttsCorrect: (letter, option) => `The correct answer is ${letter}, ${option}.`,
+    ttsCorrect: (letter, option, explanation) =>
+      `The correct answer is ${letter}, ${option}.${explanation ? ` ${explanation}` : ""}`,
   },
   ru: {
     questionBadge: "ВОПРОС",
@@ -52,7 +54,8 @@ const STRINGS: Record<QuizLanguage, VideoStrings> = {
     outroSubtitle: "Не забудь подписаться на канал",
     seconds: "Секунды",
     ready: "Готово",
-    ttsCorrect: (letter, option) => `Правильный ответ: ${letter}, ${option}.`,
+    ttsCorrect: (letter, option, explanation) =>
+      `Правильный ответ: ${letter}, ${option}.${explanation ? ` ${explanation}` : ""}`,
   },
   tr: {
     questionBadge: "SORU",
@@ -64,7 +67,8 @@ const STRINGS: Record<QuizLanguage, VideoStrings> = {
     outroSubtitle: "Kanala abone olmayı unutma",
     seconds: "Saniye",
     ready: "Hazır",
-    ttsCorrect: (letter, option) => `Doğru cevap: ${letter}, ${option}.`,
+    ttsCorrect: (letter, option, explanation) =>
+      `Doğru cevap: ${letter}, ${option}.${explanation ? ` ${explanation}` : ""}`,
   },
 };
 

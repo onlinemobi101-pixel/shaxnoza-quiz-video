@@ -3,6 +3,7 @@ export interface Question {
   text: string;
   options: string[];
   correctOptionIndex: number;
+  explanation?: string;
   backgroundImage: string;
   audioBase64?: string;
   correctAudioBase64?: string;
@@ -21,6 +22,8 @@ export interface Quiz {
   timerStyle?: 'circular' | 'line' | 'digital';
   transitionEffect?: 'slide' | 'zoom' | 'fade';
   language?: 'uz' | 'en' | 'ru' | 'tr';
+  videoFormat?: 'vertical' | 'youtube';
+  targetDuration?: 8 | 10 | 12;
 }
 
 export interface UserProfile {

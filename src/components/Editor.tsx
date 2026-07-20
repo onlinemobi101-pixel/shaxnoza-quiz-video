@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { generateTTS, generateTTSBatch } from "../services/tts";
 import { getVideoStrings } from "../services/i18n";
+import { getLongVideoPreset, LONG_VIDEO_PRESETS } from "../services/videoPlan";
 import { generateQuizAI, analyzeQuestionsForImages, getUnsplashImageForKeyword } from "../services/ai";
 import { QuizRenderer } from "../services/renderer";
 import { consumeVideoCredit, VideoCreditResult } from "../services/access";
@@ -53,6 +54,8 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
   );
   const [showSettings, setShowSettings] = useState(false);
   const hasPremiumAccess = userProfile?.role === "premium" || userProfile?.role === "admin";
+  const isYouTubeFormat = quiz.videoFormat === "youtube";
+  const longVideoPreset = getLongVideoPreset(quiz.targetDuration);
 
   // Ovozni tinglash (play) uchun holat
   const [playingAudioId, setPlayingAudioId] = useState<string | null>(null);
@@ -128,7 +131,11 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
         }
       } else {
         const letters = ["A", "B", "C", "D"];
-        const correctTextToRead = getVideoStrings(quiz.language).ttsCorrect(letters[q.correctOptionIndex], q.options[q.correctOptionIndex]);
+        const correctTextToRead = getVideoStrings(quiz.language).ttsCorrect(
+          letters[q.correctOptionIndex],
+          q.options[q.correctOptionIndex],
+          q.explanation,
+        );
         const correctAudioBase64 = await generateTTS(correctTextToRead, quiz.voiceName || "Kore");
         if (correctAudioBase64) {
           updateQuestion(qIndex, { ...q, correctAudioBase64 });
@@ -158,6 +165,7 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
           text: "Yangi savol?",
           options: ["Variant A", "Variant B", "Variant C"],
           correctOptionIndex: 0,
+          explanation: "",
           backgroundImage:
             "https://images.unsplash.com/photo-1505506874110-6a7a48e14c49?q=80&w=1000&auto=format&fit=crop",
         },
@@ -205,7 +213,11 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
     const letters = ['A', 'B', 'C', 'D'];
     // Faqat savol o'qiladi — variantlar ekranda; video sur'ati tez qoladi
     const textToRead = q.text;
-    const correctTextToRead = getVideoStrings(quiz.language).ttsCorrect(letters[q.correctOptionIndex], q.options[q.correctOptionIndex]);
+    const correctTextToRead = getVideoStrings(quiz.language).ttsCorrect(
+      letters[q.correctOptionIndex],
+      q.options[q.correctOptionIndex],
+      q.explanation,
+    );
 
     try {
       // Ikkala klip bitta so'rovda — ilgarigi 4s kutish shart emas.
@@ -244,10 +256,18 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
     setIsGeneratingAI(true);
     
     try {
-      const newQuestions = await generateQuizAI(aiTopic, selectedLanguage);
+      const questionCount = isYouTubeFormat ? longVideoPreset.questionCount : 5;
+      const newQuestions = await generateQuizAI(aiTopic, selectedLanguage, questionCount);
       if (newQuestions && newQuestions.length > 0) {
+        const generatedQuiz: Quiz = {
+          ...quiz,
+          title: aiTopic,
+          questions: newQuestions,
+          language: selectedLanguage,
+          timerDuration: isYouTubeFormat ? longVideoPreset.timerSeconds : quiz.timerDuration,
+        };
         // Avval savollarni ekranga chiqaramiz
-        setQuiz({ ...quiz, title: aiTopic, questions: newQuestions, language: selectedLanguage });
+        setQuiz(generatedQuiz);
         
         // Keyin barcha savollar uchun ovozlarni bitta batch so'rovda yaratamiz
         setGeneratingAudioId("batch");
@@ -257,7 +277,7 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
           const vs = getVideoStrings(selectedLanguage);
           const items = newQuestions.flatMap((q) => [
             { text: q.text },
-            { text: vs.ttsCorrect(letters[q.correctOptionIndex], q.options[q.correctOptionIndex]) },
+            { text: vs.ttsCorrect(letters[q.correctOptionIndex], q.options[q.correctOptionIndex], q.explanation) },
           ]);
           const audios = await generateTTSBatch(items, quiz.voiceName || "Kore");
           const withAudio = newQuestions.map((q, i) => ({
@@ -265,7 +285,7 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
             audioBase64: audios[2 * i] || undefined,
             correctAudioBase64: audios[2 * i + 1] || undefined,
           }));
-          setQuiz({ ...quiz, title: aiTopic, questions: withAudio, language: selectedLanguage });
+          setQuiz({ ...generatedQuiz, questions: withAudio });
         } catch (ttsErr: any) {
           // Savollar allaqachon yaratildi — ovoz xatosi ularni yo'qotmasin
           const code = ttsErr?.message || "";
@@ -345,7 +365,7 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
       const vs = getVideoStrings(quiz.language);
       const items = quiz.questions.flatMap((q) => [
         { text: q.text },
-        { text: vs.ttsCorrect(letters[q.correctOptionIndex], q.options[q.correctOptionIndex]) },
+        { text: vs.ttsCorrect(letters[q.correctOptionIndex], q.options[q.correctOptionIndex], q.explanation) },
       ]);
       const audios = await generateTTSBatch(items, quiz.voiceName || "Kore");
       const updatedQuestions = quiz.questions.map((q, i) => ({
@@ -397,6 +417,7 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
         a.href = url;
         a.download = `${quiz.title || 'quiz'}.${extension}`;
         a.click();
+        window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
         setIsExporting(false);
 
       };
@@ -472,6 +493,7 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
             text: q.text,
             options: q.options,
             correctOptionIndex: correctOptionIndex,
+            explanation: q.explanation || "",
             backgroundImage: q.backgroundImage || "https://images.unsplash.com/photo-1505506874110-6a7a48e14c49?q=80&w=1000&auto=format&fit=crop",
             audioBase64: q.audioBase64,
             correctAudioBase64: q.correctAudioBase64,
@@ -491,6 +513,8 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
           timerDuration: importedQuiz.timerDuration || quiz.timerDuration || 5,
           questions: validatedQuestions,
           language: importedQuiz.language || quiz.language || "uz",
+          videoFormat: importedQuiz.videoFormat || quiz.videoFormat || "vertical",
+          targetDuration: importedQuiz.targetDuration || quiz.targetDuration || 8,
         };
 
         setQuiz(newQuiz);
@@ -511,18 +535,22 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
       bgmEnabled: true,
       bgmType: "calm",
       timerDuration: 5,
+      videoFormat: "youtube",
+      targetDuration: 8,
       watermark: "@myusername",
       questions: [
         {
           text: "O'zbekiston Respublikasining poytaxti qaysi shahar?",
           options: ["Toshkent", "Samarqand", "Buxoro", "Xiva"],
           correctOptionIndex: 0,
+          explanation: "Tashkent has been the capital of Uzbekistan since 1930.",
           backgroundImage: "https://images.unsplash.com/photo-1505506874110-6a7a48e14c49?q=80&w=1000&auto=format&fit=crop"
         },
         {
           text: "Yer yuzida nechta okean bor?",
           options: ["3 ta", "4 ta", "5 ta", "6 ta"],
           correctOptionIndex: 2,
+          explanation: "Earth has five recognized oceans, including the Southern Ocean.",
           backgroundImage: "https://images.unsplash.com/photo-1505506874110-6a7a48e14c49?q=80&w=1000&auto=format&fit=crop"
         }
       ]
@@ -575,7 +603,8 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
           <h2 className="text-xl font-display font-bold text-indigo-100 tracking-tight">Savollar tayyorlang</h2>
         </div>
         <p className="text-sm text-indigo-200/60 mb-5 relative z-10 leading-relaxed">
-          Mavzuni yozing — AI 5 ta savolni rasmlari bilan avtomatik tuzib beradi. Yoki pastda savollarni qo'lda kiriting.
+          Mavzuni yozing — AI {isYouTubeFormat ? `${longVideoPreset.questionCount} ta savol, javob izohlari` : "5 ta savol"} va rasmlarni avtomatik tuzib beradi.
+          Yoki pastda savollarni qo'lda kiriting.
         </p>
         <div className="flex flex-col md:flex-row gap-3 relative z-10">
           <input
@@ -660,6 +689,78 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
         </button>
         {showSettings && (
           <div className="p-6 pt-2 space-y-4 border-t border-white/5">
+            <div className="pt-4">
+              <label className="block text-sm font-medium text-neutral-300 mb-3">
+                Video formati
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {([
+                  { id: "vertical", title: "Shorts / Reels", subtitle: "1080×1920 · 9:16" },
+                  { id: "youtube", title: "YouTube Long", subtitle: "1920×1080 · 16:9" },
+                ] as const).map((format) => (
+                  <button
+                    key={format.id}
+                    type="button"
+                    onClick={() => {
+                      if (format.id === "youtube") {
+                        const preset = getLongVideoPreset(quiz.targetDuration);
+                        setQuiz({
+                          ...quiz,
+                          videoFormat: "youtube",
+                          targetDuration: preset.durationMinutes,
+                          timerDuration: preset.timerSeconds,
+                        });
+                      } else {
+                        setQuiz({ ...quiz, videoFormat: "vertical", timerDuration: 5 });
+                      }
+                    }}
+                    className={`rounded-2xl border p-4 text-left transition-all cursor-pointer ${
+                      (quiz.videoFormat || "vertical") === format.id
+                        ? "bg-emerald-500/15 border-emerald-500 text-white ring-2 ring-emerald-500/20"
+                        : "bg-black/30 border-white/10 text-neutral-300 hover:border-white/20"
+                    }`}
+                  >
+                    <span className="block text-sm font-black">{format.title}</span>
+                    <span className="block text-xs text-neutral-400 mt-1">{format.subtitle}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {isYouTubeFormat && (
+              <div className="pt-4 border-t border-white/10">
+                <label className="block text-sm font-medium text-neutral-300 mb-3">
+                  Maqsadli davomiylik
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {LONG_VIDEO_PRESETS.map((preset) => (
+                    <button
+                      key={preset.durationMinutes}
+                      type="button"
+                      onClick={() => setQuiz({
+                        ...quiz,
+                        targetDuration: preset.durationMinutes,
+                        timerDuration: preset.timerSeconds,
+                      })}
+                      className={`rounded-xl border px-2 py-3 text-center transition-all cursor-pointer ${
+                        (quiz.targetDuration || 8) === preset.durationMinutes
+                          ? "bg-cyan-500/15 border-cyan-400 text-cyan-200 ring-2 ring-cyan-500/20"
+                          : "bg-black/30 border-white/10 text-neutral-400 hover:text-white"
+                      }`}
+                    >
+                      <span className="block text-lg font-black">{preset.durationMinutes} min</span>
+                      <span className="block text-[10px] mt-1">
+                        {preset.questionCount} savol · {preset.timerSeconds}s
+                      </span>
+                    </button>
+                  ))}
+                </div>
+                <p className="mt-2 text-xs text-neutral-500">
+                  AI savollar soni va taymerni shu rejaga moslaydi; javob izohi qolgan vaqtni tabiiy to‘ldiradi.
+                </p>
+              </div>
+            )}
+
             <div>
               <label className="block text-sm font-medium text-neutral-300 mb-2 flex items-center justify-between">
                 <span>Suxandon ovozi (AI)</span>
@@ -699,10 +800,13 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
               </label>
               <input
                 type="number"
-                min="1"
-                max="30"
+                min={isYouTubeFormat ? 8 : 1}
+                max={isYouTubeFormat ? 12 : 30}
                 value={quiz.timerDuration || 5}
-                onChange={(e) => setQuiz({ ...quiz, timerDuration: parseInt(e.target.value) || 5 })}
+                onChange={(e) => {
+                  const fallback = isYouTubeFormat ? longVideoPreset.timerSeconds : 5;
+                  setQuiz({ ...quiz, timerDuration: parseInt(e.target.value) || fallback });
+                }}
                 className="w-full bg-black/40 backdrop-blur-md border border-white/10 rounded-xl px-4 py-3.5 text-white focus:outline-none focus:border-emerald-500/50 focus:ring-2 focus:ring-emerald-500/20 transition-all font-mono mb-4"
               />
 
@@ -1050,6 +1154,23 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
                     </button>
                   )}
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-neutral-300 mb-2">
+                  Javobdan keyingi qisqa tushuntirish
+                </label>
+                <textarea
+                  value={q.explanation || ""}
+                  onChange={(e) => updateQuestion(qIndex, { ...q, explanation: e.target.value })}
+                  rows={2}
+                  maxLength={240}
+                  className="w-full resize-y bg-black/40 backdrop-blur-md border border-white/10 rounded-xl px-4 py-3.5 text-white font-medium focus:outline-none focus:border-emerald-500/50 focus:ring-2 focus:ring-emerald-500/20 transition-all placeholder:text-neutral-600"
+                  placeholder="Example: The Pacific is the world's largest and deepest ocean."
+                />
+                <p className="mt-1.5 text-xs text-neutral-500">
+                  Bu matn javob ochilganda ekranda chiqadi va AI ovoz bilan o‘qiladi.
+                </p>
               </div>
 
               <div>
