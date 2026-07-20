@@ -11,6 +11,12 @@ import { PaywallModal } from "./components/PaywallModal";
 import { Landing } from "./components/Landing";
 import { Crown, LogIn, LogOut, Sparkles, Loader2, User as UserIcon, Shield } from "lucide-react";
 import { firstQuiz } from "./data/firstQuiz";
+import {
+  getPlanLimit,
+  getPlanUsage,
+  isCurrentPlanCycle,
+  PLAN_EXPORT_LIMITS,
+} from "./services/plans";
 
 const AUTOSAVE_KEY = "qv_autosaved_quiz_v3";
 
@@ -24,6 +30,25 @@ function getEffectiveRole(
   if (role !== "premium") return role || "free";
   const expiresAt = premiumUntil ? Date.parse(premiumUntil) : Number.NaN;
   return Number.isFinite(expiresAt) && expiresAt > Date.now() ? "premium" : "free";
+}
+
+function getProfileQuota(
+  data: Record<string, any>,
+  role: UserProfile["role"],
+): Pick<UserProfile, "quotaCycle" | "quotaUsed" | "quotaLimit"> {
+  const quotaCycle = typeof data.quotaCycle === "string" ? data.quotaCycle : null;
+  const cycleMatchesRole = isCurrentPlanCycle(role, quotaCycle);
+  const quotaLimit = role === "admin" ? null : PLAN_EXPORT_LIMITS[role];
+  const legacyUsed = role === "premium" || role === "admin"
+    ? 0
+    : Math.min(Number(data.videosCreated) || 0, quotaLimit || 0);
+  return {
+    quotaCycle,
+    quotaUsed: cycleMatchesRole && Number.isFinite(data.quotaUsed)
+      ? Math.max(0, Number(data.quotaUsed))
+      : legacyUsed,
+    quotaLimit,
+  };
 }
 
 export default function App() {
@@ -86,7 +111,13 @@ export default function App() {
     if (userProfile?.role !== "premium" || !userProfile.premiumUntil) return;
     const interval = window.setInterval(() => {
       if (Date.parse(userProfile.premiumUntil!) <= Date.now()) {
-        setUserProfile((current) => current?.role === "premium" ? { ...current, role: "free" } : current);
+        setUserProfile((current) => current?.role === "premium" ? {
+          ...current,
+          role: "free",
+          quotaCycle: null,
+          quotaUsed: Math.min(current.videosCreated, 1),
+          quotaLimit: 1,
+        } : current);
       }
     }, 60_000);
     return () => window.clearInterval(interval);
@@ -101,6 +132,9 @@ export default function App() {
       role: "free",
       videosCreated: 0,
       premiumUntil: null,
+      quotaCycle: null,
+      quotaUsed: 0,
+      quotaLimit: 1,
     });
 
     // Safety timeout: If Firebase auth doesn't resolve in 5 seconds, unblock the UI anyway
@@ -148,6 +182,7 @@ export default function App() {
               const data = docSnap.data();
               const premiumUntil = data.premiumUntil || null;
               const role = getEffectiveRole(data.role, premiumUntil, currentUser.email);
+              const quota = getProfileQuota(data, role);
               
               // Automatically elevate owner email to admin in Firestore
               const adminEmails = ["onlinemobi101@gmail.com", "optombazar9@gmail.com"];
@@ -165,14 +200,20 @@ export default function App() {
                 role,
                 videosCreated: data.videosCreated || 0,
                 premiumUntil,
+                ...quota,
               });
             } else {
               // Profile document doesn't exist yet, create it
               const adminEmails = ["onlinemobi101@gmail.com", "optombazar9@gmail.com"];
+              const defaultRole: UserProfile["role"] =
+                currentUser.email && adminEmails.includes(currentUser.email) ? "admin" : "free";
               const defaultProfile = {
-                role: (currentUser.email && adminEmails.includes(currentUser.email)) ? "admin" : "free",
+                role: defaultRole,
                 videosCreated: 0,
                 premiumUntil: null,
+                quotaCycle: null,
+                quotaUsed: 0,
+                quotaLimit: defaultRole === "admin" ? null : PLAN_EXPORT_LIMITS[defaultRole],
                 email: currentUser.email,
                 createdAt: new Date().toISOString()
               };
@@ -198,6 +239,9 @@ export default function App() {
               role: "free",
               videosCreated: 0,
               premiumUntil: null,
+              quotaCycle: null,
+              quotaUsed: 0,
+              quotaLimit: 1,
             });
             setIsAuthLoading(false);
           }
@@ -252,20 +296,25 @@ export default function App() {
           ) : user ? (
             <div className="flex flex-wrap items-center gap-3">
               {/* Badge: Free vs Premium vs Pack10 */}
-              {userProfile?.role === "premium" ? (
+              {userProfile?.role === "admin" ? (
+                <div className="flex items-center gap-1.5 bg-amber-500/10 border border-amber-500/30 text-amber-400 px-3 py-1.5 rounded-xl text-xs font-semibold">
+                  <Shield size={14} className="text-amber-400" />
+                  Admin (cheklanmagan)
+                </div>
+              ) : userProfile?.role === "premium" ? (
                 <div className="flex items-center gap-1.5 bg-gradient-to-r from-amber-500/10 to-amber-600/10 border border-amber-500/30 text-amber-400 px-3 py-1.5 rounded-xl text-xs font-semibold shadow-sm">
                   <Crown size={14} className="fill-current animate-pulse" />
-                  Premium (Cheksiz)
+                  Premium ({getPlanUsage(userProfile)}/{getPlanLimit(userProfile)} video)
                 </div>
               ) : userProfile?.role === "pack10" ? (
                 <div className="flex items-center gap-1.5 bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 px-3 py-1.5 rounded-xl text-xs font-semibold">
                   <Sparkles size={14} className="text-cyan-400" />
-                  Paket ({userProfile?.videosCreated || 0}/10 video)
+                  Paket ({getPlanUsage(userProfile)}/{getPlanLimit(userProfile)} video)
                 </div>
               ) : (
                 <div className="flex items-center gap-1.5 bg-slate-950 border border-slate-800 text-slate-300 px-3 py-1.5 rounded-xl text-xs font-semibold">
                   <Sparkles size={14} className="text-emerald-400" />
-                  Bepul ({userProfile?.videosCreated || 0}/1 video)
+                  Bepul ({getPlanUsage(userProfile)}/{getPlanLimit(userProfile)} video)
                 </div>
               )}
 
@@ -371,6 +420,9 @@ export default function App() {
                 role: result.role,
                 videosCreated: result.videosCreated,
                 premiumUntil: result.premiumUntil,
+                quotaCycle: result.quotaCycle,
+                quotaUsed: result.quotaUsed,
+                quotaLimit: result.quotaLimit,
               } : null);
             }}
           />

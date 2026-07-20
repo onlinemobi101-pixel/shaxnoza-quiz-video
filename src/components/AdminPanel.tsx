@@ -2,6 +2,12 @@ import React, { useState, useEffect } from "react";
 import { collection, getDocs, doc, updateDoc } from "firebase/firestore";
 import { db } from "../services/firebase";
 import { UserProfile } from "../types";
+import { AdminUsageSummary, getAdminUsageSummary } from "../services/access";
+import {
+  getPlanCycle,
+  isCurrentPlanCycle,
+  PLAN_EXPORT_LIMITS,
+} from "../services/plans";
 import {
   ArrowLeft,
   Shield,
@@ -26,12 +32,14 @@ export function AdminPanel({ onBack, currentUserId }: AdminPanelProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [usageSummary, setUsageSummary] = useState<AdminUsageSummary | null>(null);
 
   // Temporary edit states per user ID
   const [editStates, setEditStates] = useState<{
     [userId: string]: {
       role: 'free' | 'premium' | 'pack10' | 'admin';
       videosCreated: number;
+      quotaUsed: number;
       premiumUntil: string;
     };
   }>({});
@@ -45,12 +53,24 @@ export function AdminPanel({ onBack, currentUserId }: AdminPanelProps) {
 
       querySnapshot.forEach((docSnap) => {
         const data = docSnap.data();
+        const role = (data.role || "free") as UserProfile["role"];
+        const videosCreated = Number(data.videosCreated) || 0;
+        const quotaCycle = typeof data.quotaCycle === "string" ? data.quotaCycle : null;
+        const quotaLimit = role === "admin" ? null : PLAN_EXPORT_LIMITS[role];
+        const legacyQuotaUsed = role === "premium" || role === "admin"
+          ? 0
+          : Math.min(videosCreated, quotaLimit || 0);
         const user: UserProfile = {
           uid: docSnap.id,
           email: data.email || null,
-          role: data.role || "free",
-          videosCreated: data.videosCreated || 0,
+          role,
+          videosCreated,
           premiumUntil: data.premiumUntil || null,
+          quotaCycle,
+          quotaUsed: isCurrentPlanCycle(role, quotaCycle) && Number.isFinite(data.quotaUsed)
+            ? data.quotaUsed
+            : legacyQuotaUsed,
+          quotaLimit,
         };
         fetchedUsers.push(user);
 
@@ -67,12 +87,16 @@ export function AdminPanel({ onBack, currentUserId }: AdminPanelProps) {
         initialEditStates[docSnap.id] = {
           role: user.role,
           videosCreated: user.videosCreated,
+          quotaUsed: user.quotaUsed,
           premiumUntil: dateStr,
         };
       });
 
       setUsers(fetchedUsers);
       setEditStates(initialEditStates);
+      getAdminUsageSummary()
+        .then(setUsageSummary)
+        .catch((summaryError) => console.error("Usage summary yuklanmadi:", summaryError));
     } catch (err) {
       console.error("Foydalanuvchilarni yuklashda xatolik:", err);
       showStatus("error", "Foydalanuvchilar ro'yxatini yuklab bo'lmadi. Firestore qoidalarini tekshiring.");
@@ -107,9 +131,13 @@ export function AdminPanel({ onBack, currentUserId }: AdminPanelProps) {
     setUpdatingUserId(userId);
     try {
       const userRef = doc(db, "users", userId);
+      const original = users.find((user) => user.uid === userId);
+      const roleChanged = original?.role !== state.role;
       const updateData: any = {
         role: state.role,
         videosCreated: Number(state.videosCreated),
+        quotaUsed: Math.max(0, Number(state.quotaUsed) || 0),
+        quotaLimit: state.role === "admin" ? null : PLAN_EXPORT_LIMITS[state.role],
       };
 
       if (state.role === "premium") {
@@ -127,6 +155,20 @@ export function AdminPanel({ onBack, currentUserId }: AdminPanelProps) {
         handleFieldChange(userId, "premiumUntil", "");
       }
 
+      const monthlyCycleChanged = state.role === "premium" &&
+        !isCurrentPlanCycle(state.role, original?.quotaCycle);
+      if (roleChanged || monthlyCycleChanged) {
+        updateData.quotaUsed = 0;
+        updateData.quotaCycle = state.role === "pack10"
+          ? `pack10:${Date.now()}`
+          : getPlanCycle(state.role);
+        handleFieldChange(userId, "quotaUsed", 0);
+      } else if (!original?.quotaCycle) {
+        updateData.quotaCycle = getPlanCycle(state.role);
+      } else {
+        updateData.quotaCycle = original.quotaCycle;
+      }
+
       await updateDoc(userRef, updateData);
       
       // Update local state users list
@@ -138,6 +180,9 @@ export function AdminPanel({ onBack, currentUserId }: AdminPanelProps) {
                 role: state.role,
                 videosCreated: Number(state.videosCreated),
                 premiumUntil: updateData.premiumUntil,
+                quotaCycle: updateData.quotaCycle,
+                quotaUsed: updateData.quotaUsed,
+                quotaLimit: updateData.quotaLimit,
               }
             : u
         )
@@ -217,6 +262,65 @@ export function AdminPanel({ onBack, currentUserId }: AdminPanelProps) {
         </div>
       )}
 
+      {usageSummary && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+            <p className="text-[10px] uppercase tracking-wider text-neutral-500">Oylik eksport</p>
+            <p className="mt-1 text-2xl font-black text-white">{usageSummary.successfulExports}</p>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+            <p className="text-[10px] uppercase tracking-wider text-neutral-500">O'rtacha / foydalanuvchi</p>
+            <p className="mt-1 text-2xl font-black text-cyan-400">
+              {usageSummary.averageExportsPerUser.toFixed(1)}
+            </p>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+            <p className="text-[10px] uppercase tracking-wider text-neutral-500">Savol AI</p>
+            <p className="mt-1 text-2xl font-black text-violet-400">
+              ${usageSummary.questionAiCostUsd.toFixed(4)}
+            </p>
+            <p className="text-[10px] text-neutral-500">{usageSummary.generatedQuestions} savol</p>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+            <p className="text-[10px] uppercase tracking-wider text-neutral-500">Ovoz AI</p>
+            <p className="mt-1 text-2xl font-black text-cyan-400">
+              ${usageSummary.voiceAiCostUsd.toFixed(4)}
+            </p>
+            <p className="text-[10px] text-neutral-500">{usageSummary.ttsCharacters} belgi</p>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+            <p className="text-[10px] uppercase tracking-wider text-neutral-500">Rasm</p>
+            <p className="mt-1 text-2xl font-black text-emerald-400">
+              ${usageSummary.imageAiCostUsd.toFixed(4)}
+            </p>
+            <p className="text-[10px] text-neutral-500">{usageSummary.imageLookups} rasm</p>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+            <p className="text-[10px] uppercase tracking-wider text-neutral-500">Brauzer render</p>
+            <p className="mt-1 text-2xl font-black text-white">
+              ${usageSummary.browserRenderCostUsd.toFixed(4)}
+            </p>
+            <p className="text-[10px] text-neutral-500">Server ishlatilmaydi</p>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+            <p className="text-[10px] uppercase tracking-wider text-neutral-500">Server storage</p>
+            <p className="mt-1 text-2xl font-black text-white">
+              ${usageSummary.serverStorageCostUsd.toFixed(4)}
+            </p>
+            <p className="text-[10px] text-neutral-500">Video saqlanmaydi</p>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+            <p className="text-[10px] uppercase tracking-wider text-neutral-500">Jami / eksport</p>
+            <p className="mt-1 text-2xl font-black text-amber-400">
+              ${usageSummary.estimatedTotalCostPerExportUsd.toFixed(4)}
+            </p>
+            <p className="text-[10px] text-neutral-500">
+              Xatolar: {usageSummary.failedExports}
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Search Input Box */}
       <div className="bg-white/5 border border-white/10 rounded-3xl p-5 mb-8 shadow-xl flex items-center gap-4">
         <Search className="text-neutral-400 shrink-0" size={22} />
@@ -256,7 +360,7 @@ export function AdminPanel({ onBack, currentUserId }: AdminPanelProps) {
                 <tr className="border-b border-white/10 bg-white/[0.02] text-xs font-bold text-neutral-400 uppercase tracking-wider">
                   <th className="py-4 px-6">Foydalanuvchi</th>
                   <th className="py-4 px-6">Tarif (Rol)</th>
-                  <th className="py-4 px-6 text-center">Yaratilgan videolar</th>
+                  <th className="py-4 px-6 text-center">Sikl / jami eksport</th>
                   <th className="py-4 px-6">Premium Muddati</th>
                   <th className="py-4 px-6 text-right">Amal</th>
                 </tr>
@@ -266,6 +370,7 @@ export function AdminPanel({ onBack, currentUserId }: AdminPanelProps) {
                   const state = editStates[u.uid] || {
                     role: u.role,
                     videosCreated: u.videosCreated,
+                    quotaUsed: u.quotaUsed,
                     premiumUntil: "",
                   };
                   const isCurrent = u.uid === currentUserId;
@@ -308,15 +413,32 @@ export function AdminPanel({ onBack, currentUserId }: AdminPanelProps) {
 
                       {/* Videos Created input */}
                       <td className="py-4 px-6 text-center">
-                        <div className="flex items-center justify-center gap-2">
-                          <Video size={14} className="text-neutral-500" />
-                          <input
-                            type="number"
-                            min="0"
-                            value={state.videosCreated}
-                            onChange={(e) => handleFieldChange(u.uid, "videosCreated", parseInt(e.target.value) || 0)}
-                            className="w-16 bg-black/60 border border-white/10 rounded-xl px-2 py-1.5 text-center text-sm font-mono text-white focus:outline-none focus:border-amber-500/50"
-                          />
+                        <div className="flex flex-col items-center gap-1">
+                          <div className="flex items-center justify-center gap-2">
+                            <Video size={14} className="text-neutral-500" />
+                            <input
+                              type="number"
+                              min="0"
+                              value={state.quotaUsed}
+                              onChange={(e) => handleFieldChange(u.uid, "quotaUsed", parseInt(e.target.value) || 0)}
+                              className="w-16 bg-black/60 border border-white/10 rounded-xl px-2 py-1.5 text-center text-sm font-mono text-white focus:outline-none focus:border-amber-500/50"
+                              title="Joriy tarif siklida ishlatilgan eksportlar"
+                            />
+                            <span className="text-xs text-neutral-500">
+                              / {state.role === "admin" ? "∞" : PLAN_EXPORT_LIMITS[state.role]}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1 text-[10px] text-neutral-500">
+                            <span>Jami:</span>
+                            <input
+                              type="number"
+                              min="0"
+                              value={state.videosCreated}
+                              onChange={(e) => handleFieldChange(u.uid, "videosCreated", parseInt(e.target.value) || 0)}
+                              className="w-12 bg-transparent text-center font-mono text-neutral-400 focus:outline-none"
+                              title="Muvaffaqiyatli eksportlarning jami soni"
+                            />
+                          </div>
                         </div>
                       </td>
 

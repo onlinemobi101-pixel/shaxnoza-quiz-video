@@ -4,6 +4,16 @@ import { GoogleGenAI, Type, Modality } from "@google/genai";
 import type { IncomingMessage, ServerResponse } from "http";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { adminAuth, adminDb } from "./firebase-admin.js";
+import {
+  AuthenticatedUser,
+  UsageError,
+  completeVideoExport,
+  failVideoExport,
+  getAdminUsageSummary,
+  recordModelUsage,
+  requirePlanAccess,
+  reserveVideoExport,
+} from "./usage.js";
 
 const CURATED_IMAGES: Record<string, string> = {
   history: "https://images.unsplash.com/photo-1461360370896-922624d12aa1?q=80&w=1080&auto=format&fit=crop",
@@ -44,13 +54,16 @@ const CURATED_IMAGES: Record<string, string> = {
 
 const FALLBACK_IMAGE = "https://images.unsplash.com/photo-1505506874110-6a7a48e14c49?q=80&w=1080&auto=format&fit=crop";
 
-// Firebase autentifikatsiya va profil tekshiruvi (TTS faqat ruxsatli foydalanuvchilarga)
-const OWNER_EMAIL = "onlinemobi101@gmail.com";
-
-type Role = "free" | "premium" | "pack10" | "admin";
-type ApiAction = "generateQuiz" | "analyzeImages" | "imageKeyword" | "tts" | "ttsBatch" | "consumeVideoCredit";
-type AuthenticatedUser = { uid: string; email?: string };
-type UserProfile = { role: Role; videosCreated: number; premiumUntil: string | null };
+type ApiAction =
+  | "generateQuiz"
+  | "analyzeImages"
+  | "imageKeyword"
+  | "tts"
+  | "ttsBatch"
+  | "reserveVideoExport"
+  | "completeVideoExport"
+  | "failVideoExport"
+  | "getAdminUsageSummary";
 
 class ApiError extends Error {
   constructor(public status: number, message: string) {
@@ -64,7 +77,10 @@ const RATE_LIMITS: Record<ApiAction, { max: number; windowMs: number }> = {
   imageKeyword: { max: 40, windowMs: 60 * 60 * 1000 },
   tts: { max: 40, windowMs: 10 * 60 * 1000 },
   ttsBatch: { max: 60, windowMs: 10 * 60 * 1000 },
-  consumeVideoCredit: { max: 10, windowMs: 60 * 1000 },
+  reserveVideoExport: { max: 10, windowMs: 60 * 1000 },
+  completeVideoExport: { max: 20, windowMs: 60 * 1000 },
+  failVideoExport: { max: 20, windowMs: 60 * 1000 },
+  getAdminUsageSummary: { max: 30, windowMs: 60 * 1000 },
 };
 
 function getBearerToken(req: IncomingMessage): string {
@@ -76,33 +92,14 @@ async function requireUser(req: IncomingMessage): Promise<AuthenticatedUser> {
   const token = getBearerToken(req);
   if (!token) throw new ApiError(401, "AUTH_REQUIRED");
   try {
-    const decoded = await adminAuth.verifyIdToken(token, true);
+    // Signature, issuer, audience and expiry are verified here. Revocation
+    // checks require an extra privileged Auth API call and can make valid
+    // local sessions fail when only application-default credentials exist.
+    const decoded = await adminAuth.verifyIdToken(token);
     return { uid: decoded.uid, email: decoded.email };
   } catch {
     throw new ApiError(401, "AUTH_REQUIRED");
   }
-}
-
-function normalizeProfile(data: FirebaseFirestore.DocumentData | undefined): UserProfile {
-  const knownRoles = ["free", "premium", "pack10", "admin"];
-  return {
-    role: (knownRoles.includes(data?.role) ? data?.role : "free") as Role,
-    videosCreated: Number.isFinite(data?.videosCreated) ? data!.videosCreated : 0,
-    premiumUntil: typeof data?.premiumUntil === "string" ? data.premiumUntil : null,
-  };
-}
-
-function effectiveRole(profile: UserProfile, email?: string): Role {
-  if (email === OWNER_EMAIL || profile.role === "admin") return "admin";
-  if (profile.role !== "premium") return profile.role;
-  const expiresAt = profile.premiumUntil ? Date.parse(profile.premiumUntil) : Number.NaN;
-  return Number.isFinite(expiresAt) && expiresAt > Date.now() ? "premium" : "free";
-}
-
-async function getUserProfile(uid: string): Promise<UserProfile> {
-  const snapshot = await adminDb.collection("users").doc(uid).get();
-  if (!snapshot.exists) throw new ApiError(409, "PROFILE_REQUIRED");
-  return normalizeProfile(snapshot.data());
 }
 
 async function enforceRateLimit(uid: string, action: ApiAction, cost = 1): Promise<void> {
@@ -123,36 +120,6 @@ async function enforceRateLimit(uid: string, action: ApiAction, cost = 1): Promi
       [countField]: count + cost,
       updatedAt: FieldValue.serverTimestamp(),
     }, { merge: true });
-  });
-}
-
-async function requirePlanAccess(user: AuthenticatedUser, errorCode = "PLAN_LIMIT"): Promise<UserProfile & { effectiveRole: Role }> {
-  const profile = await getUserProfile(user.uid);
-  const role = effectiveRole(profile, user.email);
-  const limit = role === "pack10" ? 10 : 1;
-  if (role !== "admin" && role !== "premium" && profile.videosCreated >= limit) {
-    throw new ApiError(403, errorCode);
-  }
-  return { ...profile, effectiveRole: role };
-}
-
-async function consumeVideoCredit(user: AuthenticatedUser) {
-  const ref = adminDb.collection("users").doc(user.uid);
-  return adminDb.runTransaction(async (transaction) => {
-    const snapshot = await transaction.get(ref);
-    if (!snapshot.exists) throw new ApiError(409, "PROFILE_REQUIRED");
-    const profile = normalizeProfile(snapshot.data());
-    const role = effectiveRole(profile, user.email);
-    if (role === "admin" || role === "premium") return { ...profile, role };
-
-    const limit = role === "pack10" ? 10 : 1;
-    if (profile.videosCreated >= limit) throw new ApiError(403, "VIDEO_LIMIT");
-    const videosCreated = profile.videosCreated + 1;
-    transaction.update(ref, {
-      videosCreated,
-      lastVideoReservedAt: FieldValue.serverTimestamp(),
-    });
-    return { ...profile, role, videosCreated };
   });
 }
 
@@ -199,20 +166,47 @@ function getTTSAI(): GoogleGenAI {
   return cachedTTSAI;
 }
 
-async function getUnsplashImageForKeyword(keyword: string): Promise<string> {
+function base64ByteLength(value: string | null | undefined): number {
+  if (!value) return 0;
+  const padding = value.endsWith("==") ? 2 : value.endsWith("=") ? 1 : 0;
+  return Math.max(0, Math.floor((value.length * 3) / 4) - padding);
+}
+
+async function getUnsplashImageForKeyword(
+  keyword: string,
+  user?: AuthenticatedUser,
+  trackImageLookup = true,
+): Promise<string> {
   const normalized = (keyword || "").toLowerCase().trim();
   if (CURATED_IMAGES[normalized]) {
+    if (user && trackImageLookup) {
+      await recordModelUsage(user, {
+        action: "imageLookup",
+        model: "unsplash-curated",
+        kind: "image",
+        imageLookups: 1,
+      });
+    }
     return CURATED_IMAGES[normalized];
   }
 
   for (const key of Object.keys(CURATED_IMAGES)) {
     if (normalized.includes(key) || key.includes(normalized)) {
+      if (user && trackImageLookup) {
+        await recordModelUsage(user, {
+          action: "imageLookup",
+          model: "unsplash-curated",
+          kind: "image",
+          imageLookups: 1,
+        });
+      }
       return CURATED_IMAGES[key];
     }
   }
 
   try {
     const ai = getAI();
+    const startedAt = Date.now();
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: `Find a highly-popular, valid, active, and high-resolution Unsplash photo ID that perfectly matches the following search query/keyword: "${keyword}".
@@ -226,6 +220,16 @@ Some examples of excellent Unsplash IDs:
 
 Return ONLY the Unsplash photo ID as plain text (for example: photo-1541359927273-d76820fc43f9). Do not include any other text, quotes, or markdown. Only the ID itself.`,
     });
+    if (user) {
+      await recordModelUsage(user, {
+        action: "imageKeyword",
+        model: "gemini-3-flash-preview",
+        kind: "text",
+        usage: response.usageMetadata,
+        imageLookups: trackImageLookup ? 1 : 0,
+        durationMs: Date.now() - startedAt,
+      });
+    }
 
     const photoId = response.text?.trim() || "";
     const cleanId = photoId.replace(/[^a-zA-Z0-9-_]/g, "");
@@ -234,12 +238,25 @@ Return ONLY the Unsplash photo ID as plain text (for example: photo-154135992727
     }
   } catch (error) {
     console.error("AI photo search failed:", error);
+    if (user && trackImageLookup) {
+      await recordModelUsage(user, {
+        action: "imageLookup",
+        model: "unsplash-fallback",
+        kind: "image",
+        imageLookups: 1,
+      });
+    }
   }
 
   return FALLBACK_IMAGE;
 }
 
-async function generateQuiz(topic: string, language: string, count: number) {
+async function generateQuiz(
+  topic: string,
+  language: string,
+  count: number,
+  user: AuthenticatedUser,
+) {
   const ai = getAI();
 
   const langPromptMap: Record<string, string> = {
@@ -251,6 +268,7 @@ async function generateQuiz(topic: string, language: string, count: number) {
 
   const promptDetails = langPromptMap[language] || langPromptMap.uz;
 
+  const startedAt = Date.now();
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
     contents: `Topic: ${topic}.
@@ -276,13 +294,22 @@ history, space, science, nature, math, geography, art, music, sport, tech, liter
       }
     }
   });
-
   const data = JSON.parse(response.text || "[]");
+  const generatedCount = Array.isArray(data) ? data.length : 0;
+  await recordModelUsage(user, {
+    action: "generateQuiz",
+    model: "gemini-3-flash-preview",
+    kind: "text",
+    usage: response.usageMetadata,
+    imageLookups: generatedCount,
+    questionCount: generatedCount,
+    durationMs: Date.now() - startedAt,
+  });
 
   const questions = await Promise.all(
     data.map(async (q: any) => {
       const id = Math.random().toString(36).substr(2, 9);
-      const backgroundImage = await getUnsplashImageForKeyword(q.imageKeyword);
+      const backgroundImage = await getUnsplashImageForKeyword(q.imageKeyword, user, false);
       return { ...q, id, backgroundImage };
     })
   );
@@ -290,8 +317,12 @@ history, space, science, nature, math, geography, art, music, sport, tech, liter
   return questions;
 }
 
-async function analyzeQuestionsForImages(questions: { text: string }[]): Promise<string[]> {
+async function analyzeQuestionsForImages(
+  questions: { text: string }[],
+  user: AuthenticatedUser,
+): Promise<string[]> {
   const ai = getAI();
+  const startedAt = Date.now();
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
     contents: `Quyidagi test savollarini tahlil qiling va har biriga mos keladigan eng muvofiq, inglizcha bitta so'zdan iborat kalit so'z (image search keyword) bering (masalan: history, galaxy, math, science, nature).
@@ -309,12 +340,24 @@ Javobni quyidagi JSON formatida qaytaring:
       }
     }
   });
+  await recordModelUsage(user, {
+    action: "analyzeImages",
+    model: "gemini-3-flash-preview",
+    kind: "text",
+    usage: response.usageMetadata,
+    durationMs: Date.now() - startedAt,
+  });
 
   return JSON.parse(response.text || "[]");
 }
 
-async function generateTTS(text: string, voiceName: string): Promise<string | null> {
+async function generateTTS(
+  text: string,
+  voiceName: string,
+  user: AuthenticatedUser,
+): Promise<string | null> {
   const ai = getTTSAI();
+  const startedAt = Date.now();
   const response = await ai.models.generateContent({
     model: "gemini-3.1-flash-tts-preview",
     contents: text,
@@ -328,7 +371,17 @@ async function generateTTS(text: string, voiceName: string): Promise<string | nu
     },
   });
 
-  return response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data || null;
+  const audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data || null;
+  await recordModelUsage(user, {
+    action: "tts",
+    model: "gemini-3.1-flash-tts-preview",
+    kind: "tts",
+    usage: response.usageMetadata,
+    textCharacters: text.length,
+    audioBytes: base64ByteLength(audio),
+    durationMs: Date.now() - startedAt,
+  });
+  return audio;
 }
 
 // Bir nechta yozuvni cheklangan parallellik bilan qayta ishlaydi (bir vaqtda ko'pi bilan `limit` ta).
@@ -346,10 +399,15 @@ async function mapWithConcurrency<T, R>(items: T[], limit: number, fn: (item: T)
 }
 
 // Vaqtinchalik 429 (rate limit) xatolarida qisqa backoff bilan qayta urinadi.
-async function generateTTSWithRetry(text: string, voiceName: string, retries = 2): Promise<string | null> {
+async function generateTTSWithRetry(
+  text: string,
+  voiceName: string,
+  user: AuthenticatedUser,
+  retries = 2,
+): Promise<string | null> {
   for (let attempt = 0; ; attempt++) {
     try {
-      return await generateTTS(text, voiceName);
+      return await generateTTS(text, voiceName, user);
     } catch (error: any) {
       const message = error?.message || String(error);
       const is429 = error?.status === 429 || message.includes("429");
@@ -364,10 +422,13 @@ async function generateTTSWithRetry(text: string, voiceName: string, retries = 2
 
 // Bitta so'rovda bir nechta klipni yaratadi. Kvota/rate-limit xatosi butun batch'ni to'xtatadi
 // (foydalanuvchi sababini ko'radi), boshqa vaqtinchalik xatolarda esa shu klip null bo'lib qoladi.
-async function generateTTSBatch(items: { text: string; voiceName: string }[]): Promise<(string | null)[]> {
+async function generateTTSBatch(
+  items: { text: string; voiceName: string }[],
+  user: AuthenticatedUser,
+): Promise<(string | null)[]> {
   return mapWithConcurrency(items, 3, async (item) => {
     try {
-      return await generateTTSWithRetry(item.text, item.voiceName);
+      return await generateTTSWithRetry(item.text, item.voiceName, user);
     } catch (error: any) {
       const message = error?.message || String(error);
       if (message.includes("quota") || error?.status === 429 || message.includes("429")) throw error;
@@ -441,18 +502,18 @@ export default async function handler(req: IncomingMessage & { body?: any }, res
         }
         const selectedLanguage = ["uz", "en", "ru", "tr"].includes(language) ? language : "uz";
         await requirePlanAccess(user);
-        const questions = await generateQuiz(topic.trim(), selectedLanguage, requestedCount);
+        const questions = await generateQuiz(topic.trim(), selectedLanguage, requestedCount, user);
         sendJSON(res, 200, { questions });
         return;
       }
       case "analyzeImages": {
         const { questions } = body;
-        if (!Array.isArray(questions) || questions.length < 1 || questions.length > 20 ||
+        if (!Array.isArray(questions) || questions.length < 1 || questions.length > 30 ||
             questions.some((q: any) => typeof q?.text !== "string" || q.text.length > 500)) {
           throw new ApiError(400, "INVALID_QUESTIONS");
         }
         await requirePlanAccess(user);
-        const keywords = await analyzeQuestionsForImages(questions);
+        const keywords = await analyzeQuestionsForImages(questions, user);
         sendJSON(res, 200, { keywords });
         return;
       }
@@ -460,7 +521,7 @@ export default async function handler(req: IncomingMessage & { body?: any }, res
         const { keyword } = body;
         if (!keyword || typeof keyword !== "string" || keyword.trim().length > 100) throw new ApiError(400, "INVALID_KEYWORD");
         await requirePlanAccess(user);
-        const url = await getUnsplashImageForKeyword(keyword.trim());
+        const url = await getUnsplashImageForKeyword(keyword.trim(), user);
         sendJSON(res, 200, { url });
         return;
       }
@@ -473,7 +534,7 @@ export default async function handler(req: IncomingMessage & { body?: any }, res
         if (selectedVoice !== "Kore" && profile.effectiveRole !== "premium" && profile.effectiveRole !== "admin") {
           throw new ApiError(403, "PREMIUM_VOICE_REQUIRED");
         }
-        const audio = await generateTTS(text, selectedVoice);
+        const audio = await generateTTS(text, selectedVoice, user);
         sendJSON(res, 200, { audio });
         return;
       }
@@ -495,12 +556,39 @@ export default async function handler(req: IncomingMessage & { body?: any }, res
         if (usesPremiumVoice && profile.effectiveRole !== "premium" && profile.effectiveRole !== "admin") {
           throw new ApiError(403, "PREMIUM_VOICE_REQUIRED");
         }
-        const audios = await generateTTSBatch(normalized);
+        const audios = await generateTTSBatch(normalized, user);
         sendJSON(res, 200, { audios });
         return;
       }
-      case "consumeVideoCredit": {
-        const result = await consumeVideoCredit(user);
+      case "reserveVideoExport": {
+        const result = await reserveVideoExport(user, {
+          format: body?.format,
+          questionCount: body?.questionCount,
+          targetDuration: body?.targetDuration,
+        });
+        sendJSON(res, 200, result);
+        return;
+      }
+      case "completeVideoExport": {
+        const result = await completeVideoExport(
+          user,
+          String(body?.reservationId || ""),
+          body?.metrics || {},
+        );
+        sendJSON(res, 200, result);
+        return;
+      }
+      case "failVideoExport": {
+        await failVideoExport(
+          user,
+          String(body?.reservationId || ""),
+          String(body?.failureCode || "EXPORT_FAILED"),
+        );
+        sendJSON(res, 200, { ok: true });
+        return;
+      }
+      case "getAdminUsageSummary": {
+        const result = await getAdminUsageSummary(user, body?.month);
         sendJSON(res, 200, result);
         return;
       }
@@ -508,7 +596,7 @@ export default async function handler(req: IncomingMessage & { body?: any }, res
         throw new ApiError(400, "Noma'lum action");
     }
   } catch (error: any) {
-    if (error instanceof ApiError) {
+    if (error instanceof ApiError || error instanceof UsageError) {
       sendJSON(res, error.status, { error: error.message });
       return;
     }

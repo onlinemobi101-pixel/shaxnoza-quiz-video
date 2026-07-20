@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { Quiz, Question } from "../types";
 import {
   Plus,
@@ -24,7 +24,13 @@ import { getVideoStrings } from "../services/i18n";
 import { getLongVideoPreset, LONG_VIDEO_PRESETS } from "../services/videoPlan";
 import { generateQuizAI, analyzeQuestionsForImages, getUnsplashImageForKeyword } from "../services/ai";
 import { QuizRenderer } from "../services/renderer";
-import { consumeVideoCredit, VideoCreditResult } from "../services/access";
+import {
+  completeVideoExport,
+  failVideoExport,
+  PlanUsageResult,
+  reserveVideoExport,
+} from "../services/access";
+import { hasReachedExportLimit } from "../services/plans";
 import type { User } from "firebase/auth";
 import { UserProfile } from "../types";
 
@@ -36,7 +42,7 @@ interface EditorProps {
   userProfile: UserProfile | null;
   onOpenPaywall: () => void;
   onRequireAuth: () => void;
-  onVideoCreated?: (result: VideoCreditResult) => void;
+  onVideoCreated?: (result: PlanUsageResult) => void;
 }
 
 export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall, onRequireAuth, onVideoCreated }: EditorProps) {
@@ -47,6 +53,9 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState(0);
+  const [exportWasPaused, setExportWasPaused] = useState(false);
+  const [exportResolution, setExportResolution] = useState("");
+  const [isMobileExport, setIsMobileExport] = useState(false);
   const [isGeneratingBulkImages, setIsGeneratingBulkImages] = useState(false);
   const [isGeneratingBulkVoices, setIsGeneratingBulkVoices] = useState(false);
   const [selectedLanguage, setSelectedLanguage] = useState<"uz" | "en" | "ru" | "tr">(
@@ -56,6 +65,27 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
   const hasPremiumAccess = userProfile?.role === "premium" || userProfile?.role === "admin";
   const isYouTubeFormat = quiz.videoFormat === "youtube";
   const longVideoPreset = getLongVideoPreset(quiz.targetDuration);
+  const exportQuestionNumber = Math.min(
+    quiz.questions.length,
+    Math.floor(exportProgress * quiz.questions.length) + 1,
+  );
+  const estimatedExportSeconds = quiz.videoFormat === "youtube" && quiz.targetDuration
+    ? quiz.targetDuration * 60
+    : quiz.questions.length * ((quiz.timerDuration || 5) + 8) + 7;
+  const estimatedMinutesRemaining = Math.max(
+    1,
+    Math.ceil((estimatedExportSeconds * (1 - exportProgress)) / 60),
+  );
+
+  useEffect(() => {
+    if (!isExporting) return;
+    const protectActiveExport = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", protectActiveExport);
+    return () => window.removeEventListener("beforeunload", protectActiveExport);
+  }, [isExporting]);
 
   // Ovozni tinglash (play) uchun holat
   const [playingAudioId, setPlayingAudioId] = useState<string | null>(null);
@@ -243,10 +273,7 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
       return;
     }
 
-    const isLimitReached = userProfile && (
-      (userProfile.role === "free" && userProfile.videosCreated >= 1) ||
-      (userProfile.role === "pack10" && userProfile.videosCreated >= 10)
-    );
+    const isLimitReached = hasReachedExportLimit(userProfile);
 
     if (isLimitReached) {
       onOpenPaywall();
@@ -388,10 +415,7 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
       onRequireAuth();
       return;
     }
-    const isLimitReached = userProfile && (
-      (userProfile.role === "free" && userProfile.videosCreated >= 1) ||
-      (userProfile.role === "pack10" && userProfile.videosCreated >= 10)
-    );
+    const isLimitReached = hasReachedExportLimit(userProfile);
 
     if (isLimitReached) {
       onOpenPaywall();
@@ -400,36 +424,96 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
 
     setIsExporting(true);
     setExportProgress(0);
-    
+    setExportWasPaused(false);
+    setExportResolution("");
+    setIsMobileExport(false);
+    let reservationId: string | null = null;
+    let exportCompleted = false;
+    let errorHandled = false;
+    const renderStartedAt = performance.now();
+
+    const releaseReservation = async (failureCode: string) => {
+      if (!reservationId || exportCompleted) return;
+      try {
+        await failVideoExport(reservationId, failureCode);
+      } catch (releaseError) {
+        console.error("Eksport rezervatsiyasini bo'shatib bo'lmadi:", releaseError);
+      }
+    };
+
+    const showExportError = async (err: any) => {
+      if (errorHandled) return;
+      errorHandled = true;
+      console.error(err);
+      const code = err?.message || "";
+      await releaseReservation(code || "EXPORT_FAILED");
+      if (code === "AUTH_REQUIRED") onRequireAuth();
+      else if (code === "VIDEO_LIMIT" || code === "PLAN_LIMIT") onOpenPaywall();
+      else if (code === "EXPORT_IN_PROGRESS") alert("Boshqa video eksporti davom etmoqda. U tugagach qayta urinib ko'ring.");
+      else if (code === "RATE_LIMITED") alert("Juda ko'p urinish. Bir daqiqadan keyin qayta urinib ko'ring.");
+      else alert("Video yaratishda xatolik yuz berdi. Limit sarflanmadi.");
+      setIsExporting(false);
+    };
+
     try {
       const quizToRender = {
         ...quiz,
         watermark: hasPremiumAccess ? quiz.watermark : "@QuizVideo",
       };
       const renderer = new QuizRenderer(quizToRender);
+      setExportResolution(`${renderer.outputWidth}×${renderer.outputHeight}`);
+      setIsMobileExport(renderer.isMobileOptimized);
       renderer.onProgress = (p) => setExportProgress(p);
+      renderer.onPauseChange = (isPaused) => {
+        if (isPaused) setExportWasPaused(true);
+      };
       renderer.onBeforeRecording = async () => {
-        const result = await consumeVideoCredit();
+        const result = await reserveVideoExport({
+          format: quiz.videoFormat === "youtube" ? "youtube" : "vertical",
+          questionCount: quiz.questions.length,
+          targetDuration: quiz.videoFormat === "youtube" ? quiz.targetDuration : undefined,
+        });
+        reservationId = result.reservationId;
         onVideoCreated?.(result);
       };
-      renderer.onComplete = async (url, extension) => {
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${quiz.title || 'quiz'}.${extension}`;
-        a.click();
-        window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
-        setIsExporting(false);
+      renderer.onComplete = async (url, extension, blob) => {
+        try {
+          if (!reservationId) throw new Error("RESERVATION_NOT_FOUND");
+          const videoDurationSeconds = quiz.videoFormat === "youtube" && quiz.targetDuration
+            ? quiz.targetDuration * 60
+            : quiz.questions.length * ((quiz.timerDuration || 5) + 8) + 7;
+          const result = await completeVideoExport(reservationId, {
+            renderDurationMs: Math.round(performance.now() - renderStartedAt),
+            videoDurationSeconds,
+            outputBytes: blob.size,
+            questionCount: quiz.questions.length,
+            audioClipCount: quiz.questions.reduce(
+              (count, question) =>
+                count + Number(Boolean(question.audioBase64)) + Number(Boolean(question.correctAudioBase64)),
+              0,
+            ),
+            imageCount: quiz.questions.filter((question) => Boolean(question.backgroundImage)).length,
+            format: quiz.videoFormat === "youtube" ? "youtube" : "vertical",
+            extension: extension === "mp4" ? "mp4" : "webm",
+          });
+          exportCompleted = true;
+          onVideoCreated?.(result);
 
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `${quiz.title || "quiz"}.${extension}`;
+          a.click();
+          window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+          setIsExporting(false);
+        } catch (error) {
+          URL.revokeObjectURL(url);
+          await showExportError(error);
+        }
       };
+      renderer.onError = showExportError;
       await renderer.start();
     } catch (err: any) {
-      console.error(err);
-      const code = err?.message || "";
-      if (code === "AUTH_REQUIRED") onRequireAuth();
-      else if (code === "VIDEO_LIMIT" || code === "PLAN_LIMIT") onOpenPaywall();
-      else if (code === "RATE_LIMITED") alert("Juda ko'p urinish. Bir daqiqadan keyin qayta urinib ko'ring.");
-      else alert("Video yaratishda xatolik yuz berdi.");
-      setIsExporting(false);
+      await showExportError(err);
     }
   };
 
@@ -568,19 +652,76 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
   return (
     <div className="max-w-4xl mx-auto p-6 pb-24">
       {isExporting && (
-        <div className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-md flex flex-col items-center justify-center text-white p-6 text-center">
-          <Loader2 size={64} className="animate-spin text-emerald-500 mb-6" />
-          <h2 className="text-3xl font-bold mb-4">Video tayyorlanmoqda...</h2>
-          <p className="text-xl text-amber-300 font-semibold max-w-lg mb-8">
-            Sahifani yopmang! Boshqa oynaga o'tsangiz, jarayon avtomatik pauza bo'ladi va qaytganingizda davom etadi.
-          </p>
-          <div className="w-full max-w-md bg-neutral-800 rounded-full h-4 overflow-hidden border border-neutral-700">
-            <div 
-              className="h-full bg-gradient-to-r from-emerald-500 to-cyan-500 transition-all duration-300"
-              style={{ width: `${exportProgress * 100}%` }}
-            />
+        <div
+          className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-md flex items-center justify-center text-white p-5"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="export-title"
+        >
+          <div className="w-full max-w-xl rounded-3xl border border-white/10 bg-neutral-950/90 p-6 sm:p-8 text-center shadow-2xl">
+            <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl border border-emerald-500/20 bg-emerald-500/10">
+              <Loader2 size={34} className="animate-spin text-emerald-400" />
+            </div>
+            <p className="mb-2 text-xs font-bold uppercase tracking-[0.22em] text-emerald-400">
+              Eksport davom etmoqda
+            </p>
+            <h2 id="export-title" className="text-2xl sm:text-3xl font-black mb-3">
+              Videongiz tayyorlanmoqda
+            </h2>
+            <p className="text-sm sm:text-base text-neutral-300 max-w-lg mx-auto mb-6 leading-relaxed">
+              Bu sahifani yopmang yoki yangilamang. Boshqa oynaga o'tishingiz mumkin:
+              eksport xavfsiz pauza qilinadi va qaytishingiz bilan avtomatik davom etadi.
+            </p>
+
+            <div className="mb-3 flex items-center justify-between text-xs font-semibold text-neutral-400">
+              <span>
+                {exportProgress >= 1
+                  ? "Video fayli yakunlanmoqda"
+                  : `${exportQuestionNumber}-savol / ${quiz.questions.length}`}
+              </span>
+              <span className="font-mono text-emerald-300">{Math.round(exportProgress * 100)}%</span>
+            </div>
+            <div
+              className="w-full bg-neutral-800 rounded-full h-3 overflow-hidden border border-neutral-700"
+              role="progressbar"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={Math.round(exportProgress * 100)}
+            >
+              <div
+                className="h-full bg-gradient-to-r from-emerald-500 to-cyan-400 transition-all duration-500"
+                style={{ width: `${exportProgress * 100}%` }}
+              />
+            </div>
+
+            <div className="mt-5 grid gap-3 sm:grid-cols-3 text-left">
+              <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                <p className="text-xs text-neutral-500">Taxminiy qolgan vaqt</p>
+                <p className="mt-1 text-sm font-bold text-white">
+                  {exportProgress >= 1 ? "Bir necha soniya" : `${estimatedMinutesRemaining} daqiqagacha`}
+                </p>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                <p className="text-xs text-neutral-500">Eksport sifati</p>
+                <p className="mt-1 text-sm font-bold text-white">
+                  {exportResolution || "Tayyorlanmoqda"}
+                </p>
+                {isMobileExport && (
+                  <p className="mt-1 text-[10px] font-semibold text-emerald-300">Mobil xavfsiz rejim</p>
+                )}
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                <p className="text-xs text-neutral-500">Muhim</p>
+                <p className="mt-1 text-sm font-bold text-white">Qurilmani uyqu rejimiga o'tkazmang</p>
+              </div>
+            </div>
+
+            {exportWasPaused && (
+              <p className="mt-4 text-sm font-semibold text-emerald-300" aria-live="polite">
+                Jarayon tiklandi — eksport davom etmoqda.
+              </p>
+            )}
           </div>
-          <p className="mt-4 font-mono text-lg">{Math.round(exportProgress * 100)}%</p>
         </div>
       )}
 
@@ -696,7 +837,7 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {([
                   { id: "vertical", title: "Shorts / Reels", subtitle: "1080×1920 · 9:16" },
-                  { id: "youtube", title: "YouTube Long", subtitle: "1920×1080 · 16:9" },
+                  { id: "youtube", title: "YouTube Long", subtitle: "1920×1080 · telefonda xavfsiz 720p" },
                 ] as const).map((format) => (
                   <button
                     key={format.id}

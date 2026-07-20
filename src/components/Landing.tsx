@@ -237,7 +237,7 @@ export function Landing({ onStart, onShowPricing }: LandingProps) {
             <h3 className="font-display font-bold text-lg mb-1 flex items-center gap-2"><Crown size={16} className="text-amber-400 fill-current" />Premium</h3>
             <p className="text-3xl font-black font-display mb-4 text-amber-400">99,000 <span className="text-sm font-semibold text-slate-400">so'm/oy</span></p>
             <ul className="space-y-2.5 text-sm text-slate-300 mb-6 flex-1">
-              <li className="flex items-start gap-2"><CheckCircle2 size={16} className="text-amber-400 mt-0.5 shrink-0" />Cheksiz video</li>
+              <li className="flex items-start gap-2"><CheckCircle2 size={16} className="text-amber-400 mt-0.5 shrink-0" />Oyiga 100 ta video</li>
               <li className="flex items-start gap-2"><CheckCircle2 size={16} className="text-amber-400 mt-0.5 shrink-0" />Suv belgisiz eksport</li>
               <li className="flex items-start gap-2"><CheckCircle2 size={16} className="text-amber-400 mt-0.5 shrink-0" />Premium ovozlar va dizaynlar</li>
             </ul>

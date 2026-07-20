@@ -143,7 +143,7 @@ export function PaywallModal({ isOpen, onClose, userId }: PaywallModalProps) {
                       </div>
                     </div>
 
-                    {/* Plan 2: Unlimited Monthly */}
+                    {/* Plan 2: 100 monthly exports */}
                     <div
                       onClick={() => setSelectedPlan("premium")}
                       className={`relative p-5 rounded-2xl border transition-all duration-300 cursor-pointer flex flex-col justify-between ${
@@ -154,7 +154,7 @@ export function PaywallModal({ isOpen, onClose, userId }: PaywallModalProps) {
                     >
                       {selectedPlan === "premium" && (
                         <span className="absolute -top-2.5 right-4 bg-fuchsia-500 text-slate-950 text-[9px] font-black uppercase px-2 py-0.5 rounded-full tracking-wider">
-                          Cheksiz Pro
+                          100 Video Pro
                         </span>
                       )}
                       <div>
@@ -162,14 +162,14 @@ export function PaywallModal({ isOpen, onClose, userId }: PaywallModalProps) {
                           <div className={`p-1.5 rounded-lg border ${selectedPlan === "premium" ? "bg-fuchsia-500/10 border-fuchsia-500/30 text-fuchsia-400" : "bg-white/5 border-white/5 text-slate-400"}`}>
                             <Crown size={16} />
                           </div>
-                          <h4 className="text-sm font-bold text-slate-100">Oylik Cheksiz (Pro)</h4>
+                          <h4 className="text-sm font-bold text-slate-100">Oylik Premium (Pro)</h4>
                         </div>
                         <p className="text-xs text-slate-400 leading-relaxed mb-4">
-                          Cheksiz video, barcha premium ovozlar va premium dizayn mavzulari.
+                          Oyiga 100 ta video, barcha premium ovozlar va premium dizayn mavzulari.
                         </p>
                       </div>
                       <div className="flex items-baseline justify-between pt-2 border-t border-slate-800/60 mt-auto">
-                        <span className="text-xs text-slate-400">1 Oy Cheksiz</span>
+                        <span className="text-xs text-slate-400">Oyiga 100 Video</span>
                         <span className="text-lg font-black text-fuchsia-400">99,000 so'm</span>
                       </div>
                     </div>

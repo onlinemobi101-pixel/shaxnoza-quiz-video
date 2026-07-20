@@ -33,9 +33,14 @@ export class QuizRenderer {
   recordedChunks: Blob[] = [];
   isCancelled = false;
   extension = 'webm';
+  readonly isMobileOptimized: boolean;
+  readonly outputWidth: number;
+  readonly outputHeight: number;
+  readonly designWidth: number;
+  readonly designHeight: number;
   
   // Assets
-  bgImages: HTMLImageElement[] = [];
+  bgImages: Array<HTMLImageElement | undefined> = [];
   cachedLines: { [key: number]: string[] } = {};
   silenceOscillator?: OscillatorNode;
   wakeLock: any = null;
@@ -47,19 +52,34 @@ export class QuizRenderer {
   private resumeWaiters: (() => void)[] = [];
   
   onProgress?: (progress: number) => void;
-  onComplete?: (url: string, extension: string) => void;
+  onComplete?: (url: string, extension: string, blob: Blob) => void | Promise<void>;
   onError?: (err: any) => void;
   onBeforeRecording?: () => Promise<void>;
+  onPauseChange?: (isPaused: boolean) => void;
 
   strings: VideoStrings;
 
   constructor(quiz: Quiz) {
-    this.quiz = quiz;
+    this.quiz = {
+      ...quiz,
+      questions: quiz.questions.map((question) => ({ ...question })),
+    };
     this.strings = getVideoStrings(quiz.language);
     this.canvas = document.createElement('canvas');
     const isYouTube = quiz.videoFormat === "youtube";
-    this.canvas.width = isYouTube ? 1920 : 1080;
-    this.canvas.height = isYouTube ? 1080 : 1920;
+    this.designWidth = isYouTube ? 1920 : 1080;
+    this.designHeight = isYouTube ? 1080 : 1920;
+    const deviceMemory = (navigator as Navigator & { deviceMemory?: number }).deviceMemory;
+    const isMobileDevice = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    this.isMobileOptimized = isMobileDevice || (typeof deviceMemory === "number" && deviceMemory <= 4);
+    this.outputWidth = isYouTube
+      ? (this.isMobileOptimized ? 1280 : 1920)
+      : (this.isMobileOptimized ? 720 : 1080);
+    this.outputHeight = isYouTube
+      ? (this.isMobileOptimized ? 720 : 1080)
+      : (this.isMobileOptimized ? 1280 : 1920);
+    this.canvas.width = this.outputWidth;
+    this.canvas.height = this.outputHeight;
     this.ctx = this.canvas.getContext('2d')!;
     
     this.audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -136,19 +156,20 @@ export class QuizRenderer {
         options.mimeType = mimeType;
       }
       
-      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
       options.videoBitsPerSecond = isYouTube
-        ? (isMobile ? 2200000 : 4000000)
-        : (isMobile ? 2500000 : 6000000);
+        ? (this.isMobileOptimized ? 1100000 : 4000000)
+        : (this.isMobileOptimized ? 1250000 : 6000000);
+      options.audioBitsPerSecond = this.isMobileOptimized ? 96000 : 128000;
       
       this.recorder = new MediaRecorder(this.stream, options);
     } catch (e) {
       console.warn("MediaRecorder construction failed with options, trying basic initialization...", e);
       try {
         const options: MediaRecorderOptions = {};
-        if (mimeType) {
-          options.mimeType = mimeType;
-        }
+        options.videoBitsPerSecond = isYouTube
+          ? (this.isMobileOptimized ? 1100000 : 4000000)
+          : (this.isMobileOptimized ? 1250000 : 6000000);
+        options.audioBitsPerSecond = this.isMobileOptimized ? 96000 : 128000;
         this.recorder = new MediaRecorder(this.stream, options);
       } catch (e2) {
         console.error("MediaRecorder construction failed completely with options, using browser defaults", e2);
@@ -171,25 +192,41 @@ export class QuizRenderer {
       const blob = new Blob(this.recordedChunks, { type: this.recorder.mimeType || mimeType });
       this.recordedChunks = [];
       const url = URL.createObjectURL(blob);
-      if (this.onComplete) this.onComplete(url, this.extension);
+      if (this.onComplete) {
+        Promise.resolve(this.onComplete(url, this.extension, blob)).catch((error) => {
+          URL.revokeObjectURL(url);
+          this.onError?.(error);
+        });
+      }
+    };
+    this.recorder.onerror = (event: Event) => {
+      const error = (event as Event & { error?: DOMException }).error || new Error("MEDIA_RECORDER_ERROR");
+      this.onError?.(error);
     };
   }
   
-  async loadImages() {
-    const cache = new Map<string, HTMLImageElement>();
-    for (const q of this.quiz.questions) {
-      const cached = cache.get(q.backgroundImage);
-      if (cached) {
-        this.bgImages.push(cached);
-        continue;
-      }
-      const img = new Image();
-      img.crossOrigin = "anonymous";
-      img.src = q.backgroundImage;
-      await new Promise(r => { img.onload = r; img.onerror = r; });
-      cache.set(q.backgroundImage, img);
-      this.bgImages.push(img);
-    }
+  async loadImage(index: number) {
+    if (this.bgImages[index]) return;
+    const source = this.quiz.questions[index]?.backgroundImage;
+    if (!source) return;
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.decoding = "async";
+    img.src = source;
+    await new Promise<void>((resolve) => {
+      img.onload = () => resolve();
+      img.onerror = () => resolve();
+    });
+    this.bgImages[index] = img;
+  }
+
+  releaseImage(index: number) {
+    const img = this.bgImages[index];
+    if (!img) return;
+    img.onload = null;
+    img.onerror = null;
+    img.removeAttribute("src");
+    this.bgImages[index] = undefined;
   }
 
   async requestWakeLock() {
@@ -218,7 +255,10 @@ export class QuizRenderer {
       }
     };
     document.addEventListener('visibilitychange', this.handleVisibilityChange);
-    await this.loadImages();
+    // Mobil RAMni tejash uchun barcha 20–30 fonni birdan dekodlamaymiz.
+    // Birinchi rasmni tayyorlaymiz, keyingilarini savol navbati kelganda yuklaymiz.
+    this.bgImages = new Array(this.quiz.questions.length);
+    await this.loadImage(0);
     await this.onBeforeRecording?.();
     
     if (this.quiz.bgmEnabled) {
@@ -239,7 +279,9 @@ export class QuizRenderer {
 
     for (let i = 0; i < this.quiz.questions.length; i++) {
       if (this.isCancelled) break;
+      await this.loadImage(i);
       this.currentQuestionIndex = i;
+      if (i > 0) this.releaseImage(i - 1);
       await this.runQuestionSequence(this.quiz.questions[i]);
     }
 
@@ -320,8 +362,8 @@ export class QuizRenderer {
   }
 
   drawYouTubeFrame() {
-    const w = this.canvas.width;
-    const h = this.canvas.height;
+    const w = this.designWidth;
+    const h = this.designHeight;
     const q = this.quiz.questions[this.currentQuestionIndex];
     if (!q) return;
 
@@ -525,9 +567,19 @@ export class QuizRenderer {
 
   drawFrame() {
     if (!this.isRecording || this.isPaused) return;
-    
-    const w = this.canvas.width;
-    const h = this.canvas.height;
+
+    // Dizayn koordinatalari doim 1080p bo'lib qoladi; mobil chiqishda
+    // canvas ularni 720p ga proporsional kichraytiradi.
+    this.ctx.setTransform(
+      this.outputWidth / this.designWidth,
+      0,
+      0,
+      this.outputHeight / this.designHeight,
+      0,
+      0,
+    );
+    const w = this.designWidth;
+    const h = this.designHeight;
 
     if (this.quiz.videoFormat === "youtube") {
       this.drawYouTubeFrame();
@@ -906,6 +958,7 @@ export class QuizRenderer {
     if (this.isPaused || this.isCancelled || !this.isRecording) return;
     this.isPaused = true;
     this.pauseStartedAt = performance.now();
+    this.onPauseChange?.(true);
     try { if (this.recorder.state === 'recording') this.recorder.pause(); } catch (e) {}
     this.audioCtx.suspend().catch(() => {});
   }
@@ -918,6 +971,7 @@ export class QuizRenderer {
     this.phaseStartTime += pausedFor;
     this.qStartTime += pausedFor;
     this.isPaused = false;
+    this.onPauseChange?.(false);
     try { if (this.recorder.state === 'paused') this.recorder.resume(); } catch (e) {}
     this.audioCtx.resume().catch(() => {});
     this.resumeWaiters.splice(0).forEach((fn) => fn());
@@ -1017,6 +1071,7 @@ export class QuizRenderer {
     this.isCancelled = true;
     // Pauzada kutayotgan sleep'larni bo'shatamiz — aks holda start() osilib qoladi
     this.isPaused = false;
+    this.onPauseChange?.(false);
     this.resumeWaiters.splice(0).forEach((fn) => fn());
     if (this.handleVisibilityChange) {
       document.removeEventListener('visibilitychange', this.handleVisibilityChange);
@@ -1028,6 +1083,7 @@ export class QuizRenderer {
     }
     this.worker.postMessage('stop');
     this.worker.terminate();
+    this.bgImages.forEach((_, index) => this.releaseImage(index));
     stopPCM();
     if (this.silenceOscillator) {
       try { this.silenceOscillator.stop(); } catch(e) {}

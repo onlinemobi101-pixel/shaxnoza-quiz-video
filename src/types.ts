@@ -32,5 +32,8 @@ export interface UserProfile {
   role: 'free' | 'premium' | 'pack10' | 'admin';
   videosCreated: number;
   premiumUntil: string | null;
+  quotaCycle: string | null;
+  quotaUsed: number;
+  quotaLimit: number | null;
 }
 
