@@ -16,8 +16,6 @@ import {
   FileJson,
   FileDown,
   FileUp,
-  Mic,
-  Square,
   Pause,
   VolumeX,
 } from "lucide-react";
@@ -55,19 +53,8 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
   const [showSettings, setShowSettings] = useState(false);
   const hasPremiumAccess = userProfile?.role === "premium" || userProfile?.role === "admin";
 
-  // O'z ovozini yozib olish (Voice Recorder) states & refs
-  interface RecordingState {
-    questionId: string;
-    type: "question" | "correct";
-    isRecording: boolean;
-    duration: number;
-  }
-  const [activeRecording, setActiveRecording] = useState<RecordingState | null>(null);
+  // Ovozni tinglash (play) uchun holat
   const [playingAudioId, setPlayingAudioId] = useState<string | null>(null);
-
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
-  const recordingIntervalRef = useRef<any>(null);
   const audioInstanceRef = useRef<HTMLAudioElement | null>(null);
 
   const playAudio = (base64: string, playId: string) => {
@@ -102,79 +89,6 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
       console.error(err);
       setPlayingAudioId(null);
     }
-  };
-
-  const startRecording = async (questionId: string, type: "question" | "correct") => {
-    try {
-      if (activeRecording) {
-        stopRecording();
-      }
-
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream);
-      mediaRecorderRef.current = mediaRecorder;
-      audioChunksRef.current = [];
-
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          audioChunksRef.current.push(event.data);
-        }
-      };
-
-      mediaRecorder.onstop = () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
-        const reader = new FileReader();
-        reader.readAsDataURL(audioBlob);
-        reader.onloadend = () => {
-          const base64data = reader.result as string;
-          const qIdx = quiz.questions.findIndex((x) => x.id === questionId);
-          if (qIdx !== -1) {
-            const q = quiz.questions[qIdx];
-            if (type === "question") {
-              updateQuestion(qIdx, { ...q, audioBase64: base64data });
-            } else {
-              updateQuestion(qIdx, { ...q, correctAudioBase64: base64data });
-            }
-          }
-        };
-
-        // Stop all media tracks
-        stream.getTracks().forEach((track) => track.stop());
-      };
-
-      mediaRecorder.start();
-      const startTime = Date.now();
-
-      setActiveRecording({
-        questionId,
-        type,
-        isRecording: true,
-        duration: 0,
-      });
-
-      recordingIntervalRef.current = setInterval(() => {
-        setActiveRecording((prev) => {
-          if (!prev) return null;
-          return {
-            ...prev,
-            duration: Math.floor((Date.now() - startTime) / 1000),
-          };
-        });
-      }, 1000);
-    } catch (err) {
-      console.error("Mikrofon yozishda xatolik:", err);
-      alert("Mikrofonga ruxsat berishda xatolik yuz berdi. Iltimos, qurilmangiz sozlamalarida mikrofonga ruxsat berilganini tekshiring.");
-    }
-  };
-
-  const stopRecording = () => {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
-      mediaRecorderRef.current.stop();
-    }
-    if (recordingIntervalRef.current) {
-      clearInterval(recordingIntervalRef.current);
-    }
-    setActiveRecording(null);
   };
 
   // TTS xatolarini bitta joyda tushunarli xabarga aylantiramiz
@@ -1272,7 +1186,7 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <h4 className="text-xs font-bold uppercase tracking-wider text-neutral-400 flex items-center gap-2">
                     <Volume2 size={14} className="text-emerald-400 animate-pulse" />
-                    Ovoz sozlamalari & Yozib olish
+                    Ovoz sozlamalari
                   </h4>
                   
                   <button
@@ -1327,7 +1241,7 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
                       {/* AI Generator for single */}
                       <button
                         type="button"
-                        disabled={generatingAudioId !== null || activeRecording !== null}
+                        disabled={generatingAudioId !== null}
                         onClick={() => generateSingleAudio(qIndex, q, "question")}
                         className="flex-1 min-w-[90px] flex items-center justify-center gap-1.5 bg-white/5 hover:bg-white/10 border border-white/10 text-neutral-200 text-xs py-2 px-3 rounded-xl transition-all disabled:opacity-40 cursor-pointer"
                       >
@@ -1338,28 +1252,6 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
                         )}
                         AI Ovoz
                       </button>
-
-                      {/* Voice Recorder for single */}
-                      {activeRecording && activeRecording.questionId === q.id && activeRecording.type === "question" ? (
-                        <button
-                          type="button"
-                          onClick={stopRecording}
-                          className="flex-1 min-w-[90px] flex items-center justify-center gap-1.5 bg-rose-500/20 border border-rose-500 text-rose-300 text-xs py-2 px-3 rounded-xl animate-pulse font-bold cursor-pointer"
-                        >
-                          <Square size={13} />
-                          Stop ({activeRecording.duration}s)
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          disabled={activeRecording !== null || generatingAudioId !== null}
-                          onClick={() => startRecording(q.id, "question")}
-                          className="flex-1 min-w-[90px] flex items-center justify-center gap-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 text-emerald-300 text-xs py-2 px-3 rounded-xl transition-all disabled:opacity-40 cursor-pointer"
-                        >
-                          <Mic size={13} />
-                          Yozish
-                        </button>
-                      )}
 
                       {q.audioBase64 && (
                         <button
@@ -1409,7 +1301,7 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
                       {/* AI Generator for single */}
                       <button
                         type="button"
-                        disabled={generatingAudioId !== null || activeRecording !== null}
+                        disabled={generatingAudioId !== null}
                         onClick={() => generateSingleAudio(qIndex, q, "correct")}
                         className="flex-1 min-w-[90px] flex items-center justify-center gap-1.5 bg-white/5 hover:bg-white/10 border border-white/10 text-neutral-200 text-xs py-2 px-3 rounded-xl transition-all disabled:opacity-40 cursor-pointer"
                       >
@@ -1420,28 +1312,6 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
                         )}
                         AI Ovoz
                       </button>
-
-                      {/* Voice Recorder for single */}
-                      {activeRecording && activeRecording.questionId === q.id && activeRecording.type === "correct" ? (
-                        <button
-                          type="button"
-                          onClick={stopRecording}
-                          className="flex-1 min-w-[90px] flex items-center justify-center gap-1.5 bg-rose-500/20 border border-rose-500 text-rose-300 text-xs py-2 px-3 rounded-xl animate-pulse font-bold cursor-pointer"
-                        >
-                          <Square size={13} />
-                          Stop ({activeRecording.duration}s)
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          disabled={activeRecording !== null || generatingAudioId !== null}
-                          onClick={() => startRecording(q.id, "correct")}
-                          className="flex-1 min-w-[90px] flex items-center justify-center gap-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 text-emerald-300 text-xs py-2 px-3 rounded-xl transition-all disabled:opacity-40 cursor-pointer"
-                        >
-                          <Mic size={13} />
-                          Yozish
-                        </button>
-                      )}
 
                       {q.correctAudioBase64 && (
                         <button
