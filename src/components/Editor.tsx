@@ -626,8 +626,8 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
         <div className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-md flex flex-col items-center justify-center text-white p-6 text-center">
           <Loader2 size={64} className="animate-spin text-emerald-500 mb-6" />
           <h2 className="text-3xl font-bold mb-4">Video tayyorlanmoqda...</h2>
-          <p className="text-xl text-red-400 font-semibold max-w-lg mb-8 animate-pulse">
-            Iltimos, sahifani yopmang yoki boshqa oynaga o'tmang! Aks holda videoda ovoz va tasvir mos kelmay qolishi mumkin.
+          <p className="text-xl text-amber-300 font-semibold max-w-lg mb-8">
+            Sahifani yopmang! Boshqa oynaga o'tsangiz, jarayon avtomatik pauza bo'ladi va qaytganingizda davom etadi.
           </p>
           <div className="w-full max-w-md bg-neutral-800 rounded-full h-4 overflow-hidden border border-neutral-700">
             <div 

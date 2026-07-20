@@ -38,6 +38,11 @@ export class QuizRenderer {
   silenceOscillator?: OscillatorNode;
   wakeLock: any = null;
   handleVisibilityChange?: () => void;
+
+  // Tab yashirilganda render pauza bo'ladi — audio/video surilishi (desync) oldini oladi
+  isPaused = false;
+  pauseStartedAt = 0;
+  private resumeWaiters: (() => void)[] = [];
   
   onProgress?: (progress: number) => void;
   onComplete?: (url: string, extension: string) => void;
@@ -184,10 +189,15 @@ export class QuizRenderer {
       await this.audioCtx.resume();
     }
     await this.requestWakeLock();
-    // Tab yashirilib qaytganda wake lock avtomatik bo'shaydi — qayta so'raymiz
+    // Tab yashirilsa: renderni pauza qilamiz (desync o'rniga xavfsiz to'xtash),
+    // qaytganda: wake lock qayta so'rab, davom ettiramiz.
     this.handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && this.isRecording) {
+      if (!this.isRecording) return;
+      if (document.visibilityState === 'hidden') {
+        this.pauseRendering();
+      } else {
         this.requestWakeLock();
+        this.resumeRendering();
       }
     };
     document.addEventListener('visibilitychange', this.handleVisibilityChange);
@@ -262,7 +272,7 @@ export class QuizRenderer {
   }
 
   drawFrame() {
-    if (!this.isRecording) return;
+    if (!this.isRecording || this.isPaused) return;
     
     const w = this.canvas.width;
     const h = this.canvas.height;
@@ -634,8 +644,40 @@ export class QuizRenderer {
     this.phaseStartTime = performance.now();
   }
 
+  pauseRendering() {
+    if (this.isPaused || this.isCancelled || !this.isRecording) return;
+    this.isPaused = true;
+    this.pauseStartedAt = performance.now();
+    try { if (this.recorder.state === 'recording') this.recorder.pause(); } catch (e) {}
+    this.audioCtx.suspend().catch(() => {});
+  }
+
+  resumeRendering() {
+    if (!this.isPaused) return;
+    // Pauza davomidagi vaqtni animatsiya soatlaridan chiqarib tashlaymiz —
+    // qaytganda animatsiyalar sakramasdan davom etadi
+    const pausedFor = performance.now() - this.pauseStartedAt;
+    this.phaseStartTime += pausedFor;
+    this.qStartTime += pausedFor;
+    this.isPaused = false;
+    try { if (this.recorder.state === 'paused') this.recorder.resume(); } catch (e) {}
+    this.audioCtx.resume().catch(() => {});
+    this.resumeWaiters.splice(0).forEach((fn) => fn());
+  }
+
+  // Pauza paytida hisoblamaydigan sleep: tab yashirilganda qolgan vaqt "muzlaydi"
   async sleep(ms: number) {
-    return new Promise(r => setTimeout(r, ms));
+    let remaining = ms;
+    while (remaining > 0) {
+      if (this.isCancelled) return;
+      if (this.isPaused) {
+        await new Promise<void>((r) => this.resumeWaiters.push(r));
+        continue;
+      }
+      const chunk = Math.min(100, remaining);
+      await new Promise((r) => setTimeout(r, chunk));
+      remaining -= chunk;
+    }
   }
 
   async runQuestionSequence(q: Question) {
@@ -707,6 +749,9 @@ export class QuizRenderer {
   stop() {
     this.isRecording = false;
     this.isCancelled = true;
+    // Pauzada kutayotgan sleep'larni bo'shatamiz — aks holda start() osilib qoladi
+    this.isPaused = false;
+    this.resumeWaiters.splice(0).forEach((fn) => fn());
     if (this.handleVisibilityChange) {
       document.removeEventListener('visibilitychange', this.handleVisibilityChange);
       this.handleVisibilityChange = undefined;
