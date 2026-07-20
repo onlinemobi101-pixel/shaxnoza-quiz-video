@@ -20,6 +20,7 @@ import {
   VolumeX,
 } from "lucide-react";
 import { generateTTS, generateTTSBatch } from "../services/tts";
+import { getVideoStrings } from "../services/i18n";
 import { generateQuizAI, analyzeQuestionsForImages, getUnsplashImageForKeyword } from "../services/ai";
 import { QuizRenderer } from "../services/renderer";
 import { consumeVideoCredit, VideoCreditResult } from "../services/access";
@@ -127,7 +128,7 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
         }
       } else {
         const letters = ["A", "B", "C", "D"];
-        const correctTextToRead = `To'g'ri javob: ${letters[q.correctOptionIndex]}, ${q.options[q.correctOptionIndex]}.`;
+        const correctTextToRead = getVideoStrings(quiz.language).ttsCorrect(letters[q.correctOptionIndex], q.options[q.correctOptionIndex]);
         const correctAudioBase64 = await generateTTS(correctTextToRead, quiz.voiceName || "Kore");
         if (correctAudioBase64) {
           updateQuestion(qIndex, { ...q, correctAudioBase64 });
@@ -204,7 +205,7 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
     const letters = ['A', 'B', 'C', 'D'];
     // Faqat savol o'qiladi — variantlar ekranda; video sur'ati tez qoladi
     const textToRead = q.text;
-    const correctTextToRead = `To'g'ri javob: ${letters[q.correctOptionIndex]}, ${q.options[q.correctOptionIndex]}.`;
+    const correctTextToRead = getVideoStrings(quiz.language).ttsCorrect(letters[q.correctOptionIndex], q.options[q.correctOptionIndex]);
 
     try {
       // Ikkala klip bitta so'rovda — ilgarigi 4s kutish shart emas.
@@ -253,9 +254,10 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
         try {
           const letters = ['A', 'B', 'C', 'D'];
           // Faqat savol o'qiladi — variantlar ekranda; video sur'ati tez qoladi
+          const vs = getVideoStrings(selectedLanguage);
           const items = newQuestions.flatMap((q) => [
             { text: q.text },
-            { text: `To'g'ri javob: ${letters[q.correctOptionIndex]}, ${q.options[q.correctOptionIndex]}.` },
+            { text: vs.ttsCorrect(letters[q.correctOptionIndex], q.options[q.correctOptionIndex]) },
           ]);
           const audios = await generateTTSBatch(items, quiz.voiceName || "Kore");
           const withAudio = newQuestions.map((q, i) => ({
@@ -340,9 +342,10 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
     try {
       const letters = ['A', 'B', 'C', 'D'];
       // Faqat savol o'qiladi — variantlar ekranda; video sur'ati tez qoladi
+      const vs = getVideoStrings(quiz.language);
       const items = quiz.questions.flatMap((q) => [
         { text: q.text },
-        { text: `To'g'ri javob: ${letters[q.correctOptionIndex]}, ${q.options[q.correctOptionIndex]}.` },
+        { text: vs.ttsCorrect(letters[q.correctOptionIndex], q.options[q.correctOptionIndex]) },
       ]);
       const audios = await generateTTSBatch(items, quiz.voiceName || "Kore");
       const updatedQuestions = quiz.questions.map((q, i) => ({

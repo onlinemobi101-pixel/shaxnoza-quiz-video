@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { X, Maximize2, RotateCcw, Heart } from "lucide-react";
 import { playPCMAsync, stopPCM } from "../services/tts";
 import { playPop, playTick, playSuccess, startProceduralBGM, stopProceduralBGM } from "../services/sfx";
+import { getVideoStrings } from "../services/i18n";
 
 interface PlayerProps {
   quiz: Quiz;
@@ -19,6 +20,8 @@ export function Player({ quiz, onExit }: PlayerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   const question = quiz.questions[currentQuestionIndex];
+  // Video matnlari quiz tiliga mos (preview eksport bilan bir xil ko'rinsin)
+  const vs = getVideoStrings(quiz.language);
 
   // BGM butun preview davomida bitta joydan boshqariladi (savol almashganda uzilmasin)
   useEffect(() => {
@@ -140,8 +143,8 @@ export function Player({ quiz, onExit }: PlayerProps) {
           className="z-10 flex flex-col items-center text-center"
         >
           <Heart size={80} className="text-rose-500 mb-6 drop-shadow-[0_0_30px_rgba(243,63,94,0.6)] animate-pulse" fill="currentColor" />
-          <h2 className="text-4xl md:text-5xl font-black text-white mb-4 drop-shadow-lg">Videoga Like Bosing!</h2>
-          <p className="text-xl md:text-2xl text-neutral-300 font-medium">Kanalga obuna bo'lishni unutmang</p>
+          <h2 className="text-4xl md:text-5xl font-black text-white mb-4 drop-shadow-lg">{vs.outroTitle}</h2>
+          <p className="text-xl md:text-2xl text-neutral-300 font-medium">{vs.outroSubtitle}</p>
           
           {quiz.watermark && (
             <div className="mt-12 bg-white/10 backdrop-blur-md px-6 py-3 rounded-full border border-white/20">
@@ -350,7 +353,7 @@ export function Player({ quiz, onExit }: PlayerProps) {
           {/* Progress Indicator */}
           <div className={`${activePreset.progress} z-10`}>
             <span className="w-2 h-2 rounded-full bg-current animate-pulse opacity-80" />
-            <span>SAVOL: {currentQuestionIndex + 1} / {quiz.questions.length}</span>
+            <span>{vs.questionBadge}: {currentQuestionIndex + 1} / {quiz.questions.length}</span>
           </div>
 
           <div className="flex-1 flex flex-col justify-center relative">
@@ -490,7 +493,7 @@ export function Player({ quiz, onExit }: PlayerProps) {
                         </div>
                       </div>
                       <span className="text-[10px] text-white/50 tracking-[0.2em] font-display uppercase font-black mt-2">
-                        {phase === "timer" ? "Soniya" : "Tayyor"}
+                        {phase === "timer" ? vs.seconds : vs.ready}
                       </span>
                     </div>
                   ) : quiz.timerStyle === "digital" ? (
@@ -525,7 +528,7 @@ export function Player({ quiz, onExit }: PlayerProps) {
                     /* Glowing line */
                     <div className="w-full">
                       <div className="flex justify-between items-center text-white/90 text-xs sm:text-sm mb-3 font-display font-black uppercase tracking-[0.2em] drop-shadow-md">
-                        <span>{phase === "timer" ? "O'ylash vaqti..." : "To'g'ri javob"}</span>
+                        <span>{phase === "timer" ? vs.thinking : vs.correctAnswer}</span>
                         <span className={`text-sm sm:text-base font-black ${
                           quiz.themeColor === 'emerald' ? 'text-emerald-400' :
                           quiz.themeColor === 'cyan' ? 'text-cyan-400' :

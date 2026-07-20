@@ -1,6 +1,7 @@
 import { Quiz, Question } from "../types";
 import { playPCMAsync, stopPCM } from "./tts";
 import { playPop, playTick, playSuccess, startProceduralBGM, stopProceduralBGM } from "./sfx";
+import { getVideoStrings, VideoStrings } from "./i18n";
 
 const THEME_COLORS: Record<string, { main: string; light: string }> = {
   emerald: { main: '#10b981', light: '#34d399' },
@@ -49,8 +50,11 @@ export class QuizRenderer {
   onError?: (err: any) => void;
   onBeforeRecording?: () => Promise<void>;
 
+  strings: VideoStrings;
+
   constructor(quiz: Quiz) {
     this.quiz = quiz;
+    this.strings = getVideoStrings(quiz.language);
     this.canvas = document.createElement('canvas');
     this.canvas.width = 1080;
     this.canvas.height = 1920;
@@ -318,11 +322,11 @@ export class QuizRenderer {
       
       this.ctx.fillStyle = '#fff';
       this.ctx.font = '900 70px system-ui, -apple-system, sans-serif';
-      this.ctx.fillText("Videoga Like Bosing!", w/2, h/2 + 20);
+      this.ctx.fillText(this.strings.outroTitle, w/2, h/2 + 20);
       
       this.ctx.fillStyle = '#d4d4d8';
       this.ctx.font = '500 45px system-ui, -apple-system, sans-serif';
-      this.ctx.fillText("Kanalga obuna bo'lishni unutmang", w/2, h/2 + 100);
+      this.ctx.fillText(this.strings.outroSubtitle, w/2, h/2 + 100);
       
       if (this.quiz.watermark) {
         this.ctx.fillStyle = 'rgba(255,255,255,0.15)';
@@ -350,13 +354,14 @@ export class QuizRenderer {
       this.ctx.textAlign = 'center';
       this.ctx.textBaseline = 'middle';
 
-      // Tema rangli badge
+      // Tema rangli badge (matn uzunligiga moslashadi — har tilda toza turadi)
+      this.ctx.font = '900 34px system-ui, -apple-system, sans-serif';
+      const introBadgeW = Math.max(360, this.ctx.measureText(this.strings.introBadge).width + 90);
       this.ctx.fillStyle = activeTheme.main;
-      this.drawRoundedRect(-270, -340, 540, 78, 39);
+      this.drawRoundedRect(-introBadgeW / 2, -340, introBadgeW, 78, 39);
       this.ctx.fill();
       this.ctx.fillStyle = '#fff';
-      this.ctx.font = '900 34px system-ui, -apple-system, sans-serif';
-      this.ctx.fillText("NECHTASINI TOPASIZ?", 0, -301);
+      this.ctx.fillText(this.strings.introBadge, 0, -301);
 
       // Sarlavha (mavzu)
       const title = (this.quiz.title || 'QUIZ').toUpperCase();
@@ -385,14 +390,14 @@ export class QuizRenderer {
 
       this.ctx.fillStyle = 'rgba(255,255,255,0.85)';
       this.ctx.font = '600 44px system-ui, -apple-system, sans-serif';
-      this.ctx.fillText(`${this.quiz.questions.length} ta savol • Javoblari ichida`, 0, startY + shown.length * lh + 40);
+      this.ctx.fillText(this.strings.introCount(this.quiz.questions.length), 0, startY + shown.length * lh + 40);
 
       this.ctx.restore();
       return;
     }
 
     // Progress badge (yangi dizayn: pulsli nuqta + "SAVOL n/N")
-    const badgeText = `SAVOL ${this.currentQuestionIndex + 1}/${this.quiz.questions.length}`;
+    const badgeText = `${this.strings.questionBadge} ${this.currentQuestionIndex + 1}/${this.quiz.questions.length}`;
     this.ctx.font = '800 30px system-ui, -apple-system, sans-serif';
     const badgeW = this.ctx.measureText(badgeText).width + 100;
     this.ctx.fillStyle = 'rgba(0,0,0,0.55)';
@@ -585,7 +590,7 @@ export class QuizRenderer {
       this.ctx.font = '900 24px system-ui, -apple-system, sans-serif';
       this.ctx.textAlign = 'center';
       this.ctx.letterSpacing = '5px';
-      this.ctx.fillText(this.phase === 'timer' ? "O'YLASH VAQTI..." : "TO'G'RI JAVOB", 0, -20);
+      this.ctx.fillText(this.phase === 'timer' ? this.strings.thinking : this.strings.correctAnswer, 0, -20);
       this.ctx.letterSpacing = '0px'; // reset
       
       // Timer background
