@@ -1,16 +1,20 @@
 // Vercel serverless funksiya: barcha Gemini chaqiruvlari shu yerda bajariladi.
-// GEMINI_API_KEY faqat server muhitida saqlanadi va klient bundle'iga tushmaydi.
+// Autentifikatsiya Vertex AI service account orqali (GCP_SERVICE_ACCOUNT_JSON) —
+// maxfiy qiymatlar faqat server muhitida qoladi va klient bundle'iga tushmaydi.
 import { GoogleGenAI, Type, Modality } from "@google/genai";
 import type { IncomingMessage, ServerResponse } from "http";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
+import { isAdminEmail } from "../shared/admins.js";
 import { adminAuth, adminDb } from "./firebase-admin.js";
 import {
   AuthenticatedUser,
   UsageError,
   completeVideoExport,
+  consumeAiBudget,
   failVideoExport,
   getAdminUsageSummary,
   recordModelUsage,
+  refundAiBudget,
   requirePlanAccess,
   reserveVideoExport,
 } from "./usage.js";
@@ -71,6 +75,17 @@ class ApiError extends Error {
   }
 }
 
+// vercel.json dagi maxDuration = 60s. Vercel funksiyani o'ldirib 504 qaytarishidan oldin
+// o'zimiz qaytishimiz kerak — aks holda javob ham, byudjet refund'i ham bajarilmay qoladi.
+// Render/Vercel Pro'da chegara kattaroq, shuning uchun env orqali ko'tarish mumkin.
+const TTS_BATCH_BUDGET_MS = Math.max(5_000, Number(process.env.TTS_BATCH_BUDGET_MS) || 50_000);
+// Vercel javob tanasi ~4.5MB. Base64 audio JSON ichida shuncha belgi egallaydi.
+const MAX_TTS_RESPONSE_CHARS = 3_500_000;
+// Yangi klip boshlashdan oldin uning hajmini oldindan bilmaymiz, shuning uchun ehtiyotkor
+// baho bilan "joy band qilamiz". Eng uzun klip — javob + 18 so'zli izoh (~10s audio,
+// base64'da ~640K belgi). Kuzatilgan haqiqiy hajm bahodan oshsa, baho o'sib boradi.
+const TTS_CLIP_ESTIMATE_CHARS = 700_000;
+
 const RATE_LIMITS: Record<ApiAction, { max: number; windowMs: number }> = {
   generateQuiz: { max: 12, windowMs: 60 * 60 * 1000 },
   analyzeImages: { max: 20, windowMs: 60 * 60 * 1000 },
@@ -102,9 +117,13 @@ async function requireUser(req: IncomingMessage): Promise<AuthenticatedUser> {
   }
 }
 
-async function enforceRateLimit(uid: string, action: ApiAction, cost = 1): Promise<void> {
+async function enforceRateLimit(user: AuthenticatedUser, action: ApiAction, cost = 1): Promise<void> {
+  if (isAdminEmail(user.email)) {
+    return; // Admins are exempt from rate limiting
+  }
+
   const config = RATE_LIMITS[action];
-  const ref = adminDb.collection("apiUsage").doc(uid);
+  const ref = adminDb.collection("apiUsage").doc(user.uid);
   await adminDb.runTransaction(async (transaction) => {
     const snapshot = await transaction.get(ref);
     const data = snapshot.data() || {};
@@ -123,14 +142,18 @@ async function enforceRateLimit(uid: string, action: ApiAction, cost = 1): Promi
   });
 }
 
-// Vertex AI rejimi: API kalit o'rniga service account ishlatiladi (shahnoza loyihasidagi sxema).
+// Vertex AI rejimi: API kalit o'rniga service account ishlatiladi.
 // Matn modellari "global" lokatsiyada, TTS esa "us-central1" da ishlaydi.
-const VERTEX_PROJECT = "gen-lang-client-0017562692";
+//
+// DIQQAT: bu Firebase loyihasidan BOSHQA GCP loyihasi (Firebase uchun —
+// api/firebase-admin.ts). Boshqa loyihaga ko'chirilganda VERTEX_PROJECT env orqali
+// almashtiriladi; standart qiymat hozirgi ishlab turgan sozlamani saqlaydi.
+const VERTEX_PROJECT = process.env.VERTEX_PROJECT || "gen-lang-client-0017562692";
 
 function getVertexCredentials() {
   const raw = process.env.GCP_SERVICE_ACCOUNT_JSON;
   if (!raw) {
-    throw new Error("GCP_SERVICE_ACCOUNT_JSON sozlanmagan. Vercel Environment Variables-ga Vertex service account JSON qo'shing.");
+    throw new Error("GCP_SERVICE_ACCOUNT_JSON sozlanmagan. Host'ning Environment Variables bo'limiga Vertex service account JSON qo'shing.");
   }
   const sa = JSON.parse(raw);
   if (typeof sa.private_key === "string") {
@@ -399,10 +422,13 @@ async function mapWithConcurrency<T, R>(items: T[], limit: number, fn: (item: T)
 }
 
 // Vaqtinchalik 429 (rate limit) xatolarida qisqa backoff bilan qayta urinadi.
+// `deadlineAt` dan oshib ketadigan backoff'ni kutmaymiz — kechikkan qayta urinish
+// funksiyani 504 ga olib boradi va butun batch yo'qoladi.
 async function generateTTSWithRetry(
   text: string,
   voiceName: string,
   user: AuthenticatedUser,
+  deadlineAt: number,
   retries = 2,
 ): Promise<string | null> {
   for (let attempt = 0; ; attempt++) {
@@ -411,8 +437,12 @@ async function generateTTSWithRetry(
     } catch (error: any) {
       const message = error?.message || String(error);
       const is429 = error?.status === 429 || message.includes("429");
-      if (is429 && !message.includes("quota") && attempt < retries) {
-        await new Promise((r) => setTimeout(r, (attempt + 1) * 2000));
+      const backoffMs = (attempt + 1) * 2000;
+      if (
+        is429 && !message.includes("quota") && attempt < retries &&
+        Date.now() + backoffMs < deadlineAt
+      ) {
+        await new Promise((r) => setTimeout(r, backoffMs));
         continue;
       }
       throw error;
@@ -422,18 +452,44 @@ async function generateTTSWithRetry(
 
 // Bitta so'rovda bir nechta klipni yaratadi. Kvota/rate-limit xatosi butun batch'ni to'xtatadi
 // (foydalanuvchi sababini ko'radi), boshqa vaqtinchalik xatolarda esa shu klip null bo'lib qoladi.
+//
+// Ikkita platforma chegarasi bor va ikkalasi ham butun so'rovni yiqitadi:
+//   1. Funksiya vaqti (Vercel maxDuration = 60s) — oshib ketsa 504, hech qanday javob yo'q.
+//   2. Javob tanasi (~4.5MB) — oshib ketsa javob yetkazilmaydi.
+// Shuning uchun chegaraga yaqinlashganda qolgan kliplarni YARATMAYMIZ va ularni null
+// qilib qaytaramiz. Klient yetishmaganlarini keyingi so'rovda so'rab oladi, byudjet esa
+// refundAiBudget orqali qaytariladi. Qisman natija — yiqilgan so'rovdan yaxshi.
 async function generateTTSBatch(
   items: { text: string; voiceName: string }[],
   user: AuthenticatedUser,
+  deadlineAt: number,
 ): Promise<(string | null)[]> {
+  let committedChars = 0;
+  let inFlightClips = 0;
+  let clipEstimateChars = TTS_CLIP_ESTIMATE_CHARS;
+
   return mapWithConcurrency(items, 3, async (item) => {
+    if (Date.now() >= deadlineAt) return null;
+    // Tugagan kliplar + hozir uchayotganlar + shu klip uchun baho. Faqat tugaganlarini
+    // sanash yetarli emas: parallellik 3 bo'lgani uchun yangi klip boshlanayotganda
+    // oldingilarning aksariyati hali qaytmagan bo'ladi.
+    if (committedChars + (inFlightClips + 1) * clipEstimateChars > MAX_TTS_RESPONSE_CHARS) return null;
+
+    inFlightClips++;
     try {
-      return await generateTTSWithRetry(item.text, item.voiceName, user);
+      const audio = await generateTTSWithRetry(item.text, item.voiceName, user, deadlineAt);
+      const audioChars = audio?.length || 0;
+      committedChars += audioChars;
+      // Haqiqiy klip bahodan uzun chiqdi — keyingi bahoni shunga moslaymiz.
+      if (audioChars > clipEstimateChars) clipEstimateChars = audioChars;
+      return audio;
     } catch (error: any) {
       const message = error?.message || String(error);
       if (message.includes("quota") || error?.status === 429 || message.includes("429")) throw error;
       console.error("Batch TTS klipi muvaffaqiyatsiz:", message);
       return null;
+    } finally {
+      inFlightClips--;
     }
   });
 }
@@ -465,6 +521,9 @@ function sendJSON(res: ServerResponse, status: number, data: unknown) {
 }
 
 export default async function handler(req: IncomingMessage & { body?: any }, res: ServerResponse) {
+  // Deadline so'rov boshidan hisoblanadi — auth, rate-limit va byudjet tranzaksiyalari
+  // ham funksiya vaqtidan yeydi.
+  const requestStartedAt = Date.now();
   if (req.method !== "POST") {
     sendJSON(res, 405, { error: "Method not allowed" });
     return;
@@ -490,19 +549,30 @@ export default async function handler(req: IncomingMessage & { body?: any }, res
     const cost = action === "ttsBatch" && Array.isArray(body?.items)
       ? Math.min(Math.max(body.items.length, 1), 8)
       : 1;
-    await enforceRateLimit(user.uid, action, cost);
+    await enforceRateLimit(user, action, cost);
 
     switch (action) {
       case "generateQuiz": {
         const { topic, language, count } = body;
         if (!topic || typeof topic !== "string" || topic.trim().length > 200) throw new ApiError(400, "INVALID_TOPIC");
+        const isAdmin = isAdminEmail(user.email);
         const requestedCount = Number(count ?? 5);
         if (!Number.isInteger(requestedCount) || requestedCount < 5 || requestedCount > 30) {
           throw new ApiError(400, "INVALID_QUESTION_COUNT");
         }
+        if (!isAdmin && requestedCount > 5) {
+          throw new ApiError(403, "CLIENTS_LIMITED_TO_5_QUESTIONS");
+        }
         const selectedLanguage = ["uz", "en", "ru", "tr"].includes(language) ? language : "uz";
         await requirePlanAccess(user);
-        const questions = await generateQuiz(topic.trim(), selectedLanguage, requestedCount, user);
+        await consumeAiBudget(user, "quizzes", 1, "AI_QUIZ_LIMIT");
+        let questions;
+        try {
+          questions = await generateQuiz(topic.trim(), selectedLanguage, requestedCount, user);
+        } catch (error) {
+          await refundAiBudget(user, "quizzes", 1);
+          throw error;
+        }
         sendJSON(res, 200, { questions });
         return;
       }
@@ -513,7 +583,14 @@ export default async function handler(req: IncomingMessage & { body?: any }, res
           throw new ApiError(400, "INVALID_QUESTIONS");
         }
         await requirePlanAccess(user);
-        const keywords = await analyzeQuestionsForImages(questions, user);
+        await consumeAiBudget(user, "imageCalls", 1, "AI_IMAGE_LIMIT");
+        let keywords;
+        try {
+          keywords = await analyzeQuestionsForImages(questions, user);
+        } catch (error) {
+          await refundAiBudget(user, "imageCalls", 1);
+          throw error;
+        }
         sendJSON(res, 200, { keywords });
         return;
       }
@@ -521,6 +598,7 @@ export default async function handler(req: IncomingMessage & { body?: any }, res
         const { keyword } = body;
         if (!keyword || typeof keyword !== "string" || keyword.trim().length > 100) throw new ApiError(400, "INVALID_KEYWORD");
         await requirePlanAccess(user);
+        await consumeAiBudget(user, "imageCalls", 1, "AI_IMAGE_LIMIT");
         const url = await getUnsplashImageForKeyword(keyword.trim(), user);
         sendJSON(res, 200, { url });
         return;
@@ -534,7 +612,16 @@ export default async function handler(req: IncomingMessage & { body?: any }, res
         if (selectedVoice !== "Kore" && profile.effectiveRole !== "premium" && profile.effectiveRole !== "admin") {
           throw new ApiError(403, "PREMIUM_VOICE_REQUIRED");
         }
-        const audio = await generateTTS(text, selectedVoice, user);
+        await consumeAiBudget(user, "ttsClips", 1, "AI_VOICE_LIMIT");
+        let audio: string | null;
+        try {
+          audio = await generateTTS(text, selectedVoice, user);
+        } catch (error) {
+          await refundAiBudget(user, "ttsClips", 1);
+          throw error;
+        }
+        // Model audiosiz javob qaytardi — klipni byudjetga qaytaramiz.
+        if (!audio) await refundAiBudget(user, "ttsClips", 1);
         sendJSON(res, 200, { audio });
         return;
       }
@@ -556,7 +643,17 @@ export default async function handler(req: IncomingMessage & { body?: any }, res
         if (usesPremiumVoice && profile.effectiveRole !== "premium" && profile.effectiveRole !== "admin") {
           throw new ApiError(403, "PREMIUM_VOICE_REQUIRED");
         }
-        const audios = await generateTTSBatch(normalized, user);
+        await consumeAiBudget(user, "ttsClips", normalized.length, "AI_VOICE_LIMIT");
+        let audios: (string | null)[];
+        try {
+          audios = await generateTTSBatch(normalized, user, requestStartedAt + TTS_BATCH_BUDGET_MS);
+        } catch (error) {
+          await refundAiBudget(user, "ttsClips", normalized.length);
+          throw error;
+        }
+        // Yaratilmagan kliplar uchun byudjet yechilmasin.
+        const failedClips = audios.filter((clip) => !clip).length;
+        if (failedClips > 0) await refundAiBudget(user, "ttsClips", failedClips);
         sendJSON(res, 200, { audios });
         return;
       }
@@ -565,6 +662,7 @@ export default async function handler(req: IncomingMessage & { body?: any }, res
           format: body?.format,
           questionCount: body?.questionCount,
           targetDuration: body?.targetDuration,
+          force: Boolean(body?.force),
         });
         sendJSON(res, 200, result);
         return;

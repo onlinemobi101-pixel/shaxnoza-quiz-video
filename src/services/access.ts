@@ -75,6 +75,7 @@ export async function reserveVideoExport(metadata: {
   format: "youtube" | "vertical";
   questionCount: number;
   targetDuration?: 8 | 10 | 12;
+  force?: boolean;
 }): Promise<VideoReservationResult> {
   return callAccessAPI({ action: "reserveVideoExport", ...metadata });
 }

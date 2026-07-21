@@ -2,8 +2,12 @@ import { applicationDefault, cert, getApps, initializeApp } from "firebase-admin
 import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
 
-const PROJECT_ID = "gen-lang-client-0398801666";
-const DATABASE_ID = "ai-studio-quizvideogenerat-b76222ad-cbef-4099-98d0-287a876f919d";
+// Standart qiymatlar hozirgi ishlab turgan sozlamani saqlaydi; boshqa Firebase
+// loyihasiga ko'chirilganda env orqali almashtiriladi.
+// Klient tomondagi mos qiymatlar: src/services/firebase.ts
+const PROJECT_ID = process.env.FIREBASE_PROJECT_ID || "gen-lang-client-0398801666";
+const DATABASE_ID = process.env.FIRESTORE_DATABASE_ID ||
+  "ai-studio-quizvideogenerat-b76222ad-cbef-4099-98d0-287a876f919d";
 
 function getAdminApp() {
   if (getApps().length > 0) return getApps()[0];

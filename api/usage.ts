@@ -1,5 +1,6 @@
 import { randomUUID } from "crypto";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
+import { isAdminEmail } from "../shared/admins.js";
 import { adminDb } from "./firebase-admin.js";
 
 export type Role = "free" | "premium" | "pack10" | "admin";
@@ -56,7 +57,6 @@ export class UsageError extends Error {
   }
 }
 
-const OWNER_EMAIL = "onlinemobi101@gmail.com";
 // Eng uzun video 12 daqiqa; sekin mobil qurilmalar uchun 45 daqiqalik xavfsiz oynani qoldiramiz.
 const RESERVATION_TTL_MS = 45 * 60 * 1000;
 
@@ -65,6 +65,49 @@ export const PLAN_LIMITS: Record<Exclude<Role, "admin">, number> = {
   pack10: 10,
   premium: 100,
 };
+
+export type AiResource = "quizzes" | "ttsClips" | "imageCalls";
+
+// AI byudjeti — eksport kvotasidan ALOHIDA hisoblanadi.
+//
+// Nega kerak: quotaUsed faqat eksport TUGAGANDA oshadi. Shu sababli hali bir marta ham
+// eksport qilmagan foydalanuvchi requirePlanAccess'dan bemalol o'tib, cheksiz AI ishlatishi
+// mumkin edi. Rate-limit faqat tezlikni cheklaydi, umumiy hajmni emas.
+//
+// Byudjet quotaCycle bilan bir xil siklda yashaydi: free -> "free:lifetime" (umrbod),
+// premium -> oylik, pack10 -> paket tugagunicha.
+//
+// Miqdorlar: bitta 5 savolli video ≈ 1 quiz + 10 TTS klip. Ya'ni free foydalanuvchi
+// ~2 video hajmida ovoz + qayta urinishlarga yetadi, ammo tannarx cheklangan qoladi.
+export const AI_BUDGETS: Record<Exclude<Role, "admin">, Record<AiResource, number>> = {
+  free: { quizzes: 3, ttsClips: 24, imageCalls: 20 },
+  pack10: { quizzes: 25, ttsClips: 240, imageCalls: 150 },
+  premium: { quizzes: 200, ttsClips: 2400, imageCalls: 1200 },
+};
+
+const AI_USAGE_FIELDS: Record<AiResource, string> = {
+  quizzes: "aiQuizzesUsed",
+  ttsClips: "aiTtsClipsUsed",
+  imageCalls: "aiImageCallsUsed",
+};
+
+// Profil hujjati topilmasa yoziladigan boshlang'ich holat. Uchta chaqiruv joyi
+// (getUserProfile, reserveVideoExport, completeVideoExport) bir xil qiymat yozishi shart —
+// aks holda foydalanuvchi qaysi yo'l bilan kelganiga qarab boshqacha kvota oladi.
+function buildDefaultProfile(email?: string | null) {
+  const role: Role = isAdminEmail(email) ? "admin" : "free";
+  return {
+    role,
+    videosCreated: 0,
+    premiumUntil: null,
+    quotaCycle: null,
+    quotaUsed: 0,
+    quotaLimit: role === "admin" ? null : PLAN_LIMITS.free,
+    // Firestore `undefined` qiymatni qabul qilmaydi — emailsiz token uchun null yozamiz.
+    email: email || null,
+    createdAt: new Date().toISOString(),
+  };
+}
 
 function finiteNumber(value: unknown, fallback = 0): number {
   const number = Number(value);
@@ -145,15 +188,20 @@ export function normalizeProfile(data: FirebaseFirestore.DocumentData | undefine
 }
 
 export function effectiveRole(profile: ServerUserProfile, email?: string): Role {
-  if (email === OWNER_EMAIL || profile.role === "admin") return "admin";
+  if (isAdminEmail(email) || profile.role === "admin") return "admin";
   if (profile.role !== "premium") return profile.role;
   const expiresAt = profile.premiumUntil ? Date.parse(profile.premiumUntil) : Number.NaN;
   return Number.isFinite(expiresAt) && expiresAt > Date.now() ? "premium" : "free";
 }
 
-export async function getUserProfile(uid: string): Promise<ServerUserProfile> {
-  const snapshot = await adminDb.collection("users").doc(uid).get();
-  if (!snapshot.exists) throw new UsageError(409, "PROFILE_REQUIRED");
+export async function getUserProfile(uid: string, email?: string): Promise<ServerUserProfile> {
+  const ref = adminDb.collection("users").doc(uid);
+  const snapshot = await ref.get();
+  if (!snapshot.exists) {
+    const defaultProfile = buildDefaultProfile(email);
+    await ref.set(defaultProfile);
+    return normalizeProfile(defaultProfile);
+  }
   return normalizeProfile(snapshot.data());
 }
 
@@ -161,13 +209,76 @@ export async function requirePlanAccess(
   user: AuthenticatedUser,
   errorCode = "PLAN_LIMIT",
 ): Promise<ServerUserProfile & { effectiveRole: Role; quota: QuotaState }> {
-  const profile = await getUserProfile(user.uid);
+  const profile = await getUserProfile(user.uid, user.email);
   const role = effectiveRole(profile, user.email);
   const quota = resolveQuota(profile, role);
   if (quota.quotaLimit !== null && quota.quotaUsed >= quota.quotaLimit) {
     throw new UsageError(403, errorCode);
   }
   return { ...profile, effectiveRole: role, quota };
+}
+
+// AI byudjetidan `amount` birlik yechadi. Chaqiruvdan OLDIN bajariladi (rate-limit kabi),
+// shuning uchun xato bo'lgan chaqiruvlar cheksiz qayta urinishga yo'l ochmaydi.
+// Model javob bermagan hollarda refundAiBudget() bilan qaytarib beriladi.
+export async function consumeAiBudget(
+  user: AuthenticatedUser,
+  resource: AiResource,
+  amount: number,
+  errorCode: string,
+): Promise<void> {
+  if (amount <= 0) return;
+  const userRef = adminDb.collection("users").doc(user.uid);
+
+  await adminDb.runTransaction(async (transaction) => {
+    const snapshot = await transaction.get(userRef);
+    const data = snapshot.data() || {};
+    const profile = normalizeProfile(data);
+    const role = effectiveRole(profile, user.email);
+    if (role === "admin") return; // Adminlarda AI byudjeti yo'q
+
+    const cycle = resolveQuota(profile, role).quotaCycle;
+    const storedCycle = typeof data.aiCycle === "string" ? data.aiCycle : null;
+    const cycleIsCurrent = storedCycle === cycle;
+
+    const field = AI_USAGE_FIELDS[resource];
+    const used = cycleIsCurrent ? nonNegativeInteger(data[field]) : 0;
+    const limit = AI_BUDGETS[role][resource];
+    if (used + amount > limit) throw new UsageError(403, errorCode);
+
+    const payload: Record<string, unknown> = {
+      aiCycle: cycle,
+      updatedAt: FieldValue.serverTimestamp(),
+    };
+    // Sikl almashgan bo'lsa faqat shu resurs emas, BARCHA hisoblagichlar nolga tushadi.
+    if (!cycleIsCurrent) {
+      for (const key of Object.values(AI_USAGE_FIELDS)) payload[key] = 0;
+    }
+    payload[field] = used + amount;
+    transaction.set(userRef, payload, { merge: true });
+  });
+}
+
+// Model javob qaytarmagan klipni byudjetga qaytaradi. Bu yerdagi xato foydalanuvchining
+// javobini buzmasligi kerak — eng yomoni byudjet biroz ko'proq sarflangan bo'lib qoladi.
+export async function refundAiBudget(
+  user: AuthenticatedUser,
+  resource: AiResource,
+  amount: number,
+): Promise<void> {
+  if (amount <= 0) return;
+  const userRef = adminDb.collection("users").doc(user.uid);
+  const field = AI_USAGE_FIELDS[resource];
+  try {
+    await adminDb.runTransaction(async (transaction) => {
+      const snapshot = await transaction.get(userRef);
+      if (!snapshot.exists) return;
+      const used = nonNegativeInteger(snapshot.data()?.[field]);
+      transaction.update(userRef, { [field]: Math.max(0, used - amount) });
+    });
+  } catch (error) {
+    console.error("AI byudjetini qaytarib bo'lmadi:", error);
+  }
 }
 
 function reservationStartedAtMillis(active: ServerUserProfile["activeExportReservation"]): number {
@@ -177,7 +288,7 @@ function reservationStartedAtMillis(active: ServerUserProfile["activeExportReser
 
 export async function reserveVideoExport(
   user: AuthenticatedUser,
-  metadata: { format?: string; questionCount?: number; targetDuration?: number },
+  metadata: { format?: string; questionCount?: number; targetDuration?: number; force?: boolean },
 ): Promise<QuotaState & { reservationId: string }> {
   const userRef = adminDb.collection("users").doc(user.uid);
   const reservationId = randomUUID();
@@ -185,9 +296,13 @@ export async function reserveVideoExport(
 
   return adminDb.runTransaction(async (transaction) => {
     const snapshot = await transaction.get(userRef);
-    if (!snapshot.exists) throw new UsageError(409, "PROFILE_REQUIRED");
+    let profileData = snapshot.data();
+    if (!snapshot.exists) {
+      profileData = buildDefaultProfile(user.email);
+      transaction.set(userRef, profileData);
+    }
 
-    const profile = normalizeProfile(snapshot.data());
+    const profile = normalizeProfile(profileData);
     const role = effectiveRole(profile, user.email);
     const quota = resolveQuota(profile, role);
     if (quota.quotaLimit !== null && quota.quotaUsed >= quota.quotaLimit) {
@@ -201,7 +316,7 @@ export async function reserveVideoExport(
       activeStartedAt &&
       Date.now() - activeStartedAt < RESERVATION_TTL_MS,
     );
-    if (activeIsFresh) throw new UsageError(409, "EXPORT_IN_PROGRESS");
+    if (activeIsFresh && !metadata.force) throw new UsageError(409, "EXPORT_IN_PROGRESS");
 
     if (active?.id) {
       const expiredRef = adminDb.collection("exportReservations").doc(active.id);
@@ -273,13 +388,17 @@ export async function completeVideoExport(
       transaction.get(reservationRef),
       transaction.get(userMonthRef),
     ]);
-    if (!userSnapshot.exists) throw new UsageError(409, "PROFILE_REQUIRED");
+    let userProfileData = userSnapshot.data();
+    if (!userSnapshot.exists) {
+      userProfileData = buildDefaultProfile(user.email);
+      transaction.set(userRef, userProfileData);
+    }
     if (!reservationSnapshot.exists) throw new UsageError(404, "RESERVATION_NOT_FOUND");
 
     const reservation = reservationSnapshot.data() || {};
     if (reservation.uid !== user.uid) throw new UsageError(403, "RESERVATION_FORBIDDEN");
 
-    const profile = normalizeProfile(userSnapshot.data());
+    const profile = normalizeProfile(userProfileData);
     const role = effectiveRole(profile, user.email);
 
     if (reservation.status === "completed") {
@@ -500,7 +619,7 @@ export async function getAdminUsageSummary(
   user: AuthenticatedUser,
   requestedMonth?: string,
 ): Promise<Record<string, unknown>> {
-  const profile = await getUserProfile(user.uid);
+  const profile = await getUserProfile(user.uid, user.email);
   if (effectiveRole(profile, user.email) !== "admin") {
     throw new UsageError(403, "ADMIN_REQUIRED");
   }
