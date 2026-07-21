@@ -21,7 +21,9 @@ export async function generateTTS(text: string, voiceName: string = "Kore", retr
     const data = await response.json().catch(() => ({}));
 
     if (response.status === 401) throw new Error("AUTH_REQUIRED");
-    if (response.status === 403) throw new Error(data?.error === "TTS_LIMIT" ? "TTS_LIMIT" : "AUTH_REQUIRED");
+    // Server kodini o'zgartirmasdan uzatamiz (TTS_LIMIT, AI_VOICE_LIMIT, PREMIUM_VOICE_REQUIRED...) —
+    // aks holda UI noto'g'ri sababni ko'rsatib, foydalanuvchini qayta kirishga majburlaydi.
+    if (response.status === 403) throw new Error(data?.error || "AUTH_REQUIRED");
 
     if (response.status === 429) {
       if (data?.error === "QUOTA_EXCEEDED") {
@@ -35,6 +37,10 @@ export async function generateTTS(text: string, voiceName: string = "Kore", retr
       throw new Error("RATE_LIMITED");
     }
 
+    if (response.status === 504 || response.status === 502 || response.status === 503) {
+      throw new Error("TTS_TIMEOUT");
+    }
+
     if (!response.ok) {
       throw new Error(data?.error || `TTS API xatosi (${response.status})`);
     }
@@ -42,7 +48,9 @@ export async function generateTTS(text: string, voiceName: string = "Kore", retr
     return data.audio || null;
   } catch (error: any) {
     const code = error?.message;
-    if (code === "QUOTA_EXCEEDED" || code === "AUTH_REQUIRED" || code === "TTS_LIMIT") throw error;
+    if (code === "QUOTA_EXCEEDED" || code === "AUTH_REQUIRED" || code === "TTS_LIMIT" ||
+        code === "AI_VOICE_LIMIT" || code === "PREMIUM_VOICE_REQUIRED" ||
+        code === "TTS_TIMEOUT") throw error;
     console.error("TTS generation failed:", error);
     // Re-throw with detail so the UI can show the real reason
     throw new Error(error?.message || error?.toString() || "Noma'lum xatolik");
@@ -58,8 +66,10 @@ export async function generateTTSBatch(
 ): Promise<(string | null)[]> {
   if (items.length === 0) return [];
 
-  // Vercel javob hajmi limiti (~4.5MB) uchun bitta so'rovda ko'pi bilan 6 klip.
-  const CHUNK = 6;
+  // Bitta so'rovga 4 klip: eng uzun "javob + izoh" klipi base64'da ~640KB bo'lishi mumkin,
+  // ya'ni 4 ta klip ~2.5MB — Vercel'ning ~4.5MB javob limitidan xavfsiz masofada.
+  // 3 parallellik bilan bu 2 to'lqin, funksiyaning 60s vaqtiga ham bemalol sig'adi.
+  const CHUNK = 4;
   if (items.length > CHUNK) {
     const out: (string | null)[] = [];
     for (let i = 0; i < items.length; i += CHUNK) {
@@ -89,10 +99,7 @@ export async function generateTTSBatch(
   const data = await response.json().catch(() => ({}));
 
   if (response.status === 401) throw new Error("AUTH_REQUIRED");
-  if (response.status === 403) {
-    if (data?.error === "PREMIUM_VOICE_REQUIRED") throw new Error("PREMIUM_VOICE_REQUIRED");
-    throw new Error(data?.error === "TTS_LIMIT" ? "TTS_LIMIT" : "AUTH_REQUIRED");
-  }
+  if (response.status === 403) throw new Error(data?.error || "AUTH_REQUIRED");
   if (response.status === 429) {
     if (data?.error === "QUOTA_EXCEEDED") throw new Error("QUOTA_EXCEEDED");
     if (retryCount < 3) {
@@ -101,6 +108,11 @@ export async function generateTTSBatch(
       return generateTTSBatch(items, voiceFallback, retryCount + 1);
     }
     throw new Error("RATE_LIMITED");
+  }
+  // Server o'zi deadline'dan oldin qaytishga harakat qiladi, lekin cold start yoki
+  // tarmoq sekinligi sabab platforma baribir funksiyani uzib qo'yishi mumkin.
+  if (response.status === 504 || response.status === 502 || response.status === 503) {
+    throw new Error("TTS_TIMEOUT");
   }
   if (!response.ok) {
     throw new Error(data?.error || `TTS API xatosi (${response.status})`);

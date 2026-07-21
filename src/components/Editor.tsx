@@ -18,11 +18,13 @@ import {
   FileUp,
   Pause,
   VolumeX,
+  Check,
 } from "lucide-react";
 import { generateTTS, generateTTSBatch } from "../services/tts";
 import { getVideoStrings } from "../services/i18n";
 import { getLongVideoPreset, LONG_VIDEO_PRESETS } from "../services/videoPlan";
 import { generateQuizAI, analyzeQuestionsForImages, getUnsplashImageForKeyword } from "../services/ai";
+import { compressImageFile } from "../services/images";
 import { QuizRenderer } from "../services/renderer";
 import {
   completeVideoExport,
@@ -52,8 +54,19 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
   const [aiTopic, setAiTopic] = useState('');
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [exportedVideoUrl, setExportedVideoUrl] = useState<string | null>(null);
+  const [exportedVideoExtension, setExportedVideoExtension] = useState<string>("");
   const [exportProgress, setExportProgress] = useState(0);
   const [exportWasPaused, setExportWasPaused] = useState(false);
+
+  const handleCloseExportModal = () => {
+    if (exportedVideoUrl) {
+      URL.revokeObjectURL(exportedVideoUrl);
+    }
+    setExportedVideoUrl(null);
+    setExportedVideoExtension("");
+    setIsExporting(false);
+  };
   const [exportResolution, setExportResolution] = useState("");
   const [isMobileExport, setIsMobileExport] = useState(false);
   const [isGeneratingBulkImages, setIsGeneratingBulkImages] = useState(false);
@@ -63,6 +76,7 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
   );
   const [showSettings, setShowSettings] = useState(false);
   const hasPremiumAccess = userProfile?.role === "premium" || userProfile?.role === "admin";
+  const isAdmin = userProfile?.role === "admin";
   const isYouTubeFormat = quiz.videoFormat === "youtube";
   const longVideoPreset = getLongVideoPreset(quiz.targetDuration);
   const exportQuestionNumber = Math.min(
@@ -134,9 +148,20 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
     } else if (code === "TTS_LIMIT" || code === "PLAN_LIMIT" || code === "VIDEO_LIMIT") {
       alert("AI ovoz limitingiz tugagan. Davom etish uchun Premium yoki 10 talik paketni oling.");
       onOpenPaywall();
+    } else if (code === "AI_VOICE_LIMIT") {
+      alert("Shu tarif uchun ajratilgan AI ovoz byudjeti tugadi. Premium yoki 10 talik paket bilan byudjet kengayadi.");
+      onOpenPaywall();
+    } else if (code === "AI_QUIZ_LIMIT") {
+      alert("Shu tarif uchun ajratilgan AI savol yaratish byudjeti tugadi. Savollarni qo'lda kiritishingiz yoki tarifni kengaytirishingiz mumkin.");
+      onOpenPaywall();
+    } else if (code === "AI_IMAGE_LIMIT") {
+      alert("Shu tarif uchun ajratilgan AI rasm qidirish byudjeti tugadi. Rasmlarni qo'lda yuklashingiz yoki tarifni kengaytirishingiz mumkin.");
+      onOpenPaywall();
     } else if (code === "PREMIUM_VOICE_REQUIRED") {
       alert("Bu ovoz faqat faol Premium tarifda mavjud.");
       onOpenPaywall();
+    } else if (code === "TTS_TIMEOUT") {
+      alert("Ovoz yaratish serveri javob berishga ulgurmadi. \"Barcha ovozlar (AI)\" tugmasini qayta bosing — faqat yetishmayotgan ovozlar yaratiladi, limitingiz sarflanmaydi.");
     } else if (code === "RATE_LIMITED") {
       alert("Juda ko'p AI so'rovi yuborildi. Biroz kutib, qayta urinib ko'ring.");
     } else if (code === "QUOTA_EXCEEDED") {
@@ -226,15 +251,20 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
     setQuiz({ ...quiz, questions: newQs });
   };
 
-  const handleImageUpload = (index: number, event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (index: number, event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const result = e.target?.result as string;
-        updateQuestion(index, { ...quiz.questions[index], backgroundImage: result });
-      };
-      reader.readAsDataURL(file);
+    // Inputni darhol bo'shatamiz — aks holda bir xil faylni qayta tanlash ishlamaydi.
+    event.target.value = "";
+    if (!file) return;
+
+    try {
+      // Telefondan kelgan surat 4–8MB bo'lishi mumkin; siqilmasa u quiz obyektida
+      // qolib, avtosaqlash va JSON eksportini shishirib yuboradi.
+      const backgroundImage = await compressImageFile(file);
+      updateQuestion(index, { ...quiz.questions[index], backgroundImage });
+    } catch (error) {
+      console.error(error);
+      alert("Rasmni yuklab bo'lmadi. Boshqa faylni tanlab ko'ring.");
     }
   };
 
@@ -283,7 +313,7 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
     setIsGeneratingAI(true);
     
     try {
-      const questionCount = isYouTubeFormat ? longVideoPreset.questionCount : 5;
+      const questionCount = (isYouTubeFormat && isAdmin) ? longVideoPreset.questionCount : 5;
       const newQuestions = await generateQuizAI(aiTopic, selectedLanguage, questionCount);
       if (newQuestions && newQuestions.length > 0) {
         const generatedQuiz: Quiz = {
@@ -291,7 +321,7 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
           title: aiTopic,
           questions: newQuestions,
           language: selectedLanguage,
-          timerDuration: isYouTubeFormat ? longVideoPreset.timerSeconds : quiz.timerDuration,
+          timerDuration: (isYouTubeFormat && isAdmin) ? longVideoPreset.timerSeconds : quiz.timerDuration,
         };
         // Avval savollarni ekranga chiqaramiz
         setQuiz(generatedQuiz);
@@ -313,13 +343,23 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
             correctAudioBase64: audios[2 * i + 1] || undefined,
           }));
           setQuiz({ ...generatedQuiz, questions: withAudio });
+
+          // Server vaqt/hajm chegarasiga yetganda qisman natija qaytarishi mumkin —
+          // buni jimgina o'tkazib yubormaymiz, aks holda video ovozsiz qismlar bilan chiqadi.
+          const missingClips = audios.filter((clip) => !clip).length;
+          if (missingClips > 0) {
+            alert(
+              `Savollar tayyor, lekin ${missingClips} ta ovoz yaratilmadi.\n\n` +
+              "\"Barcha ovozlar (AI)\" tugmasini bosing — faqat yetishmaganlari yaratiladi."
+            );
+          }
         } catch (ttsErr: any) {
           // Savollar allaqachon yaratildi — ovoz xatosi ularni yo'qotmasin
           const code = ttsErr?.message || "";
           if (code === "AUTH_REQUIRED") {
             alert("Savollar tayyor! AI ovoz qo'shish uchun Google hisobingiz bilan kiring, so'ng \"Barcha ovozlar (AI)\" tugmasini bosing.");
-          } else if (code === "TTS_LIMIT") {
-            alert("Savollar tayyor, lekin AI ovoz limitingiz tugagan. Premium yoki paket bilan ovoz qo'shishingiz mumkin.");
+          } else if (code === "TTS_LIMIT" || code === "AI_VOICE_LIMIT") {
+            alert("Savollar tayyor, lekin AI ovoz byudjetingiz tugagan. Premium yoki paket bilan ovoz qo'shishingiz mumkin.");
           } else if (code === "QUOTA_EXCEEDED") {
             alert("AI Ovoz yaratish uchun API kvotasi tugadi. Siz audio yaratilmagan savollarni o'zingiz matn sifatida qoldirishingiz mumkin.");
           } else {
@@ -384,24 +424,64 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
       alert("Avval test savollarini qo'shing yoki yaratib oling.");
       return;
     }
+    const letters = ['A', 'B', 'C', 'D'];
+    // Faqat savol o'qiladi — variantlar ekranda; video sur'ati tez qoladi
+    const vs = getVideoStrings(quiz.language);
+
+    // Faqat YETISHMAYOTGAN kliplarni so'raymiz. Shu tufayli tugmani qayta bosish
+    // arzon "qayta urinish" bo'lib xizmat qiladi — tayyor ovozlar uchun AI byudjeti
+    // ikkinchi marta sarflanmaydi.
+    const missingSlots = quiz.questions.flatMap((q, questionIndex) => {
+      const slots: { questionIndex: number; kind: "question" | "correct"; text: string }[] = [];
+      if (!q.audioBase64) {
+        slots.push({ questionIndex, kind: "question", text: q.text });
+      }
+      if (!q.correctAudioBase64) {
+        slots.push({
+          questionIndex,
+          kind: "correct",
+          text: vs.ttsCorrect(letters[q.correctOptionIndex], q.options[q.correctOptionIndex], q.explanation),
+        });
+      }
+      return slots;
+    });
+
+    if (missingSlots.length === 0) {
+      alert("Barcha savollar uchun ovozlar allaqachon tayyor.");
+      return;
+    }
+
     setIsGeneratingBulkVoices(true);
     setGeneratingAudioId("batch");
     try {
-      const letters = ['A', 'B', 'C', 'D'];
-      // Faqat savol o'qiladi — variantlar ekranda; video sur'ati tez qoladi
-      const vs = getVideoStrings(quiz.language);
-      const items = quiz.questions.flatMap((q) => [
-        { text: q.text },
-        { text: vs.ttsCorrect(letters[q.correctOptionIndex], q.options[q.correctOptionIndex], q.explanation) },
-      ]);
-      const audios = await generateTTSBatch(items, quiz.voiceName || "Kore");
-      const updatedQuestions = quiz.questions.map((q, i) => ({
-        ...q,
-        audioBase64: audios[2 * i] || q.audioBase64,
-        correctAudioBase64: audios[2 * i + 1] || q.correctAudioBase64,
-      }));
+      const audios = await generateTTSBatch(
+        missingSlots.map((slot) => ({ text: slot.text })),
+        quiz.voiceName || "Kore",
+      );
+
+      const updatedQuestions = quiz.questions.map((q) => ({ ...q }));
+      let createdCount = 0;
+      missingSlots.forEach((slot, index) => {
+        const audio = audios[index];
+        if (!audio) return;
+        createdCount++;
+        if (slot.kind === "question") {
+          updatedQuestions[slot.questionIndex].audioBase64 = audio;
+        } else {
+          updatedQuestions[slot.questionIndex].correctAudioBase64 = audio;
+        }
+      });
       setQuiz({ ...quiz, questions: updatedQuestions });
-      alert("Barcha savollar uchun ovozlar muvaffaqiyatli yaratildi va o'rnatildi!");
+
+      const stillMissing = missingSlots.length - createdCount;
+      if (stillMissing > 0) {
+        alert(
+          `${createdCount} ta ovoz yaratildi, ${stillMissing} tasi yaratilmadi.\n\n` +
+          "Tugmani qayta bosing — faqat yetishmaganlari so'raladi va limitingiz ular uchun qayta sarflanmaydi."
+        );
+      } else {
+        alert(`${createdCount} ta ovoz muvaffaqiyatli yaratildi va o'rnatildi!`);
+      }
     } catch (ttsErr: any) {
       handleTTSError(ttsErr);
     } finally {
@@ -410,7 +490,8 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
     }
   };
 
-  const handleExport = async () => {
+  const handleExport = async (forceArg: any = false) => {
+    const force = typeof forceArg === "boolean" ? forceArg : false;
     if (!user) {
       onRequireAuth();
       return;
@@ -422,6 +503,8 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
       return;
     }
 
+    setExportedVideoUrl(null);
+    setExportedVideoExtension("");
     setIsExporting(true);
     setExportProgress(0);
     setExportWasPaused(false);
@@ -449,7 +532,18 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
       await releaseReservation(code || "EXPORT_FAILED");
       if (code === "AUTH_REQUIRED") onRequireAuth();
       else if (code === "VIDEO_LIMIT" || code === "PLAN_LIMIT") onOpenPaywall();
-      else if (code === "EXPORT_IN_PROGRESS") alert("Boshqa video eksporti davom etmoqda. U tugagach qayta urinib ko'ring.");
+      else if (code === "EXPORT_IN_PROGRESS") {
+        const forceCancel = window.confirm(
+          "Sizda faol eksport mavjud (ehtimol, sahifani yangilagansiz yoki avvalgi eksport to'xtab qolgan).\n\nAvvalgi eksportni bekor qilib, yangisini boshlashni xohlaysizmi?"
+        );
+        if (forceCancel) {
+          setIsExporting(false);
+          setTimeout(() => {
+            handleExport(true);
+          }, 100);
+          return;
+        }
+      }
       else if (code === "RATE_LIMITED") alert("Juda ko'p urinish. Bir daqiqadan keyin qayta urinib ko'ring.");
       else alert("Video yaratishda xatolik yuz berdi. Limit sarflanmadi.");
       setIsExporting(false);
@@ -472,6 +566,7 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
           format: quiz.videoFormat === "youtube" ? "youtube" : "vertical",
           questionCount: quiz.questions.length,
           targetDuration: quiz.videoFormat === "youtube" ? quiz.targetDuration : undefined,
+          force,
         });
         reservationId = result.reservationId;
         onVideoCreated?.(result);
@@ -499,12 +594,19 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
           exportCompleted = true;
           onVideoCreated?.(result);
 
-          const a = document.createElement("a");
-          a.href = url;
-          a.download = `${quiz.title || "quiz"}.${extension}`;
-          a.click();
-          window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
-          setIsExporting(false);
+          setExportedVideoUrl(url);
+          setExportedVideoExtension(extension);
+
+          try {
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `${quiz.title || "quiz"}.${extension}`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+          } catch (e) {
+            console.warn("Auto-download failed:", e);
+          }
         } catch (error) {
           URL.revokeObjectURL(url);
           await showExportError(error);
@@ -659,67 +761,125 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
           aria-labelledby="export-title"
         >
           <div className="w-full max-w-xl rounded-3xl border border-white/10 bg-neutral-950/90 p-6 sm:p-8 text-center shadow-2xl">
-            <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl border border-emerald-500/20 bg-emerald-500/10">
-              <Loader2 size={34} className="animate-spin text-emerald-400" />
-            </div>
-            <p className="mb-2 text-xs font-bold uppercase tracking-[0.22em] text-emerald-400">
-              Eksport davom etmoqda
-            </p>
-            <h2 id="export-title" className="text-2xl sm:text-3xl font-black mb-3">
-              Videongiz tayyorlanmoqda
-            </h2>
-            <p className="text-sm sm:text-base text-neutral-300 max-w-lg mx-auto mb-6 leading-relaxed">
-              Bu sahifani yopmang yoki yangilamang. Boshqa oynaga o'tishingiz mumkin:
-              eksport xavfsiz pauza qilinadi va qaytishingiz bilan avtomatik davom etadi.
-            </p>
-
-            <div className="mb-3 flex items-center justify-between text-xs font-semibold text-neutral-400">
-              <span>
-                {exportProgress >= 1
-                  ? "Video fayli yakunlanmoqda"
-                  : `${exportQuestionNumber}-savol / ${quiz.questions.length}`}
-              </span>
-              <span className="font-mono text-emerald-300">{Math.round(exportProgress * 100)}%</span>
-            </div>
-            <div
-              className="w-full bg-neutral-800 rounded-full h-3 overflow-hidden border border-neutral-700"
-              role="progressbar"
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-valuenow={Math.round(exportProgress * 100)}
-            >
-              <div
-                className="h-full bg-gradient-to-r from-emerald-500 to-cyan-400 transition-all duration-500"
-                style={{ width: `${exportProgress * 100}%` }}
-              />
-            </div>
-
-            <div className="mt-5 grid gap-3 sm:grid-cols-3 text-left">
-              <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-                <p className="text-xs text-neutral-500">Taxminiy qolgan vaqt</p>
-                <p className="mt-1 text-sm font-bold text-white">
-                  {exportProgress >= 1 ? "Bir necha soniya" : `${estimatedMinutesRemaining} daqiqagacha`}
+            {exportedVideoUrl ? (
+              <div>
+                <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl border border-emerald-500/20 bg-emerald-500/10">
+                  <Check size={34} className="text-emerald-400" />
+                </div>
+                <p className="mb-2 text-xs font-bold uppercase tracking-[0.22em] text-emerald-400">
+                  Tayyor!
                 </p>
+                <h2 id="export-title" className="text-2xl sm:text-3xl font-black mb-3">
+                  Video yaratildi!
+                </h2>
+                <p className="text-sm text-neutral-300 max-w-lg mx-auto mb-6 leading-relaxed">
+                  Videongiz muvaffaqiyatli render qilindi va yuklab olishga tayyor. 
+                  Agar yuklash avtomatik boshlanmagan bo'lsa yoki Telegram/Instagram ichidan foydalanayotgan bo'lsangiz, quyidagi tugmalar yordamida yuklab oling.
+                </p>
+
+                <div className="flex flex-col gap-3">
+                  <button
+                    onClick={() => {
+                      const a = document.createElement("a");
+                      a.href = exportedVideoUrl;
+                      a.download = `${quiz.title || "quiz"}.${exportedVideoExtension}`;
+                      document.body.appendChild(a);
+                      a.click();
+                      document.body.removeChild(a);
+                    }}
+                    className="w-full bg-gradient-to-r from-emerald-600 to-cyan-500 hover:from-emerald-500 hover:to-cyan-400 text-white font-bold py-3 px-6 rounded-xl transition-all cursor-pointer"
+                  >
+                    Yuklab olish (Download)
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      window.open(exportedVideoUrl, "_blank");
+                    }}
+                    className="w-full bg-white/10 hover:bg-white/15 border border-white/10 text-white font-bold py-3 px-6 rounded-xl transition-all cursor-pointer"
+                  >
+                    Yangi oynada ochish (Mobil/Telegram)
+                  </button>
+
+                  <button
+                    onClick={handleCloseExportModal}
+                    className="w-full bg-neutral-900 hover:bg-neutral-800 text-neutral-400 font-semibold py-3 px-6 rounded-xl transition-all cursor-pointer"
+                  >
+                    Yopish
+                  </button>
+                </div>
               </div>
-              <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-                <p className="text-xs text-neutral-500">Eksport sifati</p>
-                <p className="mt-1 text-sm font-bold text-white">
-                  {exportResolution || "Tayyorlanmoqda"}
+            ) : (
+              <div>
+                <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl border border-emerald-500/20 bg-emerald-500/10">
+                  <Loader2 size={34} className="animate-spin text-emerald-400" />
+                </div>
+                <p className="mb-2 text-xs font-bold uppercase tracking-[0.22em] text-emerald-400">
+                  Eksport davom etmoqda
                 </p>
-                {isMobileExport && (
-                  <p className="mt-1 text-[10px] font-semibold text-emerald-300">Mobil xavfsiz rejim</p>
+                <h2 id="export-title" className="text-2xl sm:text-3xl font-black mb-3">
+                  Videongiz tayyorlanmoqda
+                </h2>
+                <p className="text-sm sm:text-base text-neutral-300 max-w-lg mx-auto mb-4 leading-relaxed">
+                  Bu sahifani yopmang yoki yangilamang. Boshqa oynaga o'tishingiz mumkin:
+                  eksport xavfsiz pauza qilinadi va qaytishingiz bilan avtomatik davom etadi.
+                </p>
+                <div className="mb-6 rounded-2xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-xs text-amber-300 text-left max-w-lg mx-auto flex items-start gap-2.5">
+                  <span className="text-base leading-none">💡</span>
+                  <p className="leading-relaxed">
+                    <strong>Tavsiya:</strong> Agar eksport orqa fonda ham to'xtamasdan davom etishini xohlasangiz, ushbu saytni <strong>alohida yangi oyna (window, yangi tab emas)</strong> sifatida oching. Oynani minimallashtirmasdan (свернуть qilmasdan) orqada qoldirsangiz, boshqa ishlaringizni qilayotganingizda ham eksport to'xtamaydi.
+                  </p>
+                </div>
+
+                <div className="mb-3 flex items-center justify-between text-xs font-semibold text-neutral-400">
+                  <span>
+                    {exportProgress >= 1
+                      ? "Video fayli yakunlanmoqda"
+                      : `${exportQuestionNumber}-savol / ${quiz.questions.length}`}
+                  </span>
+                  <span className="font-mono text-emerald-300">{Math.round(exportProgress * 100)}%</span>
+                </div>
+                <div
+                  className="w-full bg-neutral-800 rounded-full h-3 overflow-hidden border border-neutral-700"
+                  role="progressbar"
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={Math.round(exportProgress * 100)}
+                >
+                  <div
+                    className="h-full bg-gradient-to-r from-emerald-500 to-cyan-400 transition-all duration-500"
+                    style={{ width: `${exportProgress * 100}%` }}
+                  />
+                </div>
+
+                <div className="mt-5 grid gap-3 sm:grid-cols-3 text-left">
+                  <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                    <p className="text-xs text-neutral-500">Taxminiy qolgan vaqt</p>
+                    <p className="mt-1 text-sm font-bold text-white">
+                      {exportProgress >= 1 ? "Bir necha soniya" : `${estimatedMinutesRemaining} daqiqagacha`}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                    <p className="text-xs text-neutral-500">Eksport sifati</p>
+                    <p className="mt-1 text-sm font-bold text-white">
+                      {exportResolution || "Tayyorlanmoqda"}
+                    </p>
+                    {isMobileExport && (
+                      <p className="mt-1 text-[10px] font-semibold text-emerald-300">Mobil xavfsiz rejim</p>
+                    )}
+                  </div>
+                  <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                    <p className="text-xs text-neutral-500">Muhim</p>
+                    <p className="mt-1 text-sm font-bold text-white">Qurilmani uyqu rejimiga o'tkazmang</p>
+                  </div>
+                </div>
+
+                {exportWasPaused && (
+                  <p className="mt-4 text-sm font-semibold text-emerald-300" aria-live="polite">
+                    Jarayon tiklandi — eksport davom etmoqda.
+                  </p>
                 )}
               </div>
-              <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-                <p className="text-xs text-neutral-500">Muhim</p>
-                <p className="mt-1 text-sm font-bold text-white">Qurilmani uyqu rejimiga o'tkazmang</p>
-              </div>
-            </div>
-
-            {exportWasPaused && (
-              <p className="mt-4 text-sm font-semibold text-emerald-300" aria-live="polite">
-                Jarayon tiklandi — eksport davom etmoqda.
-              </p>
             )}
           </div>
         </div>
@@ -744,7 +904,7 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
           <h2 className="text-xl font-display font-bold text-indigo-100 tracking-tight">Savollar tayyorlang</h2>
         </div>
         <p className="text-sm text-indigo-200/60 mb-5 relative z-10 leading-relaxed">
-          Mavzuni yozing — AI {isYouTubeFormat ? `${longVideoPreset.questionCount} ta savol, javob izohlari` : "5 ta savol"} va rasmlarni avtomatik tuzib beradi.
+          Mavzuni yozing — AI {(isYouTubeFormat && isAdmin) ? `${longVideoPreset.questionCount} ta savol, javob izohlari` : "5 ta savol"} va rasmlarni avtomatik tuzib beradi.
           Yoki pastda savollarni qo'lda kiriting.
         </p>
         <div className="flex flex-col md:flex-row gap-3 relative z-10">
@@ -868,8 +1028,8 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
               </div>
             </div>
 
-            {isYouTubeFormat && (
-              <div className="pt-4 border-t border-white/10">
+            {isYouTubeFormat && isAdmin && (
+              <div className="mb-5 relative z-10 bg-white/5 border border-white/10 rounded-2xl p-4">
                 <label className="block text-sm font-medium text-neutral-300 mb-3">
                   Maqsadli davomiylik
                 </label>
@@ -1629,7 +1789,7 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
               Ko'rish
             </button>
             <button
-              onClick={handleExport}
+              onClick={() => handleExport(false)}
               disabled={isExporting || isGeneratingAI}
               className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 disabled:opacity-50 text-white px-5 py-3 rounded-xl font-bold text-sm transition-all shadow-lg shadow-emerald-900/30 border border-white/10 border-t-white/20 relative overflow-hidden cursor-pointer"
             >
