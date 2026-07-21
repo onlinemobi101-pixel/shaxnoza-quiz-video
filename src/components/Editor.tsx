@@ -296,8 +296,10 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
     setGeneratingAudioId(null);
   };
 
-  const handleAIGenerate = async () => {
-    if (!aiTopic) return;
+  const handleAIGenerate = async (overrideTopic?: string) => {
+    const topicToUse = overrideTopic || aiTopic;
+    if (!topicToUse) return;
+    if (overrideTopic) setAiTopic(overrideTopic);
     if (!user) {
       onRequireAuth();
       return;
@@ -314,11 +316,11 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
     
     try {
       const questionCount = (isYouTubeFormat && isAdmin) ? longVideoPreset.questionCount : 5;
-      const newQuestions = await generateQuizAI(aiTopic, selectedLanguage, questionCount);
+      const newQuestions = await generateQuizAI(topicToUse, selectedLanguage, questionCount);
       if (newQuestions && newQuestions.length > 0) {
         const generatedQuiz: Quiz = {
           ...quiz,
-          title: aiTopic,
+          title: topicToUse,
           questions: newQuestions,
           language: selectedLanguage,
           timerDuration: (isYouTubeFormat && isAdmin) ? longVideoPreset.timerSeconds : quiz.timerDuration,
@@ -932,13 +934,42 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
             </div>
           </div>
           <button
-            onClick={handleAIGenerate}
+            onClick={() => handleAIGenerate()}
             disabled={isGeneratingAI || !aiTopic}
             className="md:w-auto shrink-0 flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:hover:scale-100 text-white px-6 py-3.5 rounded-xl font-bold transition-all shadow-lg shadow-indigo-900/20 border border-white/10 border-t-white/20 cursor-pointer whitespace-nowrap"
           >
             {isGeneratingAI ? <Loader2 size={20} className="animate-spin" /> : <Sparkles size={20} />}
             {isGeneratingAI ? (generatingAudioId ? "Ovozlar yaratilmoqda..." : "Savollar tuzilmoqda...") : "AI bilan yaratish"}
           </button>
+        </div>
+
+        {/* Trending Topics Quick-Select */}
+        <div className="mt-4 pt-3 border-t border-indigo-500/20 relative z-10">
+          <p className="text-xs font-bold text-indigo-200/80 mb-2 uppercase tracking-wider">
+            🔥 Ommabop mavzular (Bitta bosishda AI yaratadi):
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {[
+              { topic: "Dunyo Geografiyasi va Davlatlar", label: "🌍 Geografiya" },
+              { topic: "Jahon Tarixi va Buyuk Shaxslar", label: "📜 Tarix" },
+              { topic: "Kosmos va Koinot Sirlari", label: "🚀 Kosmos" },
+              { topic: "Mantiqiy Topishmoqlar va Zukkolik", label: "🧠 Mantiqiy" },
+              { topic: "Jahon Sporti va Futbol", label: "⚽ Sport" },
+              { topic: "Kino va Mashhur Filmlar", label: "🎬 Kino" },
+              { topic: "Avtomobillar va Texnika", label: "🚗 Avto" },
+              { topic: "Fizika va Ilm-Fan Kashfiyotlari", label: "🔬 Ilm-Fan" }
+            ].map((t) => (
+              <button
+                key={t.topic}
+                type="button"
+                disabled={isGeneratingAI}
+                onClick={() => handleAIGenerate(t.topic)}
+                className="px-3 py-1.5 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/25 border border-indigo-500/30 text-indigo-200 text-xs font-semibold transition-all hover:scale-105 active:scale-95 disabled:opacity-50 cursor-pointer flex items-center gap-1 shadow-sm"
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
         </div>
         <div className="flex flex-wrap items-center gap-x-1 gap-y-1 mt-4 relative z-10 text-xs text-indigo-200/50">
           <span className="mr-1">Tayyor testingiz bormi?</span>
@@ -1163,7 +1194,9 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
                   { id: 'cyberpunk', name: 'Cyberpunk', desc: 'Binafsha/Neon', premium: true },
                   { id: 'retro', name: 'Retro Arcade', desc: 'Sariq/Piksel', premium: true },
                   { id: 'sunset', name: 'Sunset', desc: 'Iliq/Gradient', premium: false },
-                  { id: 'chalk', name: 'Chalk Board', desc: 'Doska/Bo\'r', premium: true }
+                  { id: 'chalk', name: 'Chalk Board', desc: 'Doska/Bo\'r', premium: true },
+                  { id: 'kids', name: 'Kids Cartoon', desc: 'Yorqin/Quvnoq', premium: true },
+                  { id: 'neon', name: 'Neon Glow', desc: 'Elektr/Yashil', premium: true }
                 ].map((preset) => {
                   const isLocked = preset.premium && !hasPremiumAccess;
                   return (

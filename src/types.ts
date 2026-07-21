@@ -16,7 +16,7 @@ export interface Quiz {
   timerDuration?: number;
   watermark?: string;
   themeColor?: 'emerald' | 'cyan' | 'violet' | 'rose' | 'amber';
-  themePreset?: 'default' | 'cyberpunk' | 'retro' | 'sunset' | 'chalk';
+  themePreset?: 'default' | 'cyberpunk' | 'retro' | 'sunset' | 'chalk' | 'kids' | 'neon';
   bgmEnabled?: boolean;
   bgmType?: 'calm' | 'happy' | 'tense';
   timerStyle?: 'circular' | 'line' | 'digital';

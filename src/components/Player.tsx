@@ -282,6 +282,32 @@ export function Player({ quiz, onExit }: PlayerProps) {
       gridOverlay: (
         <div className="absolute inset-0 bg-neutral-950/20 pointer-events-none bg-[radial-gradient(#ffffff_1px,transparent_1px)] [background-size:16px_16px] opacity-10 z-0" />
       ) as React.ReactNode
+    },
+    kids: {
+      container: "relative w-full max-w-[420px] max-h-[85vh] aspect-[9/16] bg-sky-900 rounded-[3rem] overflow-hidden shadow-[0_20px_50px_rgba(14,165,233,0.3)] ring-[8px] ring-sky-500/40 box-border border-4 border-yellow-300",
+      overlay: "absolute inset-0 bg-gradient-to-b from-sky-900/30 via-indigo-950/40 to-indigo-950/90 pointer-events-none",
+      progress: "absolute top-8 left-8 sm:left-8 bg-yellow-400 backdrop-blur-xl px-4 py-1.5 rounded-full border border-yellow-300 text-sky-950 font-display text-xs uppercase font-extrabold shadow-md",
+      questionBox: "bg-gradient-to-r from-yellow-400 via-amber-400 to-orange-400 text-sky-950 w-full rounded-[2.5rem] p-6 sm:p-8 shadow-[0_10px_25px_rgba(251,191,36,0.4)] mb-8 sm:mb-12 text-center relative border-4 border-white",
+      questionText: "text-xl sm:text-2xl md:text-3xl font-display font-black leading-tight tracking-tight text-sky-950 drop-shadow-sm",
+      optionNormal: "bg-white/15 backdrop-blur-md hover:bg-white/25 border-2 border-white/30 text-white rounded-2xl font-bold",
+      optionCorrect: "bg-gradient-to-r from-emerald-400 to-green-500 text-white font-black border-4 border-white shadow-[0_0_25px_rgba(52,211,153,0.6)] animate-bounce",
+      optionIncorrect: "bg-sky-950/80 text-sky-200/30 border-sky-900/50 rounded-2xl",
+      letter: "bg-sky-400 text-sky-950 font-black border-2 border-white rounded-xl",
+      gridOverlay: null as React.ReactNode
+    },
+    neon: {
+      container: "relative w-full max-w-[420px] max-h-[85vh] aspect-[9/16] bg-black rounded-[3rem] overflow-hidden shadow-[0_0_40px_rgba(16,185,129,0.3)] ring-[8px] ring-emerald-500/50 box-border border-2 border-emerald-400",
+      overlay: "absolute inset-0 bg-gradient-to-b from-black/50 via-black/80 to-black pointer-events-none",
+      progress: "absolute top-8 left-8 sm:left-8 bg-emerald-500/20 backdrop-blur-xl px-4 py-1.5 rounded-full border border-emerald-400 text-emerald-300 font-mono text-xs uppercase font-extrabold tracking-widest shadow-[0_0_15px_rgba(16,185,129,0.3)]",
+      questionBox: "bg-black/90 border-2 border-emerald-400 text-emerald-300 w-full rounded-[2rem] p-6 sm:p-8 shadow-[0_0_30px_rgba(16,185,129,0.4)] mb-8 sm:mb-12 text-center relative",
+      questionText: "text-xl sm:text-2xl md:text-3xl font-mono font-black leading-tight tracking-tight text-emerald-300 drop-shadow-[0_0_10px_rgba(16,185,129,0.8)]",
+      optionNormal: "bg-black/80 hover:bg-black border-2 border-emerald-500/30 text-emerald-200 hover:border-emerald-400 hover:shadow-[0_0_15px_rgba(16,185,129,0.4)] rounded-2xl",
+      optionCorrect: "bg-gradient-to-r from-emerald-500 to-teal-400 text-black font-black border-2 border-white shadow-[0_0_30px_rgba(16,185,129,0.8)]",
+      optionIncorrect: "bg-neutral-950 text-neutral-700 border-neutral-900 rounded-2xl",
+      letter: "bg-emerald-950 text-emerald-300 border border-emerald-400 font-bold",
+      gridOverlay: (
+        <div className="absolute inset-0 bg-[radial-gradient(#10b981_1px,transparent_1px)] [background-size:24px_24px] opacity-15 pointer-events-none z-0" />
+      ) as React.ReactNode
     }
   };
 
