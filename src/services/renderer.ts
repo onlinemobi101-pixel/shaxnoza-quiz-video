@@ -73,14 +73,14 @@ export class QuizRenderer {
     const isMobileDevice = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
     this.isMobileOptimized = isMobileDevice || (typeof deviceMemory === "number" && deviceMemory <= 4);
     this.outputWidth = isYouTube
-      ? (this.isMobileOptimized ? 1280 : 1920)
-      : (this.isMobileOptimized ? 720 : 1080);
+      ? (this.isMobileOptimized ? 960 : 1920)
+      : (this.isMobileOptimized ? 540 : 1080);
     this.outputHeight = isYouTube
-      ? (this.isMobileOptimized ? 720 : 1080)
-      : (this.isMobileOptimized ? 1280 : 1920);
+      ? (this.isMobileOptimized ? 540 : 1080)
+      : (this.isMobileOptimized ? 960 : 1920);
     this.canvas.width = this.outputWidth;
     this.canvas.height = this.outputHeight;
-    this.ctx = this.canvas.getContext('2d')!;
+    this.ctx = this.canvas.getContext('2d', { alpha: false, willReadFrequently: true })!;
     
     this.audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
     this.masterGain = this.audioCtx.createGain();
@@ -157,8 +157,8 @@ export class QuizRenderer {
       }
       
       options.videoBitsPerSecond = isYouTube
-        ? (this.isMobileOptimized ? 1100000 : 4000000)
-        : (this.isMobileOptimized ? 1250000 : 6000000);
+        ? (this.isMobileOptimized ? 800000 : 4000000)
+        : (this.isMobileOptimized ? 800000 : 6000000);
       options.audioBitsPerSecond = this.isMobileOptimized ? 96000 : 128000;
       
       this.recorder = new MediaRecorder(this.stream, options);
@@ -167,8 +167,8 @@ export class QuizRenderer {
       try {
         const options: MediaRecorderOptions = {};
         options.videoBitsPerSecond = isYouTube
-          ? (this.isMobileOptimized ? 1100000 : 4000000)
-          : (this.isMobileOptimized ? 1250000 : 6000000);
+          ? (this.isMobileOptimized ? 800000 : 4000000)
+          : (this.isMobileOptimized ? 800000 : 6000000);
         options.audioBitsPerSecond = this.isMobileOptimized ? 96000 : 128000;
         this.recorder = new MediaRecorder(this.stream, options);
       } catch (e2) {
