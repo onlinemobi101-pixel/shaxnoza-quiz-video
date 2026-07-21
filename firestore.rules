@@ -2,13 +2,20 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Egasi (owner) emaili yoki Firestore'da role == 'admin' bo'lgan foydalanuvchi admin hisoblanadi
-    function isOwnerEmail() {
-      return request.auth != null && request.auth.token.email == 'onlinemobi101@gmail.com';
+    // Admin emaili yoki Firestore'da role == 'admin' bo'lgan foydalanuvchi admin hisoblanadi.
+    //
+    // DIQQAT: bu ro'yxat shared/admins.ts dagi ADMIN_EMAILS bilan bir xil bo'lishi SHART.
+    // Rules TypeScript import qila olmaydi, shuning uchun sinxronlash qo'lda bajariladi.
+    // O'zgartirgach: firebase deploy --only firestore:rules
+    function isAdminEmail() {
+      return request.auth != null && request.auth.token.email in [
+        'onlinemobi101@gmail.com',
+        'optombazar9@gmail.com'
+      ];
     }
 
     function isAdmin() {
-      return isOwnerEmail() || (
+      return isAdminEmail() || (
         request.auth != null &&
         exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
@@ -20,9 +27,9 @@ service cloud.firestore {
       allow read: if request.auth != null && (request.auth.uid == userId || isAdmin());
 
       // Yaratish: foydalanuvchi faqat o'ziga, faqat 'free' rol va 0 video bilan profil ochadi.
-      // Egasi emaili istisno — u 'admin' rol bilan ochishi mumkin.
+      // Admin emaillari istisno — ular 'admin' rol bilan ochishi mumkin.
       allow create: if request.auth != null && request.auth.uid == userId && (
-        isOwnerEmail() || (
+        isAdminEmail() || (
           request.resource.data.keys().hasOnly([
             'role',
             'videosCreated',
