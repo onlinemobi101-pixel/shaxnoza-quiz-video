@@ -1,6 +1,10 @@
 # Render Blueprint — https://render.com/docs/blueprint-spec
 # Bu faylni repo ildizida qoldirsangiz, Render "New > Blueprint" orqali avtomatik o'qiydi.
-# GEMINI_API_KEY va FIREBASE_SERVICE_ACCOUNT_JSON ni Render dashboardida qo'lda kiritasiz (sync: false).
+#
+# sync: false bo'lgan qiymatlarni Render dashboardida qo'lda kiritasiz:
+#   GCP_SERVICE_ACCOUNT_JSON      — Vertex AI service account (matn + TTS modellari)
+#   FIREBASE_SERVICE_ACCOUNT_JSON — Firebase Admin (token tekshirish, kvota tranzaksiyalari)
+# Ikkalasi ham bitta qatorli JSON sifatida saqlanadi. Batafsil: .env.example
 services:
   - type: web
     name: quiz-video-generator
@@ -14,7 +18,11 @@ services:
     envVars:
       - key: NODE_VERSION
         value: 22.14.0
-      - key: GEMINI_API_KEY
+      - key: GCP_SERVICE_ACCOUNT_JSON
         sync: false
       - key: FIREBASE_SERVICE_ACCOUNT_JSON
         sync: false
+      # Render'da Vercel'dagi 60s funksiya chegarasi yo'q, shuning uchun ttsBatch
+      # uzunroq ishlashi va bitta so'rovda ko'proq klip yetkazishi mumkin.
+      - key: TTS_BATCH_BUDGET_MS
+        value: "120000"
