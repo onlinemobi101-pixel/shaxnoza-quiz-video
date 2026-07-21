@@ -1,6 +1,7 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Crown, CheckCircle2, X, Sparkles, Zap, AlertCircle, ShoppingBag, Copy, Check, ExternalLink, Send, ArrowLeft } from "lucide-react";
+import { safeGetItem, safeSetItem } from "../services/storage";
 
 interface PaywallModalProps {
   isOpen: boolean;
@@ -14,14 +15,51 @@ export function PaywallModal({ isOpen, onClose, userId }: PaywallModalProps) {
   const [selectedPlan, setSelectedPlan] = useState<PlanId>("premium");
   const [step, setStep] = useState<1 | 2>(1);
   const [copied, setCopied] = useState(false);
+  const [timeLeft, setTimeLeft] = useState({ hours: 20, minutes: 0, seconds: 0 });
+
+  useEffect(() => {
+    // 20-hour countdown timer logic
+    const END_TIME_KEY = "paywall_offer_end_time";
+    let endTime = safeGetItem(END_TIME_KEY);
+
+    if (!endTime) {
+      // Set end time to 20 hours from now
+      const newEndTime = Date.now() + 20 * 60 * 60 * 1000;
+      safeSetItem(END_TIME_KEY, newEndTime.toString());
+      endTime = newEndTime.toString();
+    }
+
+    const updateTimer = () => {
+      const now = Date.now();
+      const difference = parseInt(endTime!) - now;
+
+      if (difference > 0) {
+        setTimeLeft({
+          hours: Math.floor((difference / (1000 * 60 * 60)) % 24),
+          minutes: Math.floor((difference / 1000 / 60) % 60),
+          seconds: Math.floor((difference / 1000) % 60)
+        });
+      } else {
+        // Reset timer if expired for demo purposes (so the offer never truly disappears in this mockup)
+        const newEndTime = Date.now() + 20 * 60 * 60 * 1000;
+        safeSetItem(END_TIME_KEY, newEndTime.toString());
+      }
+    };
+
+    updateTimer();
+    const interval = setInterval(updateTimer, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Generate stable guest ID if no real userId is provided
   const displayId = useMemo(() => {
     if (userId && userId !== "guest") return userId;
-    let guestId = localStorage.getItem("guest_id");
+    // Bu ID to'lovni tasdiqlash uchun adminga yuboriladi — localStorage ishlamasa ham
+    // foydalanuvchi ko'rsatadigan biror qiymat bo'lishi shart.
+    let guestId = safeGetItem("guest_id");
     if (!guestId) {
       guestId = "GUEST_" + Math.random().toString(36).substring(2, 11).toUpperCase();
-      localStorage.setItem("guest_id", guestId);
+      safeSetItem("guest_id", guestId);
     }
     return guestId;
   }, [userId]);
@@ -106,9 +144,23 @@ export function PaywallModal({ isOpen, onClose, userId }: PaywallModalProps) {
                       Butkul Buzib O'ting!
                     </span>
                   </h2>
-                  <p className="text-slate-400 text-sm text-center max-w-md mb-8">
+                  <p className="text-slate-400 text-sm text-center max-w-md mb-6">
                     Siz bepul limitingizdan foydalanib bo'ldingiz. Ilovani faollashtiring va Reels, TikTok, Shorts uchun trenddagi videolarni tayyorlang.
                   </p>
+
+                  {/* Timer */}
+                  <div className="w-full flex items-center justify-center gap-3 mb-6 bg-red-500/10 border border-red-500/30 py-3 rounded-2xl text-red-400">
+                    <div className="flex items-center gap-1.5 font-bold uppercase tracking-wider text-[11px]">
+                      <Zap size={14} className="animate-pulse" /> 50% Aksiya tugashiga:
+                    </div>
+                    <div className="flex gap-1.5 font-mono text-sm font-black bg-red-500/20 px-3 py-1 rounded-lg">
+                      <span>{String(timeLeft.hours).padStart(2, '0')}</span>
+                      <span className="opacity-50">:</span>
+                      <span>{String(timeLeft.minutes).padStart(2, '0')}</span>
+                      <span className="opacity-50">:</span>
+                      <span>{String(timeLeft.seconds).padStart(2, '0')}</span>
+                    </div>
+                  </div>
 
                   {/* 2 Plans Selection */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full mb-8">
@@ -137,9 +189,12 @@ export function PaywallModal({ isOpen, onClose, userId }: PaywallModalProps) {
                           Loyiha doirasida 10 ta to'liq video yaratish huquqi.
                         </p>
                       </div>
-                      <div className="flex items-baseline justify-between pt-2 border-t border-slate-800/60 mt-auto">
+                      <div className="flex items-center justify-between pt-2 border-t border-slate-800/60 mt-auto">
                         <span className="text-xs text-slate-400">10 Ta Video</span>
-                        <span className="text-lg font-black text-cyan-400">20,000 so'm</span>
+                        <div className="flex flex-col items-end">
+                          <span className="text-[10px] text-slate-500 line-through decoration-red-500/70 -mb-1">40,000 so'm</span>
+                          <span className="text-lg font-black text-cyan-400">20,000 so'm</span>
+                        </div>
                       </div>
                     </div>
 
@@ -168,9 +223,12 @@ export function PaywallModal({ isOpen, onClose, userId }: PaywallModalProps) {
                           Oyiga 100 ta video, barcha premium ovozlar va premium dizayn mavzulari.
                         </p>
                       </div>
-                      <div className="flex items-baseline justify-between pt-2 border-t border-slate-800/60 mt-auto">
+                      <div className="flex items-center justify-between pt-2 border-t border-slate-800/60 mt-auto">
                         <span className="text-xs text-slate-400">Oyiga 100 Video</span>
-                        <span className="text-lg font-black text-fuchsia-400">99,000 so'm</span>
+                        <div className="flex flex-col items-end">
+                          <span className="text-[10px] text-slate-500 line-through decoration-red-500/70 -mb-1">199,000 so'm</span>
+                          <span className="text-lg font-black text-fuchsia-400">99,000 so'm</span>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -202,7 +260,7 @@ export function PaywallModal({ isOpen, onClose, userId }: PaywallModalProps) {
                     className="w-full py-4 rounded-2xl bg-gradient-to-r from-cyan-400 via-indigo-500 to-fuchsia-500 hover:brightness-110 active:scale-98 text-slate-950 font-display font-black text-sm shadow-xl shadow-indigo-500/15 transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer"
                   >
                     <Zap size={18} className="fill-current" />
-                    Sotib Olish — {selectedPlan === "premium" ? "99,000 so'm" : "20,000 so'm"}
+                    Sotib Olish — 50% Chegirmada
                   </button>
 
                   <div className="mt-4 flex items-center gap-1.5 text-[10px] text-slate-500">

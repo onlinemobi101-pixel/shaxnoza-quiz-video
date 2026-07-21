@@ -1,16 +1,16 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense, lazy } from "react";
 import { Editor } from "./components/Editor";
 import { Player } from "./components/Player";
-import { AdminPanel } from "./components/AdminPanel";
 import { Quiz, UserProfile } from "./types";
 import { auth, db } from "./services/firebase";
 import { onAuthStateChanged, signOut, User, getRedirectResult } from "firebase/auth";
 import { doc, getDoc, setDoc, onSnapshot } from "firebase/firestore";
-import { AuthModal } from "./components/AuthModal";
-import { PaywallModal } from "./components/PaywallModal";
 import { Landing } from "./components/Landing";
-import { Crown, LogIn, LogOut, Sparkles, Loader2, User as UserIcon, Shield } from "lucide-react";
+import { Crown, LogIn, LogOut, Sparkles, Loader2, User as UserIcon, Shield, AlertTriangle } from "lucide-react";
 import { firstQuiz } from "./data/firstQuiz";
+import { isAdminEmail } from "../shared/admins";
+import { AutosaveStatus, loadQuizDraft, saveQuizDraft } from "./services/draft";
+import { safeGetItem, safeSetItem } from "./services/storage";
 import {
   getPlanLimit,
   getPlanUsage,
@@ -18,15 +18,17 @@ import {
   PLAN_EXPORT_LIMITS,
 } from "./services/plans";
 
-const AUTOSAVE_KEY = "qv_autosaved_quiz_v3";
+// Lazy Loaded Heavy Components
+const AdminPanel = lazy(() => import("./components/AdminPanel").then(module => ({ default: module.AdminPanel })));
+const AuthModal = lazy(() => import("./components/AuthModal").then(module => ({ default: module.AuthModal })));
+const PaywallModal = lazy(() => import("./components/PaywallModal").then(module => ({ default: module.PaywallModal })));
 
 function getEffectiveRole(
   role: UserProfile["role"] | undefined,
   premiumUntil: string | null,
   email: string | null,
 ): UserProfile["role"] {
-  const adminEmails = ["onlinemobi101@gmail.com", "optombazar9@gmail.com"];
-  if ((email && adminEmails.includes(email)) || role === "admin") return "admin";
+  if (isAdminEmail(email) || role === "admin") return "admin";
   if (role !== "premium") return role || "free";
   const expiresAt = premiumUntil ? Date.parse(premiumUntil) : Number.NaN;
   return Number.isFinite(expiresAt) && expiresAt > Date.now() ? "premium" : "free";
@@ -52,61 +54,33 @@ function getProfileQuota(
 }
 
 export default function App() {
-  // Oxirgi ish avtosaqlangan bo'lsa, o'shandan boshlaymiz (audio qayta yaratiladi)
-  const [quiz, setQuiz] = useState<Quiz>(() => {
-    try {
-      const saved = localStorage.getItem(AUTOSAVE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed && Array.isArray(parsed.questions) && parsed.questions.length > 0) {
-          const isLegacyStarterQuiz =
-            parsed.title === "English Knowledge Challenge" &&
-            parsed.questions.length <= 3;
-          if (!isLegacyStarterQuiz) return parsed as Quiz;
-        }
-      }
-    } catch (e) {
-      console.warn("Autosave restore failed:", e);
-    }
-    return firstQuiz;
-  });
-  // Birinchi tashrifda landing sahifani ko'rsatamiz
+  const [quiz, setQuiz] = useState<Quiz>(() => loadQuizDraft(firstQuiz));
+  const [autosaveStatus, setAutosaveStatus] = useState<AutosaveStatus>("ok");
   const [mode, setMode] = useState<"landing" | "editor" | "player" | "admin">(() =>
-    localStorage.getItem("qv_visited") ? "editor" : "landing"
+    safeGetItem("qv_visited") ? "editor" : "landing"
   );
 
   const startEditor = () => {
-    localStorage.setItem("qv_visited", "1");
+    // "Eslab qolish" ikkinchi darajali — u yiqilsa ham tahrirlagichga o'tish shart.
+    // Ilgari bu setItem himoyalanmagan edi va xotira to'lganda foydalanuvchi
+    // landing sahifasida qamalib qolardi.
+    safeSetItem("qv_visited", "1");
     setMode("editor");
   };
 
-  // Har o'zgarishda quiz'ni localStorage'ga saqlaymiz (audio'siz — hajm limiti uchun)
   useEffect(() => {
-    const timer = setTimeout(() => {
-      try {
-        const light: Quiz = {
-          ...quiz,
-          questions: quiz.questions.map(({ audioBase64, correctAudioBase64, ...rest }) => rest),
-        };
-        localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(light));
-      } catch (e) {
-        console.warn("Autosave failed:", e);
-      }
-    }, 600);
+    const timer = setTimeout(() => setAutosaveStatus(saveQuizDraft(quiz)), 600);
     return () => clearTimeout(timer);
   }, [quiz]);
 
-  // Firebase Auth & Profile States
   const [user, setUser] = useState<User | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
 
-  // Modals States
   const [isPaywallOpen, setIsPaywallOpen] = useState(false);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const hasPremiumAccess = userProfile?.role === "premium" || userProfile?.role === "admin";
 
-  // Ochiq sahifada ham premium muddati tugashi bilan UI huquqlarini yangilaymiz.
   useEffect(() => {
     if (userProfile?.role !== "premium" || !userProfile.premiumUntil) return;
     const interval = window.setInterval(() => {
@@ -123,9 +97,7 @@ export default function App() {
     return () => window.clearInterval(interval);
   }, [userProfile?.role, userProfile?.premiumUntil]);
 
-  // Monitor Auth State
   useEffect(() => {
-    // Instantly load guest profile as a fallback starting point
     setUserProfile({
       uid: "guest",
       email: null,
@@ -137,7 +109,6 @@ export default function App() {
       quotaLimit: 1,
     });
 
-    // Safety timeout: If Firebase auth doesn't resolve in 5 seconds, unblock the UI anyway
     const safetyTimeout = setTimeout(() => {
       setIsAuthLoading((loading) => {
         if (loading) {
@@ -148,7 +119,6 @@ export default function App() {
       });
     }, 5000);
 
-    // 1. Resolve redirect result to catch any Google sign-in redirect errors
     getRedirectResult(auth)
       .then((result) => {
         if (result) {
@@ -160,11 +130,9 @@ export default function App() {
         alert(`Google orqali kirishda xatolik yuz berdi (${err.code || err.message}).`);
       });
 
-    // 2. Monitor auth state changes
     let unsubProfile: (() => void) | null = null;
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       clearTimeout(safetyTimeout);
-      // Foydalanuvchi almashganda eski profil obunasini yopamiz
       if (unsubProfile) {
         unsubProfile();
         unsubProfile = null;
@@ -172,7 +140,6 @@ export default function App() {
       setUser(currentUser);
 
       if (currentUser) {
-        // Subscribe to real-time profile updates
         const userDocRef = doc(db, "users", currentUser.uid);
 
         unsubProfile = onSnapshot(
@@ -184,9 +151,7 @@ export default function App() {
               const role = getEffectiveRole(data.role, premiumUntil, currentUser.email);
               const quota = getProfileQuota(data, role);
               
-              // Automatically elevate owner email to admin in Firestore
-              const adminEmails = ["onlinemobi101@gmail.com", "optombazar9@gmail.com"];
-              if (currentUser.email && adminEmails.includes(currentUser.email) && data.role !== "admin") {
+              if (isAdminEmail(currentUser.email) && data.role !== "admin") {
                 try {
                   await setDoc(userDocRef, { role: "admin" }, { merge: true });
                 } catch (e) {
@@ -203,10 +168,8 @@ export default function App() {
                 ...quota,
               });
             } else {
-              // Profile document doesn't exist yet, create it
-              const adminEmails = ["onlinemobi101@gmail.com", "optombazar9@gmail.com"];
               const defaultRole: UserProfile["role"] =
-                currentUser.email && adminEmails.includes(currentUser.email) ? "admin" : "free";
+                isAdminEmail(currentUser.email) ? "admin" : "free";
               const defaultProfile = {
                 role: defaultRole,
                 videosCreated: 0,
@@ -232,7 +195,6 @@ export default function App() {
           },
           (snapError) => {
             console.error("Profile snapshot read failed:", snapError);
-            // Fallback so the app doesn't get stuck on loading
             setUserProfile({
               uid: currentUser.uid,
               email: currentUser.email,
@@ -247,7 +209,6 @@ export default function App() {
           }
         );
       } else {
-        // No user signed in — show guest UI with login button
         setIsAuthLoading(false);
       }
     });
@@ -270,7 +231,6 @@ export default function App() {
 
   return (
     <div className="min-h-screen text-white font-sans selection:bg-emerald-500/30 flex flex-col">
-      {/* Premium Header / Status Bar */}
       <header className="border-b border-white/5 bg-slate-950/30 backdrop-blur-md px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-4 shrink-0">
         <button
           onClick={() => setMode(mode === "landing" ? "editor" : "landing")}
@@ -286,7 +246,6 @@ export default function App() {
           </div>
         </button>
 
-        {/* User Status and Controls */}
         <div className="flex items-center gap-3 font-sans">
           {isAuthLoading ? (
             <div className="flex items-center gap-2 text-xs text-slate-400 font-medium bg-white/5 px-3 py-1.5 rounded-xl border border-white/5">
@@ -295,7 +254,6 @@ export default function App() {
             </div>
           ) : user ? (
             <div className="flex flex-wrap items-center gap-3">
-              {/* Badge: Free vs Premium vs Pack10 */}
               {userProfile?.role === "admin" ? (
                 <div className="flex items-center gap-1.5 bg-amber-500/10 border border-amber-500/30 text-amber-400 px-3 py-1.5 rounded-xl text-xs font-semibold">
                   <Shield size={14} className="text-amber-400" />
@@ -318,7 +276,6 @@ export default function App() {
                 </div>
               )}
 
-              {/* Guest badge vs Registered badge */}
               <div className="text-xs text-slate-400 flex items-center gap-1.5 bg-white/5 border border-white/5 px-3 py-1.5 rounded-xl">
                 <UserIcon size={14} className="text-slate-500" />
                 <span className="max-w-[120px] truncate">
@@ -326,8 +283,7 @@ export default function App() {
                 </span>
               </div>
 
-              {/* Admin Panel Button */}
-              {(userProfile?.role === "admin" || (user && user.email === "onlinemobi101@gmail.com")) && (
+              {(userProfile?.role === "admin" || isAdminEmail(user.email)) && (
                 <button
                   id="header-admin-btn"
                   onClick={() => setMode(mode === "admin" ? "editor" : "admin")}
@@ -342,7 +298,6 @@ export default function App() {
                 </button>
               )}
 
-              {/* Upgrade or Sign In CTAs */}
               {!hasPremiumAccess && (
                 <button
                   id="header-upgrade-btn"
@@ -393,7 +348,30 @@ export default function App() {
         </div>
       </header>
 
-      {/* Main Container */}
+      {autosaveStatus !== "ok" && (
+        <div
+          role="status"
+          className="flex items-start gap-2.5 border-b border-amber-500/20 bg-amber-500/10 px-6 py-3 text-xs text-amber-200"
+        >
+          <AlertTriangle size={15} className="mt-px shrink-0 text-amber-400" />
+          <p className="leading-relaxed">
+            {autosaveStatus === "degraded" ? (
+              <>
+                <strong>Brauzer xotirasi to'ldi.</strong> Savollaringiz saqlanmoqda, lekin
+                yuklangan rasmlar saqlanmayapti — sahifani yangilasangiz ular yo'qoladi.
+                Ishingizni <strong>Eksport (.json)</strong> orqali faylga saqlab qo'ying.
+              </>
+            ) : (
+              <>
+                <strong>Avtosaqlash ishlamayapti.</strong> Brauzer xotirasi to'la yoki
+                saqlash o'chirilgan. Sahifani yopsangiz ishingiz yo'qoladi —
+                <strong> Eksport (.json)</strong> tugmasi bilan faylga saqlang.
+              </>
+            )}
+          </p>
+        </div>
+      )}
+
       <main className="flex-1 overflow-auto">
         {mode === "landing" ? (
           <Landing
@@ -401,10 +379,12 @@ export default function App() {
             onShowPricing={() => setIsPaywallOpen(true)}
           />
         ) : mode === "admin" ? (
-          <AdminPanel
-            onBack={() => setMode("editor")}
-            currentUserId={user?.uid || "guest"}
-          />
+          <Suspense fallback={<div className="flex h-full items-center justify-center"><Loader2 className="animate-spin text-emerald-400" size={32} /></div>}>
+            <AdminPanel
+              onBack={() => setMode("editor")}
+              currentUserId={user?.uid || "guest"}
+            />
+          </Suspense>
         ) : mode === "editor" ? (
           <Editor
             quiz={quiz}
@@ -437,17 +417,20 @@ export default function App() {
         )}
       </main>
 
-      {/* Premium Paywall and Auth Modals */}
-      <PaywallModal
-        isOpen={isPaywallOpen}
-        onClose={() => setIsPaywallOpen(false)}
-        userId={user?.uid || "guest"}
-      />
+      <Suspense fallback={null}>
+        <PaywallModal
+          isOpen={isPaywallOpen}
+          onClose={() => setIsPaywallOpen(false)}
+          userId={user?.uid || "guest"}
+        />
+      </Suspense>
 
-      <AuthModal
-        isOpen={isAuthOpen}
-        onClose={() => setIsAuthOpen(false)}
-      />
+      <Suspense fallback={null}>
+        <AuthModal
+          isOpen={isAuthOpen}
+          onClose={() => setIsAuthOpen(false)}
+        />
+      </Suspense>
     </div>
   );
 }

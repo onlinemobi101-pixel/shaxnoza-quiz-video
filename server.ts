@@ -6,7 +6,8 @@
 //   npm start            # tsx server.ts  (PORT env, default 3000)
 //
 // Kerakli env o'zgaruvchilar (host dashboardida yoki .env.local'da):
-//   GEMINI_API_KEY, FIREBASE_SERVICE_ACCOUNT_JSON
+//   GCP_SERVICE_ACCOUNT_JSON, FIREBASE_SERVICE_ACCOUNT_JSON
+// To'liq ro'yxat va izohlar: .env.example
 import { createServer, IncomingMessage, ServerResponse } from "http";
 import { readFile, stat } from "fs/promises";
 import { extname, join, resolve, sep } from "path";
