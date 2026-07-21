@@ -15,6 +15,8 @@ const THEME_COLORS: Record<string, { main: string; light: string }> = {
 export class QuizRenderer {
   canvas: HTMLCanvasElement;
   ctx: CanvasRenderingContext2D;
+  outputCanvas: HTMLCanvasElement;
+  outputCtx: CanvasRenderingContext2D;
   quiz: Quiz;
   stream: MediaStream;
   recorder: MediaRecorder;
@@ -78,9 +80,17 @@ export class QuizRenderer {
     this.outputHeight = isYouTube
       ? (this.isMobileOptimized ? 540 : 1080)
       : (this.isMobileOptimized ? 960 : 1920);
-    this.canvas.width = this.outputWidth;
-    this.canvas.height = this.outputHeight;
+
+    // Dizayn doim to'liq piksellarda chiziladi (matn xatolarini oldini olish uchun)
+    this.canvas.width = this.designWidth;
+    this.canvas.height = this.designHeight;
     this.ctx = this.canvas.getContext('2d', { alpha: false, willReadFrequently: true })!;
+
+    // Output (video encoderga ketadigan) canvas
+    this.outputCanvas = document.createElement('canvas');
+    this.outputCanvas.width = this.outputWidth;
+    this.outputCanvas.height = this.outputHeight;
+    this.outputCtx = this.outputCanvas.getContext('2d', { alpha: false, willReadFrequently: true })!;
     
     this.audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
     this.masterGain = this.audioCtx.createGain();
@@ -124,7 +134,7 @@ export class QuizRenderer {
     
     // @ts-ignore
     const fps = isYouTube ? 24 : 30;
-    const canvasStream = this.canvas.captureStream(fps);
+    const canvasStream = this.outputCanvas.captureStream(fps);
     const tracks = [...canvasStream.getVideoTracks(), ...this.dest.stream.getAudioTracks()];
     this.stream = new MediaStream(tracks);
     
@@ -568,16 +578,6 @@ export class QuizRenderer {
   drawFrame() {
     if (!this.isRecording || this.isPaused) return;
 
-    // Dizayn koordinatalari doim 1080p bo'lib qoladi; mobil chiqishda
-    // canvas ularni 720p ga proporsional kichraytiradi.
-    this.ctx.setTransform(
-      this.outputWidth / this.designWidth,
-      0,
-      0,
-      this.outputHeight / this.designHeight,
-      0,
-      0,
-    );
     const w = this.designWidth;
     const h = this.designHeight;
 
@@ -946,6 +946,9 @@ export class QuizRenderer {
       this.ctx.textBaseline = 'middle';
       this.ctx.fillText(this.quiz.watermark, w/2, h - 185);
     }
+
+    // Yakuniy dizaynni kichikroq outputCanvas ga nusxalaymiz
+    this.outputCtx.drawImage(this.canvas, 0, 0, this.outputWidth, this.outputHeight);
   }
 
   setPhase(p: string) {
