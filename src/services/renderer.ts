@@ -589,7 +589,7 @@ export class QuizRenderer {
     // Background (Ken Burns: savol davomida sekin kattalashadi — statik his yo'qoladi)
     const bgImg = this.bgImages[this.currentQuestionIndex];
     if (bgImg && bgImg.complete && bgImg.naturalWidth > 0) {
-      const kenBurns = 1 + 0.07 * Math.min(1, (performance.now() - this.qStartTime) / 22000);
+      const kenBurns = 1 + 0.15 * Math.min(1, (performance.now() - this.qStartTime) / 22000);
       const scale = Math.max(w / bgImg.width, h / bgImg.height) * kenBurns;
       const x = (w / 2) - (bgImg.width / 2) * scale;
       const y = (h / 2) - (bgImg.height / 2) * scale;
@@ -609,7 +609,6 @@ export class QuizRenderer {
 
     const q = this.quiz.questions[this.currentQuestionIndex];
     if (!q) return;
-
     const activeTheme = THEME_COLORS[this.quiz.themeColor || "emerald"];
     const now = performance.now();
     const phaseTime = now - this.phaseStartTime;

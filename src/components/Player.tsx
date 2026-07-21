@@ -347,10 +347,10 @@ export function Player({ quiz, onExit }: PlayerProps) {
         <AnimatePresence mode="popLayout">
           <motion.div
             key={currentQuestionIndex}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.6 }}
+            initial={{ opacity: 0, scale: 1 }}
+            animate={{ opacity: 1, scale: 1.15 }}
+            exit={{ opacity: 0, scale: 1.15 }}
+            transition={{ opacity: { duration: 0.6 }, scale: { duration: 25, ease: "linear" } }}
             className="absolute inset-0 z-0 pointer-events-none"
             style={{
               backgroundImage: `url(${question.backgroundImage})`,
@@ -450,7 +450,7 @@ export function Player({ quiz, onExit }: PlayerProps) {
                               <div className={`w-8 h-8 sm:w-10 sm:h-10 shrink-0 flex items-center justify-center rounded-full text-sm sm:text-base font-bold shadow-inner mr-3 ${activePreset.letter}`}>
                                 {['A', 'B', 'C', 'D'][idx]}
                               </div>
-                              <div className="flex-1 text-left">
+                              <div className="flex-1 text-left text-balance">
                                 {opt}
                               </div>
                             </div>

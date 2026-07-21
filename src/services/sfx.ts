@@ -25,7 +25,7 @@ export const playPop = (destination?: AudioNode) => {
     osc.type = 'sine';
     osc.frequency.setValueAtTime(600, ctx.currentTime);
     osc.frequency.exponentialRampToValueAtTime(100, ctx.currentTime + 0.1);
-    gain.gain.setValueAtTime(0.2, ctx.currentTime);
+    gain.gain.setValueAtTime(0.3, ctx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1);
     osc.start();
     osc.stop(ctx.currentTime + 0.1);
@@ -48,7 +48,7 @@ export const playTick = (destination?: AudioNode) => {
     // Make tick louder and sharper
     osc.type = 'square';
     osc.frequency.setValueAtTime(1000, ctx.currentTime);
-    gain.gain.setValueAtTime(0.3, ctx.currentTime);
+    gain.gain.setValueAtTime(0.4, ctx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.1);
     osc.start();
     osc.stop(ctx.currentTime + 0.1);
@@ -72,7 +72,7 @@ export const playSuccess = (destination?: AudioNode) => {
       osc.type = 'sine';
       osc.frequency.value = freq;
       gain.gain.setValueAtTime(0, startTime);
-      gain.gain.linearRampToValueAtTime(0.2, startTime + 0.05);
+      gain.gain.linearRampToValueAtTime(0.35, startTime + 0.05);
       gain.gain.exponentialRampToValueAtTime(0.01, startTime + 0.6);
       osc.start(startTime);
       osc.stop(startTime + 0.6);
@@ -96,7 +96,7 @@ export const startProceduralBGM = (destination?: AudioNode, bgmType: 'calm' | 'h
     stopProceduralBGM();
     const ctx = destination ? (destination.context as AudioContext) : getAudioContext();
     bgmGain = ctx.createGain();
-    bgmGain.gain.setValueAtTime(0.012, ctx.currentTime); // Very quiet & pleasant background level
+    bgmGain.gain.setValueAtTime(0.04, ctx.currentTime); // Very quiet & pleasant background level
     if (destination) {
       bgmGain.connect(destination);
     } else {
