@@ -8,7 +8,7 @@ import { doc, getDoc, setDoc, onSnapshot } from "firebase/firestore";
 import { Landing } from "./components/Landing";
 import { Crown, LogIn, LogOut, Sparkles, Loader2, User as UserIcon, Shield, AlertTriangle } from "lucide-react";
 import { firstQuiz } from "./data/firstQuiz";
-import { isAdminEmail } from "../shared/admins";
+import { isAdminEmail } from "./services/admins";
 import { AutosaveStatus, loadQuizDraft, saveQuizDraft } from "./services/draft";
 import { safeGetItem, safeSetItem } from "./services/storage";
 import {
