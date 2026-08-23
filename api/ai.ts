@@ -148,7 +148,7 @@ async function enforceRateLimit(user: AuthenticatedUser, action: ApiAction, cost
 // DIQQAT: bu Firebase loyihasidan BOSHQA GCP loyihasi (Firebase uchun —
 // api/firebase-admin.ts). Boshqa loyihaga ko'chirilganda VERTEX_PROJECT env orqali
 // almashtiriladi; standart qiymat hozirgi ishlab turgan sozlamani saqlaydi.
-const VERTEX_PROJECT = process.env.VERTEX_PROJECT || "gen-lang-client-0017562692";
+const VERTEX_PROJECT = process.env.VERTEX_PROJECT || "gen-lang-client-0604912271";
 
 function getVertexCredentials() {
   const raw = process.env.GCP_SERVICE_ACCOUNT_JSON;
@@ -274,7 +274,7 @@ Return ONLY the Unsplash photo ID as plain text (for example: photo-154135992727
   return FALLBACK_IMAGE;
 }
 
-async function generateQuiz(
+async function generateQuizChunk(
   topic: string,
   language: string,
   count: number,
@@ -296,10 +296,19 @@ async function generateQuiz(
     model: "gemini-3-flash-preview",
     contents: `Topic: ${topic}.
 Create exactly ${count} varied quiz questions ${promptDetails}
-Avoid duplicate facts, near-identical wording, trick questions, and ambiguous answers.
+STRICT LANGUAGE MATCHING RULE: Detect the language of the topic ("${topic}") or target language ("${language}"). ALL generated question texts, 3 option choices, and explanations MUST be written 100% in that exact target language. If the topic is in Uzbek (e.g. "Kino va Mashhur Filmlar"), write all questions, options, and explanations in 100% natural, fluent Uzbek. If in Russian, write 100% in Russian. Do not mix languages or fallback to English.
+CRITICAL CORRECTNESS RULES:
+1. FIRST decide the correct answer, THEN place it at a RANDOM position (0, 1, or 2) among the 3 options.
+2. The correctOptionIndex MUST exactly match the 0-based position of the correct answer in the options array.
+3. DOUBLE-CHECK: After generating each question, verify that options[correctOptionIndex] is truly the correct answer. If not, fix the index.
+4. The explanation must clearly explain why the answer at correctOptionIndex is correct.
+5. All facts must be 100% accurate and up-to-date. Do not invent fake facts.
+6. Each question must have exactly 3 distinct, plausible options. No duplicate or near-identical options.
+Avoid outdated facts, duplicate questions, near-identical wording, trick questions, and ambiguous answers.
 Set imageKeyword to exactly one of these supported English categories:
 history, space, science, nature, math, geography, art, music, sport, tech, literature, animals, food, business, medicine, english.`,
     config: {
+      temperature: 0.7,
       responseMimeType: "application/json",
       responseSchema: {
         type: Type.ARRAY,
@@ -338,6 +347,24 @@ history, space, science, nature, math, geography, art, music, sport, tech, liter
   );
 
   return questions;
+}
+
+async function generateQuiz(
+  topic: string,
+  language: string,
+  count: number,
+  user: AuthenticatedUser,
+) {
+  if (count > 10) {
+    const chunk1 = Math.ceil(count / 2);
+    const chunk2 = count - chunk1;
+    const [part1, part2] = await Promise.all([
+      generateQuizChunk(topic, language, chunk1, user),
+      generateQuizChunk(topic, language, chunk2, user),
+    ]);
+    return [...part1, ...part2];
+  }
+  return generateQuizChunk(topic, language, count, user);
 }
 
 async function analyzeQuestionsForImages(
