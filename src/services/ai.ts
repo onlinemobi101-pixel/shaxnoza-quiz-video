@@ -17,6 +17,9 @@ async function callAPI(payload: Record<string, unknown>): Promise<any> {
   });
 
   const data = await response.json().catch(() => ({}));
+  if (response.status === 504 || response.status === 502 || response.status === 503) {
+    throw new Error("TTS_TIMEOUT");
+  }
   if (!response.ok) {
     throw new Error(data?.error || `API xatosi (${response.status})`);
   }

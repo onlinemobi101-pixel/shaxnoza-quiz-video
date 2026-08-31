@@ -66,15 +66,28 @@ export async function generateTTSBatch(
 ): Promise<(string | null)[]> {
   if (items.length === 0) return [];
 
-  // Bitta so'rovga 4 klip: eng uzun "javob + izoh" klipi base64'da ~640KB bo'lishi mumkin,
-  // ya'ni 4 ta klip ~2.5MB — Vercel'ning ~4.5MB javob limitidan xavfsiz masofada.
-  // 3 parallellik bilan bu 2 to'lqin, funksiyaning 60s vaqtiga ham bemalol sig'adi.
-  const CHUNK = 4;
+  // Vercel Hobby uchun 2 ta klip: har bir so'rov ~2-4 soniyada tez va xavfsiz tugaydi
+  const CHUNK = 2;
   if (items.length > CHUNK) {
     const out: (string | null)[] = [];
     for (let i = 0; i < items.length; i += CHUNK) {
-      const part = await generateTTSBatch(items.slice(i, i + CHUNK), voiceFallback);
-      out.push(...part);
+      try {
+        const part = await generateTTSBatch(items.slice(i, i + CHUNK), voiceFallback);
+        out.push(...part);
+      } catch (chunkErr: any) {
+        console.warn("TTS batch bo'lagi xatosi:", chunkErr);
+        if (
+          chunkErr?.message === "AUTH_REQUIRED" ||
+          chunkErr?.message === "QUOTA_EXCEEDED" ||
+          chunkErr?.message === "TTS_LIMIT" ||
+          chunkErr?.message === "AI_VOICE_LIMIT" ||
+          chunkErr?.message === "PREMIUM_VOICE_REQUIRED"
+        ) {
+          throw chunkErr;
+        }
+        // Vaqtinchalik xatolikda shu qismdagi ovozlarni null qilib qolganlarini davom ettiramiz
+        out.push(...items.slice(i, i + CHUNK).map(() => null));
+      }
     }
     return out;
   }
@@ -102,9 +115,9 @@ export async function generateTTSBatch(
   if (response.status === 403) throw new Error(data?.error || "AUTH_REQUIRED");
   if (response.status === 429) {
     if (data?.error === "QUOTA_EXCEEDED") throw new Error("QUOTA_EXCEEDED");
-    if (retryCount < 3) {
-      console.warn(`TTS batch rate limited. Retrying in ${(retryCount + 1) * 5} seconds...`);
-      await new Promise((r) => setTimeout(r, (retryCount + 1) * 5000));
+    if (retryCount < 2) {
+      console.warn(`TTS batch rate limited. Retrying in ${(retryCount + 1) * 3} seconds...`);
+      await new Promise((r) => setTimeout(r, (retryCount + 1) * 3000));
       return generateTTSBatch(items, voiceFallback, retryCount + 1);
     }
     throw new Error("RATE_LIMITED");
@@ -112,6 +125,10 @@ export async function generateTTSBatch(
   // Server o'zi deadline'dan oldin qaytishga harakat qiladi, lekin cold start yoki
   // tarmoq sekinligi sabab platforma baribir funksiyani uzib qo'yishi mumkin.
   if (response.status === 504 || response.status === 502 || response.status === 503) {
+    if (retryCount < 1) {
+      await new Promise((r) => setTimeout(r, 1500));
+      return generateTTSBatch(items, voiceFallback, retryCount + 1);
+    }
     throw new Error("TTS_TIMEOUT");
   }
   if (!response.ok) {
