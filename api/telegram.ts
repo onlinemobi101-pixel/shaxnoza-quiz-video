@@ -4,6 +4,99 @@ import { adminDb } from "./firebase-admin.js";
 
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "";
 const WEBAPP_URL = process.env.TELEGRAM_WEBAPP_URL || "https://quiz-video-generator-yangi-phi.vercel.app";
+const TELEGRAM_REQUIRED_CHANNEL = process.env.TELEGRAM_REQUIRED_CHANNEL || "";
+
+async function getRequiredChannel(): Promise<string> {
+  if (TELEGRAM_REQUIRED_CHANNEL) return TELEGRAM_REQUIRED_CHANNEL.trim();
+  try {
+    const docSnap = await adminDb.collection("settings").doc("telegram").get();
+    const val = docSnap.data()?.requiredChannel;
+    return typeof val === "string" ? val.trim() : "";
+  } catch {
+    return "";
+  }
+}
+
+async function checkUserSubscription(chatId: number | string, channelUsernameOrId: string): Promise<boolean> {
+  if (!TELEGRAM_BOT_TOKEN || !channelUsernameOrId) return true;
+  try {
+    const formattedChannel = channelUsernameOrId.startsWith("@") || channelUsernameOrId.startsWith("-100") 
+      ? channelUsernameOrId 
+      : `@${channelUsernameOrId}`;
+      
+    const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getChatMember?chat_id=${encodeURIComponent(formattedChannel)}&user_id=${chatId}`;
+    const response = await fetch(url);
+    const data = await response.json();
+    if (!data.ok) {
+      console.warn("getChatMember response:", data.description);
+      // Agar bot kanalda admin bo'lmasa yoki kanal nomi xato bo'lsa, foydalanuvchini to'xtatib qo'ymaslik uchun true qaytaramiz
+      return true;
+    }
+    const status = data.result?.status;
+    return ["creator", "administrator", "member", "restricted"].includes(status);
+  } catch (err) {
+    console.error("Subscription check error:", err);
+    return true;
+  }
+}
+
+async function sendSubscriptionRequiredMessage(chatId: number | string, firstName: string, channel: string) {
+  const channelClean = channel.replace("@", "");
+  const channelLink = channel.startsWith("http") ? channel : `https://t.me/${channelClean}`;
+  const text =
+    `Assalomu alaykum, <b>${firstName}</b>! 🎬\n\n` +
+    `🤖 <b>Quiz Video Generator</b> botidan foydalanish uchun rasmiy kanalimizga a'zo bo'ling.\n\n` +
+    `📢 Kanalda foydali qo'llanmalar, yangi AI funksiyalari va maxsus aksiyalar e'lon qilinadi.\n\n` +
+    `👇 <b>Kanalga a'zo bo'lib, «✅ A'zo bo'ldim» tugmasini bosing:</b>`;
+
+  const replyMarkup = {
+    inline_keyboard: [
+      [
+        {
+          text: `📢 Kanalga a'zo bo'lish (${channel.startsWith("@") ? channel : `@${channel}`})`,
+          url: channelLink,
+        },
+      ],
+      [
+        {
+          text: "✅ A'zo bo'ldim (Tekshirish)",
+          callback_data: "check_sub",
+        },
+      ],
+    ],
+  };
+
+  await sendTelegramMessage(chatId, text, replyMarkup);
+}
+
+async function sendWelcomeMenu(chatId: number | string, firstName: string) {
+  const welcomeText = 
+    `Assalomu alaykum, <b>${firstName}</b>! 🎬\n\n` +
+    `<b>Quiz Video Generator</b> botiga xush kelibsiz!\n\n` +
+    `Bu bot orqali siz <b>YouTube Shorts</b>, <b>TikTok</b> va <b>Instagram Reels</b> uchun sun'iy intellekt (AI) yordamida qiziqarli test videolarini 1 daqiqada tayyorlashingiz mumkin.\n\n` +
+    `✨ <i>AI Savollar, Ovozlar, Rasm tanlash va 30 FPS silliq render!</i>\n\n` +
+    `🎁 <i>Do'stlaringizni taklif qilib, har bir do'stingiz uchun <b>+1 ta bepul video</b> yutib olishingiz mumkin!</i>\n\n` +
+    `👇 Ishni boshlash uchun quyidagi tugmani bosing:`;
+
+  const replyMarkup = {
+    inline_keyboard: [
+      [
+        {
+          text: "🎬 Generatorni ochish (Mini App)",
+          web_app: { url: WEBAPP_URL },
+        },
+      ],
+      [
+        {
+          text: "ℹ️ Qo'llanma",
+          callback_data: "help",
+        },
+      ],
+    ],
+  };
+
+  await sendTelegramMessage(chatId, welcomeText, replyMarkup);
+}
 
 function sendJSON(res: ServerResponse, status: number, data: unknown) {
   res.statusCode = status;
@@ -63,6 +156,23 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
   const action = url.searchParams.get("action");
 
   if (req.method === "GET") {
+    if (action === "checkSubscription") {
+      const channel = await getRequiredChannel();
+      const chatId = url.searchParams.get("chatId") || "";
+      if (!channel || !chatId) {
+        sendJSON(res, 200, { required: Boolean(channel), channel, isSubscribed: true });
+        return;
+      }
+      const isSubscribed = await checkUserSubscription(chatId, channel);
+      sendJSON(res, 200, {
+        required: true,
+        channel,
+        channelLink: `https://t.me/${channel.replace("@", "")}`,
+        isSubscribed,
+      });
+      return;
+    }
+
     sendJSON(res, 200, {
       status: "ok",
       botConfigured: Boolean(TELEGRAM_BOT_TOKEN),
@@ -147,41 +257,6 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     if (contentType.includes("application/json")) {
       const update = JSON.parse(rawBody.toString("utf-8") || "{}");
       
-      // Inline tugma bosilganda (Callback Query)
-      const callbackQuery = update?.callback_query;
-      if (callbackQuery) {
-        const cbChatId = callbackQuery.message?.chat?.id;
-        const cbData = callbackQuery.data;
-        const cbId = callbackQuery.id;
-
-        await answerCallbackQuery(cbId);
-
-        if (cbChatId && cbData === "help") {
-          const helpText =
-            `📖 <b>Qanday qilib video tayyorlanadi?</b>\n\n` +
-            `1️⃣ <b>«🎬 Generatorni ochish»</b> tugmasini bosing.\n` +
-            `2️⃣ Istalgan mavzuni yozing (masalan: <i>Kosmos</i>, <i>Tarix</i>, <i>Geografiya</i>).\n` +
-            `3️⃣ AI savollarni tuzadi, ovozlar qo'shadi va fon rasmlarini yuklaydi.\n` +
-            `4️⃣ <b>«Video Yuklab Olish»</b> tugmasini bosing — video tayyor bo'ladi va ushbu chatga ham yuboriladi!\n\n` +
-            `🚀 Hoziroq quyidagi tugmani bosib sinab ko'ring:`;
-
-          const replyMarkup = {
-            inline_keyboard: [
-              [
-                {
-                  text: "🎬 Generatorni ochish (Mini App)",
-                  web_app: { url: WEBAPP_URL },
-                },
-              ],
-            ],
-          };
-
-          await sendTelegramMessage(cbChatId, helpText, replyMarkup);
-          sendJSON(res, 200, { ok: true });
-          return;
-        }
-      }
-
 async function processReferralBonus(referrerParam: string, newChatId: string, newUserName: string) {
   try {
     if (!referrerParam || referrerParam === newChatId) return;
@@ -249,10 +324,83 @@ async function processReferralBonus(referrerParam: string, newChatId: string, ne
   }
 }
 
+      // Inline tugma bosilganda (Callback Query)
+      const callbackQuery = update?.callback_query;
+      if (callbackQuery) {
+        const cbChatId = callbackQuery.message?.chat?.id;
+        const cbData = callbackQuery.data;
+        const cbId = callbackQuery.id;
+        const cbFirstName = callbackQuery.from?.first_name || "Do'stim";
+
+        if (cbChatId && cbData === "check_sub") {
+          const channel = await getRequiredChannel();
+          const isSub = await checkUserSubscription(cbChatId, channel);
+          if (!isSub) {
+            await answerCallbackQuery(cbId, "❌ Siz hali kanalga a'zo bo'lmadingiz. Iltimos, kanalga a'zo bo'ling!");
+            return;
+          }
+          await answerCallbackQuery(cbId, "✅ Rahmat! A'zolik tasdiqlandi.");
+          await sendWelcomeMenu(cbChatId, cbFirstName);
+          sendJSON(res, 200, { ok: true });
+          return;
+        }
+
+        await answerCallbackQuery(cbId);
+
+        if (cbChatId && cbData === "help") {
+          const helpText =
+            `📖 <b>Qanday qilib video tayyorlanadi?</b>\n\n` +
+            `1️⃣ <b>«🎬 Generatorni ochish»</b> tugmasini bosing.\n` +
+            `2️⃣ Istalgan mavzuni yozing (masalan: <i>Kosmos</i>, <i>Tarix</i>, <i>Geografiya</i>).\n` +
+            `3️⃣ AI savollarni tuzadi, ovozlar qo'shadi va fon rasmlarini yuklaydi.\n` +
+            `4️⃣ <b>«Video Yuklab Olish»</b> tugmasini bosing — video tayyor bo'ladi va ushbu chatga ham yuboriladi!\n\n` +
+            `🚀 Hoziroq quyidagi tugmani bosib sinab ko'ring:`;
+
+          const replyMarkup = {
+            inline_keyboard: [
+              [
+                {
+                  text: "🎬 Generatorni ochish (Mini App)",
+                  web_app: { url: WEBAPP_URL },
+                },
+              ],
+            ],
+          };
+
+          await sendTelegramMessage(cbChatId, helpText, replyMarkup);
+          sendJSON(res, 200, { ok: true });
+          return;
+        }
+      }
+
       const message = update?.message;
       const chatId = message?.chat?.id;
-      const text = message?.text || "";
+      const text = (message?.text || "").trim();
       const firstName = message?.from?.first_name || "Do'stim";
+
+      // Admin buyruqlari: Majburiy kanalni o'rnatish yoki o'chirish
+      if (chatId && text.startsWith("/setchannel")) {
+        const channelArg = text.split(" ")[1] || "";
+        if (channelArg) {
+          await adminDb.collection("settings").doc("telegram").set(
+            { requiredChannel: channelArg.trim(), updatedAt: new Date().toISOString() },
+            { merge: true }
+          );
+          await sendTelegramMessage(chatId, `✅ <b>Majburiy a'zolik kanali o'rnatildi:</b> ${channelArg}`);
+          sendJSON(res, 200, { ok: true });
+          return;
+        }
+      }
+
+      if (chatId && text === "/clearchannel") {
+        await adminDb.collection("settings").doc("telegram").set(
+          { requiredChannel: "", updatedAt: new Date().toISOString() },
+          { merge: true }
+        );
+        await sendTelegramMessage(chatId, `✅ <b>Majburiy a'zolik o'chirildi.</b> Foydalanuvchilar to'g'ridan-to'g'ri foydalana oladilar.`);
+        sendJSON(res, 200, { ok: true });
+        return;
+      }
 
       if (chatId && text.startsWith("/start")) {
         const parts = text.split(" ");
@@ -265,32 +413,17 @@ async function processReferralBonus(referrerParam: string, newChatId: string, ne
           }
         }
 
-        const welcomeText = 
-          `Assalomu alaykum, <b>${firstName}</b>! 🎬\n\n` +
-          `<b>Quiz Video Generator</b> botiga xush kelibsiz!\n\n` +
-          `Bu bot orqali siz <b>YouTube Shorts</b>, <b>TikTok</b> va <b>Instagram Reels</b> uchun sun'iy intellekt (AI) yordamida qiziqarli test videolarini 1 daqiqada tayyorlashingiz mumkin.\n\n` +
-          `✨ <i>AI Savollar, Ovozlar, Rasm tanlash va 30 FPS silliq render!</i>\n\n` +
-          `🎁 <i>Do'stlaringizni taklif qilib, har bir do'stingiz uchun <b>+1 ta bepul video</b> yutib olishingiz mumkin!</i>\n\n` +
-          `👇 Ishni boshlash uchun quyidagi tugmani bosing:`;
+        const channel = await getRequiredChannel();
+        if (channel) {
+          const isSub = await checkUserSubscription(chatId, channel);
+          if (!isSub) {
+            await sendSubscriptionRequiredMessage(chatId, firstName, channel);
+            sendJSON(res, 200, { ok: true });
+            return;
+          }
+        }
 
-        const replyMarkup = {
-          inline_keyboard: [
-            [
-              {
-                text: "🎬 Generatorni ochish (Mini App)",
-                web_app: { url: WEBAPP_URL },
-              },
-            ],
-            [
-              {
-                text: "ℹ️ Qo'llanma",
-                callback_data: "help",
-              },
-            ],
-          ],
-        };
-
-        await sendTelegramMessage(chatId, welcomeText, replyMarkup);
+        await sendWelcomeMenu(chatId, firstName);
         sendJSON(res, 200, { ok: true });
         return;
       }
