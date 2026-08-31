@@ -1459,12 +1459,14 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
               <div className="grid grid-cols-2 gap-2 mb-4">
                 {[
                   { id: 'default', name: 'Standart', desc: 'Minimal/Klassik', premium: false },
-                  { id: 'cyberpunk', name: 'Cyberpunk', desc: 'Binafsha/Neon', premium: true },
-                  { id: 'retro', name: 'Retro Arcade', desc: 'Sariq/Piksel', premium: true },
-                  { id: 'sunset', name: 'Sunset', desc: 'Iliq/Gradient', premium: false },
-                  { id: 'chalk', name: 'Chalk Board', desc: 'Doska/Bo\'r', premium: true },
-                  { id: 'kids', name: 'Kids Cartoon', desc: 'Yorqin/Quvnoq', premium: true },
-                  { id: 'neon', name: 'Neon Glow', desc: 'Elektr/Yashil', premium: true }
+                  { id: 'gold', name: '👑 Gold Luxury', desc: '24K Oltin/Hashamat', premium: false },
+                  { id: 'cyberpunk', name: '⚡️ Cyberpunk', desc: 'Binafsha/Laser', premium: true },
+                  { id: 'neon', name: '🟢 Neon Glow', desc: 'Elektr/Zaharli Yashil', premium: false },
+                  { id: 'darkvelvet', name: '💎 Dark Velvet', desc: 'Sapfir/Moviy Baxmal', premium: true },
+                  { id: 'sunset', name: '🌅 Sunset', desc: 'Iliq/Olovrang', premium: false },
+                  { id: 'chalk', name: '🎓 Chalk Board', desc: 'Doska/Bo\'r', premium: true },
+                  { id: 'kids', name: '🧸 Kids Cartoon', desc: 'Yorqin/Quvnoq', premium: true },
+                  { id: 'retro', name: '🕹 Retro Arcade', desc: 'Sariq/Piksel 8-bit', premium: true }
                 ].map((preset) => {
                   const isLocked = preset.premium && !hasPremiumAccess;
                   return (

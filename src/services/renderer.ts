@@ -593,7 +593,7 @@ export class QuizRenderer {
 
   initOverlayCanvas() {
     const preset = this.quiz.themePreset || 'default';
-    if (preset === 'chalk' || preset === 'neon' || preset === 'cyberpunk' || preset === 'retro' || preset === 'kids') {
+    if (preset === 'chalk' || preset === 'neon' || preset === 'cyberpunk' || preset === 'retro' || preset === 'kids' || preset === 'gold' || preset === 'darkvelvet') {
       this.overlayCanvas = document.createElement('canvas');
       this.overlayCanvas.width = this.designWidth;
       this.overlayCanvas.height = this.designHeight;
@@ -603,7 +603,49 @@ export class QuizRenderer {
       const w = this.designWidth;
       const h = this.designHeight;
 
-      if (preset === 'chalk') {
+      if (preset === 'gold') {
+        // Luxury 24k Gold Frame
+        const goldGrad = oCtx.createLinearGradient(0, 0, w, h);
+        goldGrad.addColorStop(0, '#fef08a');
+        goldGrad.addColorStop(0.3, '#eab308');
+        goldGrad.addColorStop(0.6, '#ca8a04');
+        goldGrad.addColorStop(1, '#fde047');
+        oCtx.strokeStyle = goldGrad;
+        oCtx.lineWidth = 10;
+        oCtx.strokeRect(8, 8, w - 16, h - 16);
+
+        // Subtle inner gold pinstripe
+        oCtx.strokeStyle = 'rgba(254, 240, 138, 0.35)';
+        oCtx.lineWidth = 2;
+        oCtx.strokeRect(18, 18, w - 36, h - 36);
+
+        // Golden dust sparkles
+        oCtx.fillStyle = 'rgba(253, 224, 71, 0.15)';
+        oCtx.beginPath();
+        for (let x = 30; x < w; x += 55) {
+          for (let y = 30; y < h; y += 55) {
+            oCtx.moveTo(x + 1.5, y);
+            oCtx.arc(x, y, 1.5, 0, Math.PI * 2);
+          }
+        }
+        oCtx.fill();
+      } else if (preset === 'darkvelvet') {
+        // Sapphire velvet frame
+        oCtx.strokeStyle = 'rgba(59, 130, 246, 0.45)';
+        oCtx.lineWidth = 8;
+        oCtx.strokeRect(6, 6, w - 12, h - 12);
+
+        // Diamond grid points
+        oCtx.fillStyle = 'rgba(96, 165, 250, 0.12)';
+        oCtx.beginPath();
+        for (let x = 40; x < w; x += 50) {
+          for (let y = 40; y < h; y += 50) {
+            oCtx.moveTo(x + 2, y);
+            oCtx.arc(x, y, 2, 0, Math.PI * 2);
+          }
+        }
+        oCtx.fill();
+      } else if (preset === 'chalk') {
         // Wood frame border
         oCtx.strokeStyle = '#451a03';
         oCtx.lineWidth = 20;
@@ -838,6 +880,14 @@ export class QuizRenderer {
       gradient.addColorStop(0, 'rgba(35,10,5,0.65)');
       gradient.addColorStop(0.5, 'rgba(25,5,5,0.35)');
       gradient.addColorStop(1, 'rgba(10,2,2,0.95)');
+    } else if (preset === 'gold') {
+      gradient.addColorStop(0, 'rgba(25,18,5,0.75)');
+      gradient.addColorStop(0.5, 'rgba(15,10,2,0.45)');
+      gradient.addColorStop(1, 'rgba(8,5,1,0.96)');
+    } else if (preset === 'darkvelvet') {
+      gradient.addColorStop(0, 'rgba(5,12,28,0.75)');
+      gradient.addColorStop(0.5, 'rgba(3,8,20,0.45)');
+      gradient.addColorStop(1, 'rgba(2,4,12,0.96)');
     } else if (preset === 'kids') {
       gradient.addColorStop(0, 'rgba(10,30,60,0.55)');
       gradient.addColorStop(0.5, 'rgba(10,20,50,0.35)');
@@ -987,6 +1037,38 @@ export class QuizRenderer {
       this.ctx.textAlign = 'center';
       this.ctx.textBaseline = 'middle';
       this.ctx.fillText(badgeText, 60 + badgeW / 2, 110);
+    } else if (preset === 'gold') {
+      this.ctx.font = '900 28px serif, Georgia, "Times New Roman"';
+      const badgeW = this.ctx.measureText(badgeText).width + 60;
+      this.ctx.fillStyle = 'rgba(20, 15, 5, 0.9)';
+      this.drawRoundedRect(60, 80, badgeW, 60, 30);
+      this.ctx.fill();
+      this.ctx.strokeStyle = '#eab308';
+      this.ctx.lineWidth = 2;
+      this.ctx.shadowColor = '#eab308';
+      this.ctx.shadowBlur = 12;
+      this.ctx.stroke();
+      this.ctx.shadowColor = 'transparent';
+      this.ctx.fillStyle = '#fef08a';
+      this.ctx.textAlign = 'center';
+      this.ctx.textBaseline = 'middle';
+      this.ctx.fillText(badgeText, 60 + badgeW / 2, 110);
+    } else if (preset === 'darkvelvet') {
+      this.ctx.font = '800 28px system-ui, -apple-system, sans-serif';
+      const badgeW = this.ctx.measureText(badgeText).width + 60;
+      this.ctx.fillStyle = 'rgba(10, 20, 45, 0.85)';
+      this.drawRoundedRect(60, 80, badgeW, 60, 30);
+      this.ctx.fill();
+      this.ctx.strokeStyle = '#60a5fa';
+      this.ctx.lineWidth = 2;
+      this.ctx.shadowColor = '#3b82f6';
+      this.ctx.shadowBlur = 15;
+      this.ctx.stroke();
+      this.ctx.shadowColor = 'transparent';
+      this.ctx.fillStyle = '#93c5fd';
+      this.ctx.textAlign = 'center';
+      this.ctx.textBaseline = 'middle';
+      this.ctx.fillText(badgeText, 60 + badgeW / 2, 110);
     } else if (preset === 'kids') {
       this.ctx.font = '900 28px system-ui, -apple-system, sans-serif';
       const badgeW = this.ctx.measureText(badgeText).width + 60;
@@ -1050,6 +1132,10 @@ export class QuizRenderer {
         this.ctx.font = '900 52px "Courier New", monospace';
       } else if (preset === 'neon') {
         this.ctx.font = '900 52px "Courier New", monospace';
+      } else if (preset === 'gold') {
+        this.ctx.font = '700 56px serif, Georgia, "Times New Roman"';
+      } else if (preset === 'darkvelvet') {
+        this.ctx.font = '800 55px system-ui, -apple-system, sans-serif';
       } else {
         this.ctx.font = '900 55px system-ui, -apple-system, sans-serif';
       }
@@ -1115,6 +1201,32 @@ export class QuizRenderer {
         this.ctx.lineWidth = 3;
         this.ctx.stroke();
         this.ctx.fillStyle = '#ffffff';
+      } else if (preset === 'gold') {
+        this.ctx.fillStyle = 'rgba(18, 14, 5, 0.94)';
+        this.drawRoundedRect(-440, -cardH / 2, 880, cardH, 36);
+        this.ctx.fill();
+        const goldGrad = this.ctx.createLinearGradient(-440, 0, 440, 0);
+        goldGrad.addColorStop(0, '#fef08a');
+        goldGrad.addColorStop(0.5, '#eab308');
+        goldGrad.addColorStop(1, '#fde047');
+        this.ctx.strokeStyle = goldGrad;
+        this.ctx.lineWidth = 4;
+        this.ctx.shadowColor = '#eab308';
+        this.ctx.shadowBlur = 25;
+        this.ctx.stroke();
+        this.ctx.shadowColor = 'transparent';
+        this.ctx.fillStyle = '#fef9c3';
+      } else if (preset === 'darkvelvet') {
+        this.ctx.fillStyle = 'rgba(8, 15, 32, 0.92)';
+        this.drawRoundedRect(-440, -cardH / 2, 880, cardH, 36);
+        this.ctx.fill();
+        this.ctx.strokeStyle = '#3b82f6';
+        this.ctx.lineWidth = 3;
+        this.ctx.shadowColor = '#2563eb';
+        this.ctx.shadowBlur = 25;
+        this.ctx.stroke();
+        this.ctx.shadowColor = 'transparent';
+        this.ctx.fillStyle = '#eff6ff';
       } else if (preset === 'kids') {
         const qGrad = this.ctx.createLinearGradient(-440, 0, 440, 0);
         qGrad.addColorStop(0, '#facc15');
@@ -1234,6 +1346,20 @@ export class QuizRenderer {
             letterBg = '#022c22';
             letterText = '#6ee7b7';
             optRadius = 24;
+          } else if (preset === 'gold') {
+            bgColor = 'rgba(18, 14, 5, 0.88)';
+            borderColor = 'rgba(234, 179, 8, 0.4)';
+            textColor = '#fef08a';
+            letterBg = '#451a03';
+            letterText = '#fde047';
+            optRadius = 24;
+          } else if (preset === 'darkvelvet') {
+            bgColor = 'rgba(10, 18, 38, 0.88)';
+            borderColor = 'rgba(59, 130, 246, 0.4)';
+            textColor = '#dbeafe';
+            letterBg = '#1e3a8a';
+            letterText = '#93c5fd';
+            optRadius = 26;
           }
           
           if (this.phase === 'reveal') {
@@ -1260,6 +1386,18 @@ export class QuizRenderer {
                 textColor = '#000000';
                 letterBg = '#000000';
                 letterText = '#ffffff';
+              } else if (preset === 'gold') {
+                bgColor = '#eab308';
+                borderColor = '#ffffff';
+                textColor = '#000000';
+                letterBg = '#000000';
+                letterText = '#fef08a';
+              } else if (preset === 'darkvelvet') {
+                bgColor = '#2563eb';
+                borderColor = '#93c5fd';
+                textColor = '#ffffff';
+                letterBg = '#0f172a';
+                letterText = '#60a5fa';
               } else {
                 bgColor = activeTheme.main;
                 borderColor = activeTheme.light;

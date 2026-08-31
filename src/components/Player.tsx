@@ -313,6 +313,34 @@ export function Player({ quiz, onExit }: PlayerProps) {
       gridOverlay: (
         <div className="absolute inset-0 bg-[radial-gradient(#10b981_1px,transparent_1px)] [background-size:24px_24px] opacity-15 pointer-events-none z-0" />
       ) as React.ReactNode
+    },
+    gold: {
+      container: "relative w-full max-w-[420px] max-h-[85vh] aspect-[9/16] bg-amber-950/40 rounded-[3rem] overflow-hidden shadow-[0_0_40px_rgba(234,179,8,0.35)] ring-[8px] ring-amber-500/50 box-border border-2 border-amber-300",
+      overlay: "absolute inset-0 bg-gradient-to-b from-amber-950/60 via-black/80 to-black pointer-events-none",
+      progress: "absolute top-8 left-8 sm:left-8 bg-amber-500/20 backdrop-blur-xl px-4 py-1.5 rounded-full border border-amber-400 text-amber-300 font-serif text-xs uppercase font-extrabold tracking-widest shadow-[0_0_15px_rgba(234,179,8,0.3)]",
+      questionBox: "bg-black/90 border-2 border-amber-400 text-amber-200 w-full rounded-[2rem] p-6 sm:p-8 shadow-[0_0_30px_rgba(234,179,8,0.4)] mb-8 sm:mb-12 text-center relative",
+      questionText: "text-xl sm:text-2xl md:text-3xl font-serif font-black leading-tight tracking-tight text-amber-200 drop-shadow-[0_0_10px_rgba(234,179,8,0.6)]",
+      optionNormal: "bg-black/80 hover:bg-black border border-amber-500/40 text-amber-100 hover:border-amber-400 hover:shadow-[0_0_15px_rgba(234,179,8,0.3)] rounded-2xl font-serif",
+      optionCorrect: "bg-gradient-to-r from-amber-400 to-yellow-500 text-black font-black border-2 border-white shadow-[0_0_30px_rgba(234,179,8,0.8)] font-serif",
+      optionIncorrect: "bg-neutral-950 text-neutral-700 border-neutral-900 rounded-2xl",
+      letter: "bg-amber-950 text-amber-300 border border-amber-400 font-bold",
+      gridOverlay: (
+        <div className="absolute inset-0 bg-[radial-gradient(#facc15_1px,transparent_1px)] [background-size:24px_24px] opacity-15 pointer-events-none z-0" />
+      ) as React.ReactNode
+    },
+    darkvelvet: {
+      container: "relative w-full max-w-[420px] max-h-[85vh] aspect-[9/16] bg-slate-950 rounded-[3rem] overflow-hidden shadow-[0_0_40px_rgba(59,130,246,0.35)] ring-[8px] ring-blue-500/50 box-border border-2 border-blue-400",
+      overlay: "absolute inset-0 bg-gradient-to-b from-blue-950/50 via-slate-950/80 to-slate-950 pointer-events-none",
+      progress: "absolute top-8 left-8 sm:left-8 bg-blue-500/20 backdrop-blur-xl px-4 py-1.5 rounded-full border border-blue-400 text-blue-300 font-sans text-xs uppercase font-extrabold tracking-widest shadow-[0_0_15px_rgba(59,130,246,0.3)]",
+      questionBox: "bg-slate-950/90 border-2 border-blue-400 text-blue-100 w-full rounded-[2rem] p-6 sm:p-8 shadow-[0_0_30px_rgba(59,130,246,0.4)] mb-8 sm:mb-12 text-center relative",
+      questionText: "text-xl sm:text-2xl md:text-3xl font-display font-black leading-tight tracking-tight text-white drop-shadow-[0_0_10px_rgba(59,130,246,0.6)]",
+      optionNormal: "bg-slate-900/80 hover:bg-slate-900 border border-blue-500/30 text-blue-100 hover:border-blue-400 hover:shadow-[0_0_15px_rgba(59,130,246,0.3)] rounded-2xl",
+      optionCorrect: "bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-black border-2 border-cyan-300 shadow-[0_0_30px_rgba(59,130,246,0.8)]",
+      optionIncorrect: "bg-neutral-950 text-neutral-700 border-neutral-900 rounded-2xl",
+      letter: "bg-blue-950 text-blue-300 border border-blue-400 font-bold",
+      gridOverlay: (
+        <div className="absolute inset-0 bg-[radial-gradient(#3b82f6_1px,transparent_1px)] [background-size:24px_24px] opacity-15 pointer-events-none z-0" />
+      ) as React.ReactNode
     }
   };
 
