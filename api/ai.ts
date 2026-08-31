@@ -254,7 +254,7 @@ async function getUnsplashImageForKeyword(
     const ai = getAI();
     const startedAt = Date.now();
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-3.7-flash",
       contents: `Find a highly-popular, valid, active, and high-resolution Unsplash photo ID that perfectly matches the following search query/keyword: "${keyword}".
 The photo must be vertical (or suitable for portrait 1080x1920 cropping), beautiful, atmospheric, and have rich background colors (avoid plain white or overly bright backgrounds since this is used as a full-screen vertical background for a video player).
 
@@ -269,7 +269,7 @@ Return ONLY the Unsplash photo ID as plain text (for example: photo-154135992727
     if (user) {
       await recordModelUsage(user, {
         action: "imageKeyword",
-        model: "gemini-3-flash-preview",
+        model: "gemini-3.7-flash",
         kind: "text",
         usage: response.usageMetadata,
         imageLookups: trackImageLookup ? 1 : 0,
@@ -324,7 +324,7 @@ async function generateQuizChunk(
 
   const startedAt = Date.now();
   const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
+    model: "gemini-3.7-flash",
     contents: `Topic: ${topic}.
 Target Language: ${targetLanguageName} (code: ${language}).
 
@@ -366,7 +366,7 @@ history, space, science, nature, math, geography, art, music, sport, tech, liter
   const generatedCount = Array.isArray(data) ? data.length : 0;
   await recordModelUsage(user, {
     action: "generateQuiz",
-    model: "gemini-3-flash-preview",
+    model: "gemini-3.7-flash",
     kind: "text",
     usage: response.usageMetadata,
     imageLookups: generatedCount,
@@ -410,7 +410,7 @@ async function analyzeQuestionsForImages(
   const ai = getAI();
   const startedAt = Date.now();
   const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
+    model: "gemini-3.7-flash",
     contents: `Quyidagi test savollarini tahlil qiling va har biriga mos keladigan eng muvofiq, inglizcha bitta so'zdan iborat kalit so'z (image search keyword) bering (masalan: history, galaxy, math, science, nature).
 
 Savollar:
@@ -428,7 +428,7 @@ Javobni quyidagi JSON formatida qaytaring:
   });
   await recordModelUsage(user, {
     action: "analyzeImages",
-    model: "gemini-3-flash-preview",
+    model: "gemini-3.7-flash",
     kind: "text",
     usage: response.usageMetadata,
     durationMs: Date.now() - startedAt,
