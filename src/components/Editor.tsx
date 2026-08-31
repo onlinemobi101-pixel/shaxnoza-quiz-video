@@ -1269,8 +1269,8 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, uiLang, onUiL
               </label>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {([
-                  { id: "vertical", title: "Shorts / Reels", subtitle: "1080×1920 · 9:16" },
-                  { id: "youtube", title: "YouTube Long", subtitle: "1920×1080 · telefonda xavfsiz 720p" },
+                  { id: "vertical", title: ui.verticalShorts, subtitle: ui.verticalFormatSubtitle },
+                  { id: "youtube", title: ui.horizontalYoutube, subtitle: ui.youtubeFormatSubtitle },
                 ] as const).map((format) => (
                   <button
                     key={format.id}
@@ -1310,7 +1310,7 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, uiLang, onUiL
                   </label>
                   {!isAdmin && (
                     <span className="text-[10px] bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-2 py-0.5 rounded-full font-bold">
-                      Foydalanuvchilar: 2 min · 3+ min faqat Admin
+                      2 min · 3+ min Admin
                     </span>
                   )}
                 </div>
@@ -1326,7 +1326,7 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, uiLang, onUiL
                         onClick={() => {
                           if (isLocked) {
                             telegramHaptic("warning");
-                            alert("3 daqiqadan uzun YouTube videolari faqat Adminlar uchun mo'ljallangan. Foydalanuvchilar uchun 2 min va Shorts/Reels (30-60s) ochiq.");
+                            alert("3+ min is for Admin only.");
                             return;
                           }
                           telegramHaptic("light");
@@ -1351,21 +1351,18 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, uiLang, onUiL
                         )}
                         <span className="block text-base sm:text-lg font-black">{preset.durationMinutes} min</span>
                         <span className="block text-[10px] mt-1">
-                          {preset.questionCount} savol · {preset.timerSeconds}s
+                          {preset.questionCount} · {preset.timerSeconds}s
                         </span>
                       </button>
                     );
                   })}
                 </div>
-                <p className="mt-2 text-xs text-neutral-500">
-                  AI savollar soni va taymerni shu rejaga moslaydi; javob izohi qolgan vaqtni tabiiy to‘ldiradi.
-                </p>
               </div>
             )}
 
             <div>
               <label className="block text-sm font-medium text-neutral-300 mb-2 flex items-center justify-between">
-                <span>Suxandon ovozi (AI)</span>
+                <span>{ui.voiceSelectLabel}</span>
                 {!hasPremiumAccess && (
                   <span className="text-[10px] bg-amber-500/10 text-amber-400 px-2 py-0.5 rounded-full border border-amber-500/20 font-bold uppercase tracking-wider">
                     🔒 Premium
@@ -1383,13 +1380,13 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, uiLang, onUiL
                     }
                     setQuiz({ ...quiz, voiceName: selectedVal });
                   }}
-                  className="w-full bg-black/40 backdrop-blur-md border border-white/10 rounded-xl px-4 py-3.5 text-white focus:outline-none focus:border-emerald-500/50 focus:ring-2 focus:ring-emerald-500/20 transition-all appearance-none cursor-pointer"
+                  className="w-full bg-black/40 backdrop-blur-md border border-white/10 rounded-xl px-4 py-3.5 text-white focus:outline-none focus:border-emerald-500/50 focus:ring-2 focus:ring-emerald-500/20 transition-all appearance-none cursor-pointer font-medium"
                 >
-                  <option value="Kore" className="bg-neutral-900">Kore (Ayol, sokin)</option>
-                  <option value="Aoede" className="bg-neutral-900">Aoede (Ayol, jarangdor) {!hasPremiumAccess ? "🔒" : ""}</option>
-                  <option value="Puck" className="bg-neutral-900">Puck (Erkak, energiya) {!hasPremiumAccess ? "🔒" : ""}</option>
-                  <option value="Charon" className="bg-neutral-900">Charon (Erkak, jiddiy) {!hasPremiumAccess ? "🔒" : ""}</option>
-                  <option value="Fenrir" className="bg-neutral-900">Fenrir (Erkak, chuqur) {!hasPremiumAccess ? "🔒" : ""}</option>
+                  <option value="Kore" className="bg-neutral-900">{ui.voiceKore}</option>
+                  <option value="Aoede" className="bg-neutral-900">{ui.voiceAoede} {!hasPremiumAccess ? "🔒" : ""}</option>
+                  <option value="Puck" className="bg-neutral-900">{ui.voicePuck} {!hasPremiumAccess ? "🔒" : ""}</option>
+                  <option value="Charon" className="bg-neutral-900">{ui.voiceCharon} {!hasPremiumAccess ? "🔒" : ""}</option>
+                  <option value="Fenrir" className="bg-neutral-900">{ui.voiceFenrir} {!hasPremiumAccess ? "🔒" : ""}</option>
                 </select>
                 <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-neutral-400">
                   <ArrowDown size={16} />
@@ -1398,7 +1395,7 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, uiLang, onUiL
             </div>
             <div>
               <label className="block text-sm font-medium text-neutral-300 mb-2">
-                O'ylash vaqti (soniya)
+                {ui.timerDurationInputLabel}
               </label>
               <input
                 type="number"
@@ -1413,7 +1410,7 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, uiLang, onUiL
               />
 
               <label className="block text-xs font-semibold text-neutral-400 mb-2 uppercase tracking-wider">
-                Taymer uslubi
+                {ui.timerStyleLabel}
               </label>
               <div className="grid grid-cols-3 gap-2 mb-4">
                 {(['line', 'circular', 'digital'] as const).map((style) => (
@@ -1427,13 +1424,13 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, uiLang, onUiL
                         : "bg-black/30 border-white/5 text-neutral-400 hover:text-white hover:border-white/10"
                     }`}
                   >
-                    {style === 'line' ? 'Chiziqli' : style === 'circular' ? 'Aylanma' : 'Retro'}
+                    {style === 'line' ? ui.timerLine : style === 'circular' ? ui.timerCircle : ui.timerRetro}
                   </button>
                 ))}
               </div>
 
               <label className="block text-xs font-semibold text-neutral-400 mb-2 uppercase tracking-wider">
-                O'tish effekti
+                {ui.transitionEffectLabel}
               </label>
               <div className="grid grid-cols-3 gap-2">
                 {(['slide', 'zoom', 'fade'] as const).map((effect) => (
@@ -1447,7 +1444,7 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, uiLang, onUiL
                         : "bg-black/30 border-white/5 text-neutral-400 hover:text-white hover:border-white/10"
                     }`}
                   >
-                    {effect === 'slide' ? 'Slide' : effect === 'zoom' ? 'Zoom' : 'Fade'}
+                    {effect === 'slide' ? ui.transSlide : effect === 'zoom' ? ui.transZoom : ui.transFade}
                   </button>
                 ))}
               </div>
@@ -1455,20 +1452,20 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, uiLang, onUiL
 
             <div className="pt-4 border-t border-white/10">
               <label className="block text-sm font-medium text-neutral-300 mb-2 flex items-center justify-between">
-                <span>Premium Mavzular</span>
+                <span>{ui.themesLabel}</span>
                 <span className="text-[10px] bg-emerald-500/10 text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-500/20 uppercase tracking-widest font-black">PREMIUM</span>
               </label>
               <div className="grid grid-cols-2 gap-2 mb-4">
                 {[
-                  { id: 'default', name: 'Standart', desc: 'Minimal/Klassik', premium: false },
-                  { id: 'gold', name: '👑 Gold Luxury', desc: '24K Oltin/Hashamat', premium: false },
-                  { id: 'cyberpunk', name: '⚡️ Cyberpunk', desc: 'Binafsha/Laser', premium: true },
-                  { id: 'neon', name: '🟢 Neon Glow', desc: 'Elektr/Zaharli Yashil', premium: false },
-                  { id: 'darkvelvet', name: '💎 Dark Velvet', desc: 'Sapfir/Moviy Baxmal', premium: true },
-                  { id: 'sunset', name: '🌅 Sunset', desc: 'Iliq/Olovrang', premium: false },
-                  { id: 'chalk', name: '🎓 Chalk Board', desc: 'Doska/Bo\'r', premium: true },
-                  { id: 'kids', name: '🧸 Kids Cartoon', desc: 'Yorqin/Quvnoq', premium: true },
-                  { id: 'retro', name: '🕹 Retro Arcade', desc: 'Sariq/Piksel 8-bit', premium: true }
+                  { id: 'default', name: 'Standart', desc: 'Minimal / Classic', premium: false },
+                  { id: 'gold', name: '👑 Gold Luxury', desc: '24K Gold / Royale', premium: false },
+                  { id: 'cyberpunk', name: '⚡️ Cyberpunk', desc: 'Laser / Cyber Neon', premium: true },
+                  { id: 'neon', name: '🟢 Neon Glow', desc: 'Electric / Green Glow', premium: false },
+                  { id: 'darkvelvet', name: '💎 Dark Velvet', desc: 'Sapphire / Premium Velvet', premium: true },
+                  { id: 'sunset', name: '🌅 Sunset', desc: 'Warm / Sunset Glow', premium: false },
+                  { id: 'chalk', name: '🎓 Chalk Board', desc: 'Classroom Chalk', premium: true },
+                  { id: 'kids', name: '🧸 Kids Cartoon', desc: 'Bright / Cheerful', premium: true },
+                  { id: 'retro', name: '🕹 Retro Arcade', desc: 'Pixel 8-bit Yellow', premium: true }
                 ].map((preset) => {
                   const isLocked = preset.premium && !hasPremiumAccess;
                   return (
@@ -1505,24 +1502,24 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, uiLang, onUiL
 
             <div className="pt-4 border-t border-white/10">
               <label className="block text-sm font-medium text-neutral-300 mb-2">
-                Mavzu Rangi
+                {ui.themeColorLabel}
               </label>
               <select
                 value={quiz.themeColor || "emerald"}
                 onChange={(e) => setQuiz({ ...quiz, themeColor: e.target.value as any })}
-                className="w-full bg-black/40 backdrop-blur-md border border-white/10 rounded-xl px-4 py-3.5 text-white focus:outline-none focus:border-emerald-500/50 focus:ring-2 focus:ring-emerald-500/20 transition-all appearance-none cursor-pointer"
+                className="w-full bg-black/40 backdrop-blur-md border border-white/10 rounded-xl px-4 py-3.5 text-white focus:outline-none focus:border-emerald-500/50 focus:ring-2 focus:ring-emerald-500/20 transition-all appearance-none cursor-pointer font-medium"
               >
-                <option value="emerald" className="bg-neutral-900">Yashil (Emerald)</option>
-                <option value="cyan" className="bg-neutral-900">Havorang (Cyan)</option>
-                <option value="violet" className="bg-neutral-900">Siyohrang (Violet)</option>
-                <option value="rose" className="bg-neutral-900">Pushti (Rose)</option>
-                <option value="amber" className="bg-neutral-900">Sariq (Amber)</option>
+                <option value="emerald" className="bg-neutral-900">{ui.colorEmerald}</option>
+                <option value="cyan" className="bg-neutral-900">{ui.colorCyan}</option>
+                <option value="violet" className="bg-neutral-900">{ui.colorViolet}</option>
+                <option value="rose" className="bg-neutral-900">{ui.colorRose}</option>
+                <option value="amber" className="bg-neutral-900">{ui.colorAmber}</option>
               </select>
             </div>
 
             <div>
               <label className="block text-sm font-medium text-neutral-300 mb-2 flex items-center justify-between">
-                <span>Watermark (@username)</span>
+                <span>{ui.watermarkLabel}</span>
                 {!hasPremiumAccess && (
                   <span className="text-[10px] bg-amber-500/10 text-amber-400 px-2 py-0.5 rounded-full border border-amber-500/20 flex items-center gap-1 font-bold uppercase tracking-wider">
                     🔒 Premium
@@ -1531,7 +1528,7 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, uiLang, onUiL
               </label>
               <input
                 type="text"
-                placeholder="@TarixQuiz"
+                placeholder="@username"
                 readOnly={!hasPremiumAccess}
                 onClick={() => {
                   if (!hasPremiumAccess) {
@@ -1552,7 +1549,7 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, uiLang, onUiL
               />
               {!hasPremiumAccess && (
                 <p className="text-[10px] text-amber-400/80 mt-1.5 font-medium leading-relaxed">
-                  * Bepul va oddiy tariflarda suv belgisi majburiy bo'lib, uni o'chirish faqat premium foydalanuvchilar uchun ruxsat etiladi.
+                  {ui.watermarkTip}
                 </p>
               )}
             </div>

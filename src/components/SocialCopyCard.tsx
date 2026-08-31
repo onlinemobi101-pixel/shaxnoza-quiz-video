@@ -1,4 +1,4 @@
-﻿import { useState, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { Copy, Check, Hash, Sparkles, Flame, Target, Zap } from "lucide-react";
 import { Quiz } from "../types";
 import { generateViralSocialCopy } from "../services/socialCopy";
@@ -13,11 +13,21 @@ export function SocialCopyCard({ quiz, compact = false }: SocialCopyCardProps) {
   const [selectedStyle, setSelectedStyle] = useState<"challenge" | "engaging" | "short">("engaging");
   const [copiedSection, setCopiedSection] = useState<string | null>(null);
 
+  const lang = quiz.language || "uz";
   const socialData = useMemo(() => generateViralSocialCopy(quiz), [quiz]);
 
   const activeTitle = socialData.titles[selectedStyle];
   const hashtagsString = socialData.hashtags.join(" ");
-  const fullTextToCopy = `${activeTitle}\n\n👇 Izohlarda nechta savolga to'g'ri javob berganingizni yozing!\n\n${hashtagsString}`;
+  const commentPrompt =
+    lang === "ru"
+      ? "👇 Напишите в комментариях, на сколько вопросов вы ответили правильно!"
+      : lang === "en"
+      ? "👇 Drop your score in the comments! How many did you get right?"
+      : lang === "tr"
+      ? "👇 Yorumlarda kaç soruya doğru cevap verdiğinizi yazın!"
+      : "👇 Izohlarda nechta savolga to'g'ri javob berganingizni yozing!";
+
+  const fullTextToCopy = `${activeTitle}\n\n${commentPrompt}\n\n${hashtagsString}`;
 
   const handleCopy = async (text: string, sectionKey: string) => {
     try {
@@ -30,6 +40,27 @@ export function SocialCopyCard({ quiz, compact = false }: SocialCopyCardProps) {
     }
   };
 
+  const copyLabel =
+    lang === "ru" ? "Скопировать всё" : lang === "en" ? "Copy All" : lang === "tr" ? "Hepsini Kopyala" : "Hammasini nusxalash";
+  const copiedLabel =
+    lang === "ru" ? "Скопировано!" : lang === "en" ? "Copied!" : lang === "tr" ? "Kopyalandı!" : "Nusxalandi!";
+  const cardTitle =
+    lang === "ru"
+      ? "Описание для YouTube, TikTok & Reels"
+      : lang === "en"
+      ? "Description for YouTube, TikTok & Reels"
+      : lang === "tr"
+      ? "YouTube, TikTok & Reels için Açıklama"
+      : "YouTube, TikTok & Reels uchun tavsif";
+  const cardSub =
+    lang === "ru"
+      ? "Вирусный заголовок и трендовые теги от ИИ"
+      : lang === "en"
+      ? "AI generated viral title and trending hashtags"
+      : lang === "tr"
+      ? "Yapay zeka viral başlık ve trend etiketler"
+      : "AI tomonidan tuzilgan viral sarlavha va trend hashtaglar";
+
   return (
     <div className={`rounded-2xl border border-indigo-500/20 bg-indigo-500/5 text-left font-sans ${compact ? "p-3.5" : "p-4.5"}`}>
       <div className="flex items-center justify-between gap-2 mb-3">
@@ -39,9 +70,9 @@ export function SocialCopyCard({ quiz, compact = false }: SocialCopyCardProps) {
           </div>
           <div>
             <h4 className="text-xs sm:text-sm font-bold text-white tracking-wide">
-              YouTube, TikTok & Reels uchun tavsif
+              {cardTitle}
             </h4>
-            <p className="text-[10px] text-slate-400">AI tomonidan tuzilgan viral sarlavha va trend hashtaglar</p>
+            <p className="text-[10px] text-slate-400">{cardSub}</p>
           </div>
         </div>
 
@@ -51,7 +82,7 @@ export function SocialCopyCard({ quiz, compact = false }: SocialCopyCardProps) {
           className="flex items-center gap-1 bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-500/40 text-indigo-200 text-xs font-semibold px-2.5 py-1.5 rounded-xl transition-all cursor-pointer shadow-sm active:scale-95 shrink-0"
         >
           {copiedSection === "full" ? <Check size={13} className="text-emerald-400" /> : <Copy size={13} />}
-          {copiedSection === "full" ? "Nusxalandi!" : "Hammasini nusxalash"}
+          {copiedSection === "full" ? copiedLabel : copyLabel}
         </button>
       </div>
 
@@ -68,7 +99,7 @@ export function SocialCopyCard({ quiz, compact = false }: SocialCopyCardProps) {
           }`}
         >
           <Target size={12} />
-          <span>Qiziqarli</span>
+          <span>{lang === "ru" ? "Интересный" : lang === "en" ? "Engaging" : lang === "tr" ? "İlgi Çekici" : "Qiziqarli"}</span>
         </button>
 
         <button
@@ -82,7 +113,7 @@ export function SocialCopyCard({ quiz, compact = false }: SocialCopyCardProps) {
           }`}
         >
           <Flame size={12} />
-          <span>Chaqiruv</span>
+          <span>{lang === "ru" ? "Челлендж" : lang === "en" ? "Challenge" : lang === "tr" ? "Meydan Okuma" : "Chaqiruv"}</span>
         </button>
 
         <button
@@ -96,7 +127,7 @@ export function SocialCopyCard({ quiz, compact = false }: SocialCopyCardProps) {
           }`}
         >
           <Zap size={12} />
-          <span>Qisqa</span>
+          <span>{lang === "ru" ? "Краткий" : lang === "en" ? "Short" : lang === "tr" ? "Kısa" : "Qisqa"}</span>
         </button>
       </div>
 

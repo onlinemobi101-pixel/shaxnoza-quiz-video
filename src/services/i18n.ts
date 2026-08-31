@@ -139,16 +139,38 @@ export interface UIStrings {
   step3Subtitle: string;
   videoFormatLabel: string;
   verticalShorts: string;
+  verticalFormatSubtitle: string;
   horizontalYoutube: string;
+  youtubeFormatSubtitle: string;
+  voiceSelectLabel: string;
+  voiceKore: string;
+  voiceAoede: string;
+  voicePuck: string;
+  voiceCharon: string;
+  voiceFenrir: string;
   timerDurationLabel: string;
+  timerDurationInputLabel: string;
   timerStyleLabel: string;
+  timerLine: string;
+  timerCircle: string;
+  timerRetro: string;
   transitionEffectLabel: string;
+  transSlide: string;
+  transZoom: string;
+  transFade: string;
   themesLabel: string;
+  themeColorLabel: string;
+  colorEmerald: string;
+  colorCyan: string;
+  colorViolet: string;
+  colorRose: string;
+  colorAmber: string;
   bgmLabel: string;
   bgmStyleLabel: string;
   bgmVolumeLabel: string;
   customBgmUpload: string;
   watermarkLabel: string;
+  watermarkTip: string;
   bgmRecommendTip: string;
 
   // Action bar
@@ -217,17 +239,39 @@ const UI_DICTIONARY: Record<UILanguage, UIStrings> = {
     step3Subtitle: "Videongiz uchun eng jarangdor va mos ovozni tanlang",
 
     videoFormatLabel: "Video formati",
-    verticalShorts: "Shorts / Reels (9:16)",
-    horizontalYoutube: "YouTube Long (16:9)",
+    verticalShorts: "Shorts / Reels",
+    verticalFormatSubtitle: "1080×1920 · 9:16 Tik",
+    horizontalYoutube: "YouTube Long",
+    youtubeFormatSubtitle: "1920×1080 · 16:9 Keng",
+    voiceSelectLabel: "Suxandon ovozi (AI)",
+    voiceKore: "Kore (Ayol, sokin)",
+    voiceAoede: "Aoede (Ayol, jarangdor)",
+    voicePuck: "Puck (Erkak, energiya)",
+    voiceCharon: "Charon (Erkak, jiddiy)",
+    voiceFenrir: "Fenrir (Erkak, chuqur)",
     timerDurationLabel: "O'ylash vaqti (Taymer)",
+    timerDurationInputLabel: "O'ylash vaqti (soniya)",
     timerStyleLabel: "Taymer uslubi",
-    transitionEffectLabel: "Kadrlar almashishi",
-    themesLabel: "Video Shablonlari (Uslub)",
+    timerLine: "Chiziqli",
+    timerCircle: "Aylanma",
+    timerRetro: "Retro",
+    transitionEffectLabel: "O'tish effekti",
+    transSlide: "Slide",
+    transZoom: "Zoom",
+    transFade: "Fade",
+    themesLabel: "Premium Mavzular",
+    themeColorLabel: "Mavzu Rangi",
+    colorEmerald: "Yashil (Emerald)",
+    colorCyan: "Havorang (Cyan)",
+    colorViolet: "Siyohrang (Violet)",
+    colorRose: "Pushti (Rose)",
+    colorAmber: "Sariq (Amber)",
     bgmLabel: "Fon musiqasini yoqish (BGM)",
     bgmStyleLabel: "Musiqa uslubi (BGM Style)",
     bgmVolumeLabel: "Musiqa ovozi balandligi (Volume)",
     customBgmUpload: "O'z MP3 musiqangizni yuklash",
     watermarkLabel: "Watermark (@username)",
+    watermarkTip: "* Bepul va oddiy tariflarda suv belgisi majburiy bo'lib, uni o'chirish faqat premium foydalanuvchilar uchun ruxsat etiladi.",
     bgmRecommendTip: "* AI suxandon ovozi aniq eshitilishi uchun 15% - 30% oralig'i eng maqbul hisoblanadi.",
 
     btnPreview: "Ko'rish (Preview)",
@@ -293,17 +337,39 @@ const UI_DICTIONARY: Record<UILanguage, UIStrings> = {
     step3Subtitle: "Выберите подходящий голос для озвучивания видео",
 
     videoFormatLabel: "Формат видео",
-    verticalShorts: "Shorts / Reels (9:16)",
-    horizontalYoutube: "YouTube Long (16:9)",
+    verticalShorts: "Shorts / Reels",
+    verticalFormatSubtitle: "1080×1920 · 9:16 Вертикальный",
+    horizontalYoutube: "YouTube Long",
+    youtubeFormatSubtitle: "1920×1080 · 16:9 Горизонтальный",
+    voiceSelectLabel: "Голос диктора (ИИ)",
+    voiceKore: "Kore (Женский, спокойный)",
+    voiceAoede: "Aoede (Женский, звонкий)",
+    voicePuck: "Puck (Мужской, энергичный)",
+    voiceCharon: "Charon (Мужской, солидный)",
+    voiceFenrir: "Fenrir (Мужской, глубокий)",
     timerDurationLabel: "Время на размышление (Таймер)",
+    timerDurationInputLabel: "Время на размышление (секунды)",
     timerStyleLabel: "Стиль таймера",
+    timerLine: "Линейный",
+    timerCircle: "Круговой",
+    timerRetro: "Ретро",
     transitionEffectLabel: "Эффект перехода",
-    themesLabel: "Шаблоны видео (Темы)",
+    transSlide: "Слайд",
+    transZoom: "Зум",
+    transFade: "Затухание",
+    themesLabel: "Премиум Темы",
+    themeColorLabel: "Цвет темы",
+    colorEmerald: "Изумрудный (Emerald)",
+    colorCyan: "Голубой (Cyan)",
+    colorViolet: "Фиолетовый (Violet)",
+    colorRose: "Розовый (Rose)",
+    colorAmber: "Золотой (Amber)",
     bgmLabel: "Включить фоновую музыку (BGM)",
     bgmStyleLabel: "Стиль музыки (BGM)",
     bgmVolumeLabel: "Громкость музыки (Volume)",
     customBgmUpload: "Загрузить свой MP3 трек",
     watermarkLabel: "Водяной знак (@username)",
+    watermarkTip: "* На бесплатном тарифе водяной знак обязателен. Удаление доступно в тарифе Premium.",
     bgmRecommendTip: "* Для четкой слышимости диктора рекомендуется громкость 15% - 30%.",
 
     btnPreview: "Просмотр (Preview)",
@@ -369,17 +435,39 @@ const UI_DICTIONARY: Record<UILanguage, UIStrings> = {
     step3Subtitle: "Choose the best voice tone for your quiz video",
 
     videoFormatLabel: "Video Format",
-    verticalShorts: "Shorts / Reels (9:16)",
-    horizontalYoutube: "YouTube Long (16:9)",
+    verticalShorts: "Shorts / Reels",
+    verticalFormatSubtitle: "1080×1920 · 9:16 Vertical",
+    horizontalYoutube: "YouTube Long",
+    youtubeFormatSubtitle: "1920×1080 · 16:9 Landscape",
+    voiceSelectLabel: "AI Narrator Voice",
+    voiceKore: "Kore (Female, calm)",
+    voiceAoede: "Aoede (Female, energetic)",
+    voicePuck: "Puck (Male, energetic)",
+    voiceCharon: "Charon (Male, authoritative)",
+    voiceFenrir: "Fenrir (Male, deep)",
     timerDurationLabel: "Thinking Time (Timer)",
+    timerDurationInputLabel: "Thinking Time (seconds)",
     timerStyleLabel: "Timer Style",
-    transitionEffectLabel: "Slide Transition",
-    themesLabel: "Visual Themes (Presets)",
+    timerLine: "Linear",
+    timerCircle: "Circular",
+    timerRetro: "Retro",
+    transitionEffectLabel: "Transition Effect",
+    transSlide: "Slide",
+    transZoom: "Zoom",
+    transFade: "Fade",
+    themesLabel: "Visual Themes",
+    themeColorLabel: "Accent Color",
+    colorEmerald: "Emerald (Green)",
+    colorCyan: "Cyan (Sky Blue)",
+    colorViolet: "Violet (Purple)",
+    colorRose: "Rose (Pink)",
+    colorAmber: "Amber (Gold)",
     bgmLabel: "Enable Background Music (BGM)",
     bgmStyleLabel: "BGM Music Style",
     bgmVolumeLabel: "Music Volume",
     customBgmUpload: "Upload Custom MP3 Audio",
     watermarkLabel: "Watermark (@username)",
+    watermarkTip: "* Watermark is mandatory on free plan. Upgrade to Premium to remove or customize.",
     bgmRecommendTip: "* 15% - 30% volume is recommended for crystal-clear narrator voice.",
 
     btnPreview: "Preview",
@@ -445,17 +533,39 @@ const UI_DICTIONARY: Record<UILanguage, UIStrings> = {
     step3Subtitle: "Videonuz için en uygun ses tonunu seçin",
 
     videoFormatLabel: "Video Formatı",
-    verticalShorts: "Shorts / Reels (9:16)",
-    horizontalYoutube: "YouTube Tam Video (16:9)",
+    verticalShorts: "Shorts / Reels",
+    verticalFormatSubtitle: "1080×1920 · 9:16 Dikey",
+    horizontalYoutube: "YouTube Tam Video",
+    youtubeFormatSubtitle: "1920×1080 · 16:9 Yatay",
+    voiceSelectLabel: "Spiker Sesi (AI)",
+    voiceKore: "Kore (Kadın, sakin)",
+    voiceAoede: "Aoede (Kadın, berrak)",
+    voicePuck: "Puck (Erkek, enerjik)",
+    voiceCharon: "Charon (Erkek, ciddi)",
+    voiceFenrir: "Fenrir (Erkek, derin)",
     timerDurationLabel: "Düşünme Süresi (Zamanlayıcı)",
+    timerDurationInputLabel: "Düşünme Süresi (saniye)",
     timerStyleLabel: "Zamanlayıcı Stili",
+    timerLine: "Çizgisel",
+    timerCircle: "Dairesel",
+    timerRetro: "Retro",
     transitionEffectLabel: "Geçiş Efekti",
-    themesLabel: "Video Şablonları (Temalar)",
+    transSlide: "Kayma",
+    transZoom: "Yakınlaşma",
+    transFade: "Kararma",
+    themesLabel: "Görsel Temalar",
+    themeColorLabel: "Tema Rengi",
+    colorEmerald: "Zümrüt Yeşili (Emerald)",
+    colorCyan: "Açık Mavi (Cyan)",
+    colorViolet: "Mor (Violet)",
+    colorRose: "Pembe (Rose)",
+    colorAmber: "Kehribar (Amber)",
     bgmLabel: "Arka Plan Müziğini Aç (BGM)",
     bgmStyleLabel: "Müzik Tarzı (BGM)",
     bgmVolumeLabel: "Müzik Ses Seviyesi",
     customBgmUpload: "Kendi MP3 Müziğinizi Yükleyin",
     watermarkLabel: "Filigran (@username)",
+    watermarkTip: "* Ücretsiz pakette filigran zorunludur. Kaldırmak için Premium'a geçin.",
     bgmRecommendTip: "* Spiker sesinin net duyulması için %15 - %30 aralığı önerilir.",
 
     btnPreview: "Önizleme",
