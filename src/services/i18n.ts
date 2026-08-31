@@ -87,6 +87,16 @@ export interface UIStrings {
   freeBadge: string;
   unlimitedBadge: string;
   
+  // Page Header & Banners
+  pageTitle: string;
+  pageSubtitle: string;
+  tgBannerTitle: string;
+  tgBannerDesc: string;
+  tgBannerBtn: string;
+  refBannerTitle: string;
+  refBannerDesc: string;
+  refBannerBtn: string;
+
   // Step 1
   step1Title: string;
   step1Subtitle: string;
@@ -97,8 +107,12 @@ export interface UIStrings {
   btnGeneratingVoices: string;
   trendingTitle: string;
   languageSelectLabel: string;
+  haveQuizFile: string;
+  importJson: string;
+  exportJson: string;
+  sampleTemplate: string;
 
-  // Step 2
+  // Step 2 (Questions)
   step2Title: string;
   btnBulkImages: string;
   btnBulkVoices: string;
@@ -115,13 +129,14 @@ export interface UIStrings {
   btnListenVoice: string;
   btnDeleteQuestion: string;
   btnAddQuestion: string;
+  btnAddOption: string;
+  customUploadBtn: string;
 
-  // Step 3
+  // Step 3 & 4 (Settings)
+  settingsTitle: string;
+  settingsDesc: string;
   step3Title: string;
   step3Subtitle: string;
-
-  // Step 4
-  step4Title: string;
   videoFormatLabel: string;
   verticalShorts: string;
   horizontalYoutube: string;
@@ -134,6 +149,7 @@ export interface UIStrings {
   bgmVolumeLabel: string;
   customBgmUpload: string;
   watermarkLabel: string;
+  bgmRecommendTip: string;
 
   // Action bar
   btnPreview: string;
@@ -153,6 +169,15 @@ const UI_DICTIONARY: Record<UILanguage, UIStrings> = {
     freeBadge: "Bepul",
     unlimitedBadge: "Cheksiz",
 
+    pageTitle: "Quiz Video Tayyorlash",
+    pageSubtitle: "3 qadam: savollar tayyorlang → tekshiring → videoni yuklab oling",
+    tgBannerTitle: "Telegram Botimiz: @QuizVideoAIBot",
+    tgBannerDesc: "Telegram ichida to'g'ridan-to'g'ri video yaratish va chatga qabul qilish mumkin!",
+    tgBannerBtn: "Botda ochish ↗",
+    refBannerTitle: "Do'stingizni taklif qiling — Bepul video oling!",
+    refBannerDesc: "Har bir taklif qilgan do'stingiz uchun sizga +1 ta bepul video sovg'a qilinadi.",
+    refBannerBtn: "Havolani olish →",
+
     step1Title: "AI yordamida savollar yarating",
     step1Subtitle: "Mavzuni yozing yoki mikrofonga ayting — AI savollar, javob izohlari va rasmlarni avtomatik tuzib beradi.",
     topicPlaceholder: "Mavzuni kiriting (masalan: Tarix, Kosmos, Sport...)",
@@ -162,6 +187,10 @@ const UI_DICTIONARY: Record<UILanguage, UIStrings> = {
     btnGeneratingVoices: "Ovozlar yaratilmoqda...",
     trendingTitle: "🔥 Ommabop mavzular (Bitta bosishda AI yaratadi):",
     languageSelectLabel: "Video Tili",
+    haveQuizFile: "Tayyor testingiz bormi?",
+    importJson: "Import (.json)",
+    exportJson: "Eksport",
+    sampleTemplate: "Shablon namunasi",
 
     step2Title: "Savollarni tekshiring",
     btnBulkImages: "Barcha rasmlar (AI)",
@@ -171,7 +200,7 @@ const UI_DICTIONARY: Record<UILanguage, UIStrings> = {
     optionsLabel: "Variantlar (To'g'ri javobni yashil qilib belgilang)",
     explanationLabel: "Javob izohi (ixtiyoriy)",
     explanationPlaceholder: "Nega bu javob to'g'riligi haqida qisqa fakt...",
-    bgImageLabel: "Fon rasmi",
+    bgImageLabel: "Fon rasmi (URL, fayl yuklash yoki qidirish)",
     voiceAudioLabel: "AI Suxandon ovozi",
     btnUploadImg: "Rasm yuklash",
     btnFindAIImg: "AI Rasm",
@@ -179,14 +208,17 @@ const UI_DICTIONARY: Record<UILanguage, UIStrings> = {
     btnListenVoice: "Eshitish",
     btnDeleteQuestion: "Savolni o'chirish",
     btnAddQuestion: "Yangi savol qo'shish",
+    btnAddOption: "Variant qo'shish",
+    customUploadBtn: "Komp'yuterdan yuklash",
 
+    settingsTitle: "Video sozlamalari",
+    settingsDesc: "Suxandon ovozi, taymer, dizayn mavzusi, musiqa",
     step3Title: "AI Suxandon ovozi",
     step3Subtitle: "Videongiz uchun eng jarangdor va mos ovozni tanlang",
 
-    step4Title: "Video Sozlamalari",
-    videoFormatLabel: "Video Formati",
-    verticalShorts: "📱 Shorts / TikTok / Reels (9:16 Tik)",
-    horizontalYoutube: "💻 YouTube To'liq Video (16:9 Keng)",
+    videoFormatLabel: "Video formati",
+    verticalShorts: "Shorts / Reels (9:16)",
+    horizontalYoutube: "YouTube Long (16:9)",
     timerDurationLabel: "O'ylash vaqti (Taymer)",
     timerStyleLabel: "Taymer uslubi",
     transitionEffectLabel: "Kadrlar almashishi",
@@ -196,6 +228,7 @@ const UI_DICTIONARY: Record<UILanguage, UIStrings> = {
     bgmVolumeLabel: "Musiqa ovozi balandligi (Volume)",
     customBgmUpload: "O'z MP3 musiqangizni yuklash",
     watermarkLabel: "Watermark (@username)",
+    bgmRecommendTip: "* AI suxandon ovozi aniq eshitilishi uchun 15% - 30% oralig'i eng maqbul hisoblanadi.",
 
     btnPreview: "Ko'rish (Preview)",
     btnExportVideo: "Video Yuklab Olish",
@@ -212,6 +245,15 @@ const UI_DICTIONARY: Record<UILanguage, UIStrings> = {
     freeBadge: "Бесплатно",
     unlimitedBadge: "Безлимит",
 
+    pageTitle: "Создание Quiz Видео",
+    pageSubtitle: "3 шага: создайте вопросы → проверьте → скачайте готовое видео",
+    tgBannerTitle: "Наш Telegram бот: @QuizVideoAIBot",
+    tgBannerDesc: "Создавайте видео прямо внутри Telegram и получайте в чат!",
+    tgBannerBtn: "Открыть в боте ↗",
+    refBannerTitle: "Пригласи друга — Получи бесплатное видео!",
+    refBannerDesc: "За каждого приглашенного друга вам дарится +1 бесплатное видео.",
+    refBannerBtn: "Получить ссылку →",
+
     step1Title: "Создайте викторину с помощью ИИ",
     step1Subtitle: "Напишите тему или скажите в микрофон — ИИ автоматически сгенерирует вопросы, пояснения и подберет фоны.",
     topicPlaceholder: "Введите тему (например: История, Космос, Спорт...)",
@@ -221,6 +263,10 @@ const UI_DICTIONARY: Record<UILanguage, UIStrings> = {
     btnGeneratingVoices: "Создание озвучки...",
     trendingTitle: "🔥 Популярные темы (Создание в 1 клик):",
     languageSelectLabel: "Язык видео",
+    haveQuizFile: "Есть готовый тест?",
+    importJson: "Импорт (.json)",
+    exportJson: "Экспорт",
+    sampleTemplate: "Пример шаблона",
 
     step2Title: "Проверьте вопросы",
     btnBulkImages: "Все картинки (ИИ)",
@@ -230,7 +276,7 @@ const UI_DICTIONARY: Record<UILanguage, UIStrings> = {
     optionsLabel: "Варианты (Отметьте правильный ответ зеленым)",
     explanationLabel: "Пояснение к ответу (необязательно)",
     explanationPlaceholder: "Короткий интересный факт, почему ответ верен...",
-    bgImageLabel: "Фоновое изображение",
+    bgImageLabel: "Фоновое изображение (URL, загрузка или поиск)",
     voiceAudioLabel: "Озвучка ИИ",
     btnUploadImg: "Загрузить фото",
     btnFindAIImg: "ИИ Картинка",
@@ -238,23 +284,27 @@ const UI_DICTIONARY: Record<UILanguage, UIStrings> = {
     btnListenVoice: "Слушать",
     btnDeleteQuestion: "Удалить вопрос",
     btnAddQuestion: "Добавить вопрос",
+    btnAddOption: "Добавить вариант",
+    customUploadBtn: "Загрузить с устройства",
 
+    settingsTitle: "Настройки видео",
+    settingsDesc: "Голос диктора, таймер, тема дизайна, фоновая музыка",
     step3Title: "Голос диктора ИИ",
     step3Subtitle: "Выберите подходящий голос для озвучивания видео",
 
-    step4Title: "Настройки видео",
     videoFormatLabel: "Формат видео",
-    verticalShorts: "📱 Shorts / TikTok / Reels (9:16 Вертикальный)",
-    horizontalYoutube: "💻 YouTube Полное видео (16:9 Горизонтальный)",
+    verticalShorts: "Shorts / Reels (9:16)",
+    horizontalYoutube: "YouTube Long (16:9)",
     timerDurationLabel: "Время на размышление (Таймер)",
     timerStyleLabel: "Стиль таймера",
     transitionEffectLabel: "Эффект перехода",
     themesLabel: "Шаблоны видео (Темы)",
     bgmLabel: "Включить фоновую музыку (BGM)",
     bgmStyleLabel: "Стиль музыки (BGM)",
-    bgmVolumeLabel: "Громкость музыки",
+    bgmVolumeLabel: "Громкость музыки (Volume)",
     customBgmUpload: "Загрузить свой MP3 трек",
     watermarkLabel: "Водяной знак (@username)",
+    bgmRecommendTip: "* Для четкой слышимости диктора рекомендуется громкость 15% - 30%.",
 
     btnPreview: "Просмотр (Preview)",
     btnExportVideo: "Скачать видео",
@@ -271,6 +321,15 @@ const UI_DICTIONARY: Record<UILanguage, UIStrings> = {
     freeBadge: "Free",
     unlimitedBadge: "Unlimited",
 
+    pageTitle: "Quiz Video Creator",
+    pageSubtitle: "3 steps: generate questions → review & edit → download video",
+    tgBannerTitle: "Our Telegram Bot: @QuizVideoAIBot",
+    tgBannerDesc: "Generate videos directly inside Telegram and receive in your chat!",
+    tgBannerBtn: "Open in Bot ↗",
+    refBannerTitle: "Invite a friend — Get a free video!",
+    refBannerDesc: "For each invited friend, you get +1 free video reward.",
+    refBannerBtn: "Get Link →",
+
     step1Title: "Generate Quiz Video with AI",
     step1Subtitle: "Type a topic or speak into your mic — AI will automatically create questions, facts, and matching images.",
     topicPlaceholder: "Enter a topic (e.g. History, Space, Sports...)",
@@ -280,6 +339,10 @@ const UI_DICTIONARY: Record<UILanguage, UIStrings> = {
     btnGeneratingVoices: "Generating voices...",
     trendingTitle: "🔥 Trending topics (1-click AI generation):",
     languageSelectLabel: "Video Language",
+    haveQuizFile: "Have a quiz file?",
+    importJson: "Import (.json)",
+    exportJson: "Export",
+    sampleTemplate: "Sample Template",
 
     step2Title: "Review Questions",
     btnBulkImages: "All Images (AI)",
@@ -289,7 +352,7 @@ const UI_DICTIONARY: Record<UILanguage, UIStrings> = {
     optionsLabel: "Options (Mark the correct answer in green)",
     explanationLabel: "Answer Explanation (optional)",
     explanationPlaceholder: "Short interesting fact explaining why it is correct...",
-    bgImageLabel: "Background Image",
+    bgImageLabel: "Background Image (URL, upload or search)",
     voiceAudioLabel: "AI Voiceover",
     btnUploadImg: "Upload Image",
     btnFindAIImg: "AI Image",
@@ -297,14 +360,17 @@ const UI_DICTIONARY: Record<UILanguage, UIStrings> = {
     btnListenVoice: "Listen",
     btnDeleteQuestion: "Delete question",
     btnAddQuestion: "Add question",
+    btnAddOption: "Add option",
+    customUploadBtn: "Upload from device",
 
+    settingsTitle: "Video Settings",
+    settingsDesc: "Narrator voice, timer, visual theme, background music",
     step3Title: "AI Voice Narrator",
     step3Subtitle: "Choose the best voice tone for your quiz video",
 
-    step4Title: "Video Settings",
     videoFormatLabel: "Video Format",
-    verticalShorts: "📱 Shorts / TikTok / Reels (9:16 Vertical)",
-    horizontalYoutube: "💻 YouTube Full Video (16:9 Landscape)",
+    verticalShorts: "Shorts / Reels (9:16)",
+    horizontalYoutube: "YouTube Long (16:9)",
     timerDurationLabel: "Thinking Time (Timer)",
     timerStyleLabel: "Timer Style",
     transitionEffectLabel: "Slide Transition",
@@ -314,6 +380,7 @@ const UI_DICTIONARY: Record<UILanguage, UIStrings> = {
     bgmVolumeLabel: "Music Volume",
     customBgmUpload: "Upload Custom MP3 Audio",
     watermarkLabel: "Watermark (@username)",
+    bgmRecommendTip: "* 15% - 30% volume is recommended for crystal-clear narrator voice.",
 
     btnPreview: "Preview",
     btnExportVideo: "Download Video",
@@ -330,6 +397,15 @@ const UI_DICTIONARY: Record<UILanguage, UIStrings> = {
     freeBadge: "Ücretsiz",
     unlimitedBadge: "Sınırsız",
 
+    pageTitle: "Quiz Video Hazırlama",
+    pageSubtitle: "3 adım: soruları hazırlayın → inceleyin → videoyu indirin",
+    tgBannerTitle: "Telegram Botumuz: @QuizVideoAIBot",
+    tgBannerDesc: "Doğrudan Telegram içinde video oluşturun ve sohbette teslim alın!",
+    tgBannerBtn: "Bota git ↗",
+    refBannerTitle: "Arkadaşını davet et — Ücretsiz video kazan!",
+    refBannerDesc: "Davet ettiğiniz her arkadaşınız için +1 ücretsiz video hediye edilir.",
+    refBannerBtn: "Bağlantıyı Al →",
+
     step1Title: "Yapay Zeka ile Bilgi Yarışması Oluşturun",
     step1Subtitle: "Bir konu yazın veya mikrofona söyleyin — Yapay Zeka soruları, açıklamaları ve arka planları otomatik hazırlar.",
     topicPlaceholder: "Bir konu yazın (örnek: Tarih, Uzay, Spor...)",
@@ -339,6 +415,10 @@ const UI_DICTIONARY: Record<UILanguage, UIStrings> = {
     btnGeneratingVoices: "Sesler oluşturuluyor...",
     trendingTitle: "🔥 Popüler Konular (Tek tıkla Yapay Zeka oluşturur):",
     languageSelectLabel: "Video Dili",
+    haveQuizFile: "Hazır testiniz var mı?",
+    importJson: "İçe aktar (.json)",
+    exportJson: "Dışa aktar",
+    sampleTemplate: "Örnek Şablon",
 
     step2Title: "Soruları İnceleyin",
     btnBulkImages: "Tüm Resimler (AI)",
@@ -348,7 +428,7 @@ const UI_DICTIONARY: Record<UILanguage, UIStrings> = {
     optionsLabel: "Seçenekler (Doğru cevabı yeşil olarak işaretleyin)",
     explanationLabel: "Cevap Açıklaması (isteğe bağlı)",
     explanationPlaceholder: "Cevabın neden doğru olduğuna dair kısa bir bilgi...",
-    bgImageLabel: "Arka Plan Resmi",
+    bgImageLabel: "Arka Plan Resmi (URL, yükleme veya arama)",
     voiceAudioLabel: "Yapay Zeka Seslendirmesi",
     btnUploadImg: "Resim Yükle",
     btnFindAIImg: "AI Resim",
@@ -356,14 +436,17 @@ const UI_DICTIONARY: Record<UILanguage, UIStrings> = {
     btnListenVoice: "Dinle",
     btnDeleteQuestion: "Soruyu sil",
     btnAddQuestion: "Soru ekle",
+    btnAddOption: "Seçenek ekle",
+    customUploadBtn: "Cihazdan yükle",
 
+    settingsTitle: "Video Ayarları",
+    settingsDesc: "Spiker sesi, zamanlayıcı, görsel tema, müzik",
     step3Title: "Yapay Zeka Spiker Sesi",
     step3Subtitle: "Videonuz için en uygun ses tonunu seçin",
 
-    step4Title: "Video Ayarları",
     videoFormatLabel: "Video Formatı",
-    verticalShorts: "📱 Shorts / TikTok / Reels (9:16 Dikey)",
-    horizontalYoutube: "💻 YouTube Tam Video (16:9 Yatay)",
+    verticalShorts: "Shorts / Reels (9:16)",
+    horizontalYoutube: "YouTube Tam Video (16:9)",
     timerDurationLabel: "Düşünme Süresi (Zamanlayıcı)",
     timerStyleLabel: "Zamanlayıcı Stili",
     transitionEffectLabel: "Geçiş Efekti",
@@ -373,6 +456,7 @@ const UI_DICTIONARY: Record<UILanguage, UIStrings> = {
     bgmVolumeLabel: "Müzik Ses Seviyesi",
     customBgmUpload: "Kendi MP3 Müziğinizi Yükleyin",
     watermarkLabel: "Filigran (@username)",
+    bgmRecommendTip: "* Spiker sesinin net duyulması için %15 - %30 aralığı önerilir.",
 
     btnPreview: "Önizleme",
     btnExportVideo: "Videoyu İndir",

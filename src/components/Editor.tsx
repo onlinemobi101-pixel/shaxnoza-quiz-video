@@ -1016,10 +1016,10 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, uiLang, onUiL
 
       <div className="mb-6">
         <h1 className="text-3xl sm:text-4xl font-display font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-br from-emerald-400 via-emerald-200 to-cyan-400 drop-shadow-sm mb-2">
-          Quiz Video Tayyorlash
+          {ui.pageTitle}
         </h1>
         <p className="text-neutral-400 text-base font-medium">
-          3 qadam: savollar tayyorlang → tekshiring → videoni yuklab oling
+          {ui.pageSubtitle}
         </p>
       </div>
 
@@ -1032,8 +1032,8 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, uiLang, onUiL
               </svg>
             </div>
             <div>
-              <p className="font-bold text-white text-sm">Telegram Botimiz: @QuizVideoAIBot</p>
-              <p className="text-slate-400">Telegram ichida to'g'ridan-to'g'ri video yaratish va chatga qabul qilish mumkin!</p>
+              <p className="font-bold text-white text-sm">{ui.tgBannerTitle}</p>
+              <p className="text-slate-400">{ui.tgBannerDesc}</p>
             </div>
           </div>
           <a
@@ -1042,7 +1042,7 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, uiLang, onUiL
             rel="noopener noreferrer"
             className="shrink-0 bg-gradient-to-r from-[#229ED9] to-[#0088cc] hover:from-[#1f8ec4] hover:to-[#0077b5] text-white font-bold text-xs px-4 py-2 rounded-xl transition-all shadow-md active:scale-95 flex items-center gap-1.5"
           >
-            Botda ochish ↗
+            {ui.tgBannerBtn}
           </a>
         </div>
       )}
@@ -1055,11 +1055,11 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, uiLang, onUiL
             </div>
             <div>
               <p className="font-bold text-white text-sm flex items-center gap-2">
-                Do'stingizni taklif qiling — Bepul video oling!
+                {ui.refBannerTitle}
                 <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] px-2 py-0.5 rounded-full font-extrabold">+1 Video</span>
               </p>
               <p className="text-slate-400">
-                Har bir taklif qilgan do'stingiz uchun sizga +1 ta bepul video sovg'a qilinadi.
+                {ui.refBannerDesc}
               </p>
             </div>
           </div>
@@ -1071,7 +1071,7 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, uiLang, onUiL
             }}
             className="shrink-0 bg-gradient-to-r from-emerald-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 text-white font-bold text-xs px-4 py-2.5 rounded-xl transition-all shadow-md active:scale-95 flex items-center gap-1.5 cursor-pointer"
           >
-            Havolani olish →
+            {ui.refBannerBtn}
           </button>
         </div>
       )}
@@ -1214,10 +1214,10 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, uiLang, onUiL
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-x-1 gap-y-1 mt-4 relative z-10 text-xs text-indigo-200/50">
-          <span className="mr-1">Tayyor testingiz bormi?</span>
+          <span className="mr-1">{ui.haveQuizFile}</span>
           <label className="inline-flex items-center gap-1 text-cyan-400 hover:text-cyan-300 cursor-pointer font-semibold transition-colors">
             <FileUp size={13} />
-            Import (.json)
+            {ui.importJson}
             <input type="file" accept=".json" className="hidden" onChange={handleJSONImport} />
           </label>
           <span className="mx-1.5 text-indigo-200/20">•</span>
@@ -1227,7 +1227,7 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, uiLang, onUiL
             className="inline-flex items-center gap-1 text-cyan-400 hover:text-cyan-300 font-semibold transition-colors cursor-pointer"
           >
             <FileDown size={13} />
-            Eksport
+            {ui.exportJson}
           </button>
           <span className="mx-1.5 text-indigo-200/20">•</span>
           <button
@@ -1235,7 +1235,7 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, uiLang, onUiL
             onClick={downloadSampleTemplate}
             className="text-indigo-300/60 hover:text-indigo-200 underline decoration-dotted transition-colors cursor-pointer"
           >
-            Shablon namunasi
+            {ui.sampleTemplate}
           </button>
         </div>
       </div>
@@ -1252,8 +1252,8 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, uiLang, onUiL
               <Settings2 size={20} />
             </div>
             <div className="text-left">
-              <h2 className="text-lg font-display font-bold text-white tracking-tight">Video sozlamalari</h2>
-              <p className="text-xs text-neutral-400 font-medium">Suxandon ovozi, taymer, dizayn mavzusi, musiqa</p>
+              <h2 className="text-lg font-display font-bold text-white tracking-tight">{ui.settingsTitle}</h2>
+              <p className="text-xs text-neutral-400 font-medium">{ui.settingsDesc}</p>
             </div>
           </div>
           <ArrowDown
@@ -1265,7 +1265,7 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, uiLang, onUiL
           <div className="p-6 pt-2 space-y-4 border-t border-white/5">
             <div className="pt-4">
               <label className="block text-sm font-medium text-neutral-300 mb-3">
-                Video formati
+                {ui.videoFormatLabel}
               </label>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {([
@@ -1564,13 +1564,13 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, uiLang, onUiL
                 onChange={(e) => setQuiz({ ...quiz, bgmEnabled: e.target.checked })}
                 className="w-5 h-5 rounded border-white/20 bg-black/50 text-emerald-500 focus:ring-emerald-500/50 focus:ring-offset-0"
               />
-              <span className="text-sm font-medium text-neutral-200">Fon musiqasini yoqish (BGM)</span>
+              <span className="text-sm font-medium text-neutral-200">{ui.bgmLabel}</span>
             </label>
 
             {quiz.bgmEnabled && (
               <div className="pt-2 space-y-3">
                 <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wider">
-                  Musiqa uslubi (BGM Style)
+                  {ui.bgmStyleLabel}
                 </label>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   {(['calm', 'happy', 'tense', 'custom'] as const).map((style) => (
@@ -1585,12 +1585,12 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, uiLang, onUiL
                       }`}
                     >
                       {style === 'calm'
-                        ? '🍃 Sokin'
+                        ? '🍃 Calm'
                         : style === 'happy'
-                        ? '🎉 Quvnoq'
+                        ? '🎉 Happy'
                         : style === 'tense'
-                        ? '⚡️ Hayajonli'
-                        : '📁 O\'z MP3 Musiqangiz'}
+                        ? '⚡️ Tense'
+                        : '📁 MP3'}
                     </button>
                   ))}
                 </div>
@@ -1602,10 +1602,10 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, uiLang, onUiL
                       <div>
                         <p className="text-xs font-bold text-emerald-300 flex items-center gap-1.5">
                           <Music size={14} />
-                          O'zingizning MP3 musiqangiz:
+                          {ui.customBgmUpload}
                         </p>
                         <p className="text-[11px] text-neutral-400 mt-0.5">
-                          {quiz.customBgmName || "Hali musiqa yuklanmagan (.mp3, .wav, .m4a)"}
+                          {quiz.customBgmName || ".mp3, .wav, .m4a"}
                         </p>
                       </div>
 
@@ -1617,13 +1617,13 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, uiLang, onUiL
                             className="p-2 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/30 text-emerald-300 text-xs font-bold transition-all flex items-center gap-1 cursor-pointer"
                           >
                             {playingAudioId === "custom_bgm" ? <Pause size={14} /> : <Play size={14} />}
-                            {playingAudioId === "custom_bgm" ? "To'xtatish" : "Eshitish"}
+                            {playingAudioId === "custom_bgm" ? "Pause" : "Play"}
                           </button>
                         )}
 
                         <label className="py-2 px-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-xs transition-all cursor-pointer flex items-center gap-1.5 shadow-md">
                           <Upload size={14} />
-                          {quiz.customBgmBase64 ? "Almashtirish" : "MP3 Yuklash"}
+                          {quiz.customBgmBase64 ? "Change" : "Upload MP3"}
                           <input
                             type="file"
                             accept="audio/*"
@@ -1644,7 +1644,7 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, uiLang, onUiL
                               })
                             }
                             className="p-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 text-xs font-bold transition-all cursor-pointer"
-                            title="Musiqani o'chirish"
+                            title="Delete"
                           >
                             <Trash2 size={14} />
                           </button>
@@ -1659,11 +1659,10 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, uiLang, onUiL
                   <div className="flex items-center justify-between text-xs">
                     <span className="font-semibold text-neutral-300 flex items-center gap-1.5">
                       <Volume2 size={15} className="text-emerald-400" />
-                      Musiqa ovozi balandligi (Volume):
+                      {ui.bgmVolumeLabel}:
                     </span>
                     <span className="font-mono font-bold text-emerald-300 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
                       {Math.round((quiz.bgmVolume !== undefined ? quiz.bgmVolume : 0.20) * 100)}%
-                      {Math.round((quiz.bgmVolume !== undefined ? quiz.bgmVolume : 0.20) * 100) === 20 ? " (Tavsiya)" : ""}
                     </span>
                   </div>
                   <div className="flex items-center gap-3">
@@ -1684,7 +1683,7 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, uiLang, onUiL
                     <Volume2 size={16} className="text-emerald-400 shrink-0" />
                   </div>
                   <p className="text-[11px] text-neutral-400 leading-tight">
-                    * AI suxandon ovozi aniq eshitilishi uchun <b>15% - 30%</b> oralig'i eng maqbul hisoblanadi.
+                    {ui.bgmRecommendTip}
                   </p>
                 </div>
               </div>
@@ -1855,7 +1854,7 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, uiLang, onUiL
                       className="border border-dashed border-white/20 hover:border-emerald-500/50 hover:bg-emerald-500/5 hover:text-white text-neutral-400 rounded-xl p-3.5 flex items-center justify-center gap-2 font-semibold transition-all text-sm h-full min-h-[54px]"
                     >
                       <Plus size={16} />
-                      Variant qo'shish
+                      {ui.btnAddOption}
                     </button>
                   )}
                 </div>
@@ -1897,12 +1896,12 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, uiLang, onUiL
                             })
                           }
                           className="w-full bg-black/40 backdrop-blur-md border border-white/10 rounded-xl pl-11 pr-4 py-3.5 text-white focus:outline-none focus:border-emerald-500/50 focus:ring-2 focus:ring-emerald-500/20 transition-all placeholder:text-neutral-600"
-                          placeholder="Orqa fon rasm URL manzili..."
+                          placeholder="https://..."
                         />
                       </div>
-                      <label className="cursor-pointer bg-white/5 hover:bg-white/10 text-white px-4 py-3 rounded-xl border border-white/10 flex items-center justify-center gap-2 transition-all hover:scale-105 active:scale-95 shadow-sm shrink-0" title="Rasm yuklash">
+                      <label className="cursor-pointer bg-white/5 hover:bg-white/10 text-white px-4 py-3 rounded-xl border border-white/10 flex items-center justify-center gap-2 transition-all hover:scale-105 active:scale-95 shadow-sm shrink-0" title="Upload">
                         <Upload size={18} className="text-emerald-400" />
-                        <span className="text-xs font-semibold">Komp'yuterdan yuklash</span>
+                        <span className="text-xs font-semibold">{ui.customUploadBtn}</span>
                         <input
                           type="file"
                           accept="image/*"
