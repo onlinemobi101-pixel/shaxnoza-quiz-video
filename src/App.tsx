@@ -18,6 +18,8 @@ import {
   PLAN_EXPORT_LIMITS,
 } from "./services/plans";
 
+import { initTelegramWebApp, isTelegramWebApp, getTelegramUser } from "./services/telegram";
+
 // Lazy Loaded Heavy Components
 const AdminPanel = lazy(() => import("./components/AdminPanel").then(module => ({ default: module.AdminPanel })));
 const AuthModal = lazy(() => import("./components/AuthModal").then(module => ({ default: module.AuthModal })));
@@ -56,14 +58,17 @@ function getProfileQuota(
 export default function App() {
   const [quiz, setQuiz] = useState<Quiz>(() => loadQuizDraft(firstQuiz));
   const [autosaveStatus, setAutosaveStatus] = useState<AutosaveStatus>("ok");
-  const [mode, setMode] = useState<"landing" | "editor" | "player" | "admin">(() =>
-    safeGetItem("qv_visited") ? "editor" : "landing"
-  );
+  const [mode, setMode] = useState<"landing" | "editor" | "player" | "admin">(() => {
+    // Telegram Mini App ichida ochilsa: to'g'ridan-to'g'ri tahrirlagichni ochamiz
+    if (isTelegramWebApp()) return "editor";
+    return safeGetItem("qv_visited") ? "editor" : "landing";
+  });
+
+  useEffect(() => {
+    initTelegramWebApp();
+  }, []);
 
   const startEditor = () => {
-    // "Eslab qolish" ikkinchi darajali — u yiqilsa ham tahrirlagichga o'tish shart.
-    // Ilgari bu setItem himoyalanmagan edi va xotira to'lganda foydalanuvchi
-    // landing sahifasida qamalib qolardi.
     safeSetItem("qv_visited", "1");
     setMode("editor");
   };

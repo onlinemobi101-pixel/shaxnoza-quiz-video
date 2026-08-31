@@ -33,6 +33,7 @@ import {
   reserveVideoExport,
 } from "../services/access";
 import { hasReachedExportLimit } from "../services/plans";
+import { isTelegramWebApp, telegramHaptic, sendVideoToTelegramChat } from "../services/telegram";
 import type { User } from "firebase/auth";
 import { UserProfile } from "../types";
 
@@ -598,6 +599,17 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
 
           setExportedVideoUrl(url);
           setExportedVideoExtension(extension);
+
+          telegramHaptic("success");
+
+          // Telegram Mini App ichida bo'lsa: videoni to'g'ridan-to'g'ri Telegram chatiga ham yuboramiz
+          if (isTelegramWebApp()) {
+            sendVideoToTelegramChat(
+              blob,
+              `${quiz.title || "quiz"}.${extension}`,
+              `🎬 <b>${quiz.title || "Quiz Video"}</b>\n\n✨ <i>Quiz Video Generator orqali tayyorlandi</i>`
+            ).catch((tgErr) => console.warn("Telegram chatga yuborishda xatolik:", tgErr));
+          }
 
           try {
             const a = document.createElement("a");
