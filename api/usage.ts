@@ -346,9 +346,9 @@ export async function reserveVideoExport(
       startedAt,
       format: metadata.format === "youtube" ? "youtube" : "vertical",
       questionCount: Math.min(100, nonNegativeInteger(metadata.questionCount)),
-      targetDuration: [2, 3, 5, 8, 10, 12].includes(Number(metadata.targetDuration))
-        ? Number(metadata.targetDuration)
-        : null,
+      targetDuration: role === "admin"
+        ? ([2, 3, 5, 8, 10, 12].includes(Number(metadata.targetDuration)) ? Number(metadata.targetDuration) : 2)
+        : (metadata.format === "youtube" ? 2 : null),
     });
     transaction.update(userRef, {
       quotaCycle: quota.quotaCycle,

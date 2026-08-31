@@ -1106,7 +1106,8 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
                     type="button"
                     onClick={() => {
                       if (format.id === "youtube") {
-                        const preset = getLongVideoPreset(quiz.targetDuration);
+                        const targetDur = isAdmin ? (quiz.targetDuration || 2) : 2;
+                        const preset = getLongVideoPreset(targetDur);
                         setQuiz({
                           ...quiz,
                           videoFormat: "youtube",
@@ -1130,33 +1131,60 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
               </div>
             </div>
 
-            {isYouTubeFormat && isAdmin && (
+            {isYouTubeFormat && (
               <div className="mb-5 relative z-10 bg-white/5 border border-white/10 rounded-2xl p-4">
-                <label className="block text-sm font-medium text-neutral-300 mb-3">
-                  Maqsadli davomiylik
-                </label>
+                <div className="flex items-center justify-between mb-3 flex-wrap gap-1">
+                  <label className="block text-sm font-medium text-neutral-300">
+                    Maqsadli davomiylik
+                  </label>
+                  {!isAdmin && (
+                    <span className="text-[10px] bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-2 py-0.5 rounded-full font-bold">
+                      Foydalanuvchilar: 2 min · 3+ min faqat Admin
+                    </span>
+                  )}
+                </div>
                 <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
-                  {LONG_VIDEO_PRESETS.map((preset) => (
-                    <button
-                      key={preset.durationMinutes}
-                      type="button"
-                      onClick={() => setQuiz({
-                        ...quiz,
-                        targetDuration: preset.durationMinutes,
-                        timerDuration: preset.timerSeconds,
-                      })}
-                      className={`rounded-xl border px-2 py-3 text-center transition-all cursor-pointer ${
-                        (quiz.targetDuration || 3) === preset.durationMinutes
-                          ? "bg-cyan-500/15 border-cyan-400 text-cyan-200 ring-2 ring-cyan-500/20"
-                          : "bg-black/30 border-white/10 text-neutral-400 hover:text-white"
-                      }`}
-                    >
-                      <span className="block text-base sm:text-lg font-black">{preset.durationMinutes} min</span>
-                      <span className="block text-[10px] mt-1">
-                        {preset.questionCount} savol · {preset.timerSeconds}s
-                      </span>
-                    </button>
-                  ))}
+                  {LONG_VIDEO_PRESETS.map((preset) => {
+                    const isLocked = !isAdmin && preset.durationMinutes > 2;
+                    const isSelected = (quiz.targetDuration || 2) === preset.durationMinutes;
+
+                    return (
+                      <button
+                        key={preset.durationMinutes}
+                        type="button"
+                        onClick={() => {
+                          if (isLocked) {
+                            telegramHaptic("warning");
+                            alert("3 daqiqadan uzun YouTube videolari faqat Adminlar uchun mo'ljallangan. Foydalanuvchilar uchun 2 min va Shorts/Reels (30-60s) ochiq.");
+                            return;
+                          }
+                          telegramHaptic("light");
+                          setQuiz({
+                            ...quiz,
+                            targetDuration: preset.durationMinutes,
+                            timerDuration: preset.timerSeconds,
+                          });
+                        }}
+                        className={`rounded-xl border px-2 py-3 text-center transition-all relative ${
+                          isLocked
+                            ? "bg-black/20 border-white/5 text-neutral-600 opacity-60 cursor-not-allowed"
+                            : isSelected
+                            ? "bg-cyan-500/15 border-cyan-400 text-cyan-200 ring-2 ring-cyan-500/20 cursor-pointer"
+                            : "bg-black/30 border-white/10 text-neutral-400 hover:text-white cursor-pointer"
+                        }`}
+                      >
+                        {isLocked && (
+                          <span className="absolute top-1 right-1 text-[8px] bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded px-1 font-bold">
+                            Admin
+                          </span>
+                        )}
+                        <span className="block text-base sm:text-lg font-black">{preset.durationMinutes} min</span>
+                        <span className="block text-[10px] mt-1">
+                          {preset.questionCount} savol · {preset.timerSeconds}s
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
                 <p className="mt-2 text-xs text-neutral-500">
                   AI savollar soni va taymerni shu rejaga moslaydi; javob izohi qolgan vaqtni tabiiy to‘ldiradi.
