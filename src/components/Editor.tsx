@@ -34,6 +34,7 @@ import {
 } from "../services/access";
 import { hasReachedExportLimit } from "../services/plans";
 import { isTelegramWebApp, telegramHaptic, sendVideoToTelegramChat } from "../services/telegram";
+import { SocialCopyCard } from "./SocialCopyCard";
 import type { User } from "firebase/auth";
 import { UserProfile } from "../types";
 
@@ -815,6 +816,10 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
                   >
                     Yangi oynada ochish (Mobil/Telegram)
                   </button>
+
+                  <div className="my-2">
+                    <SocialCopyCard quiz={quiz} />
+                  </div>
 
                   <button
                     onClick={handleCloseExportModal}
@@ -1862,6 +1867,10 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
           <Plus size={24} />
           Yangi savol qo'shish
         </button>
+
+        <div className="mt-8 mb-4">
+          <SocialCopyCard quiz={quiz} />
+        </div>
       </div>
 
       {/* QADAM 3: Doimiy pastki harakat paneli */}
