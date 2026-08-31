@@ -985,7 +985,15 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
             type="text"
             value={aiTopic}
             onChange={(e) => setAiTopic(e.target.value)}
-            placeholder="Mavzuni kiriting (masalan: Tarix, Kosmos, Sport...)"
+            placeholder={
+              selectedLanguage === "ru"
+                ? "Введите тему (например: История, Космос, Спорт...)"
+                : selectedLanguage === "en"
+                ? "Enter a topic (e.g. History, Space, Sports...)"
+                : selectedLanguage === "tr"
+                ? "Bir konu yazın (örnek: Tarih, Uzay, Spor...)"
+                : "Mavzuni kiriting (masalan: Tarix, Kosmos, Sport...)"
+            }
             className="flex-1 bg-black/40 backdrop-blur-md border border-indigo-500/30 rounded-xl px-4 py-3.5 text-white focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/20 transition-all placeholder:text-indigo-200/30 font-semibold"
             onKeyDown={(e) => e.key === 'Enter' && handleAIGenerate()}
           />
@@ -1020,16 +1028,51 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
             🔥 Ommabop mavzular (Bitta bosishda AI yaratadi):
           </p>
           <div className="flex flex-wrap gap-2">
-            {[
-              { topic: "Dunyo Geografiyasi va Davlatlar", label: "🌍 Geografiya" },
-              { topic: "Jahon Tarixi va Buyuk Shaxslar", label: "📜 Tarix" },
-              { topic: "Kosmos va Koinot Sirlari", label: "🚀 Kosmos" },
-              { topic: "Mantiqiy Topishmoqlar va Zukkolik", label: "🧠 Mantiqiy" },
-              { topic: "Jahon Sporti va Futbol", label: "⚽ Sport" },
-              { topic: "Kino va Mashhur Filmlar", label: "🎬 Kino" },
-              { topic: "Avtomobillar va Texnika", label: "🚗 Avto" },
-              { topic: "Fizika va Ilm-Fan Kashfiyotlari", label: "🔬 Ilm-Fan" }
-            ].map((t) => (
+            {(
+              selectedLanguage === "ru"
+                ? [
+                    { topic: "География мира и страны", label: "🌍 География" },
+                    { topic: "Всемирная история и великие личности", label: "📜 История" },
+                    { topic: "Космос и тайны вселенной", label: "🚀 Космос" },
+                    { topic: "Логические загадки и головоломки", label: "🧠 Логика" },
+                    { topic: "Мировой спорт и футбол", label: "⚽ Спорт" },
+                    { topic: "Шедевры мирового кино", label: "🎬 Кино" },
+                    { topic: "Автомобили и суперкары", label: "🚗 Авто" },
+                    { topic: "Наука и великие открытия", label: "🔬 Наука" },
+                  ]
+                : selectedLanguage === "en"
+                ? [
+                    { topic: "World Geography and Countries", label: "🌍 Geography" },
+                    { topic: "World History and Great Leaders", label: "📜 History" },
+                    { topic: "Space and Universe Mysteries", label: "🚀 Space" },
+                    { topic: "Brain Teasers and Logic Riddles", label: "🧠 Logic" },
+                    { topic: "World Sports and Football", label: "⚽ Sports" },
+                    { topic: "Cinema and Famous Movies", label: "🎬 Movies" },
+                    { topic: "Supercars and Automobiles", label: "🚗 Cars" },
+                    { topic: "Science and Innovations", label: "🔬 Science" },
+                  ]
+                : selectedLanguage === "tr"
+                ? [
+                    { topic: "Dünya Coğrafyası ve Ülkeler", label: "🌍 Coğrafya" },
+                    { topic: "Dünya Tarihi ve Büyük Şahsiyetler", label: "📜 Tarih" },
+                    { topic: "Uzay ve Evrenin Sırları", label: "🚀 Uzay" },
+                    { topic: "Mantık ve Zeka Soruları", label: "🧠 Mantık" },
+                    { topic: "Dünya Sporu ve Futbol", label: "⚽ Spor" },
+                    { topic: "Sinema ve Efsanevi Filmler", label: "🎬 Sinema" },
+                    { topic: "Otomobiller ve Süper Arabalar", label: "🚗 Araba" },
+                    { topic: "Bilim ve İcatlar", label: "🔬 Bilim" },
+                  ]
+                : [
+                    { topic: "Dunyo Geografiyasi va Davlatlar", label: "🌍 Geografiya" },
+                    { topic: "Jahon Tarixi va Buyuk Shaxslar", label: "📜 Tarix" },
+                    { topic: "Kosmos va Koinot Sirlari", label: "🚀 Kosmos" },
+                    { topic: "Mantiqiy Topishmoqlar va Zukkolik", label: "🧠 Mantiqiy" },
+                    { topic: "Jahon Sporti va Futbol", label: "⚽ Sport" },
+                    { topic: "Kino va Mashhur Filmlar", label: "🎬 Kino" },
+                    { topic: "Avtomobillar va Texnika", label: "🚗 Avto" },
+                    { topic: "Fizika va Ilm-Fan Kashfiyotlari", label: "🔬 Ilm-Fan" },
+                  ]
+            ).map((t) => (
               <button
                 key={t.topic}
                 type="button"

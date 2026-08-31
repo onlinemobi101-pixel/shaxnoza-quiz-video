@@ -305,11 +305,19 @@ async function generateQuizChunk(
 ) {
   const ai = getAI();
 
+  const langNameMap: Record<string, string> = {
+    uz: "Uzbek (O'zbek tili)",
+    en: "English",
+    ru: "Russian (Русский язык)",
+    tr: "Turkish (Türkçe)",
+  };
+  const targetLanguageName = langNameMap[language] || "Uzbek (O'zbek tili)";
+
   const langPromptMap: Record<string, string> = {
-    uz: "o'zbek tilida tuzing. Har bir savol 3 ta variantdan iborat bo'lsin. To'g'ri javob indeksini (0, 1 yoki 2) ko'rsating. Har bir javob uchun 8–18 so'zli, takrorlanmaydigan qisqa tushuntirish yozing. Savol matni, variantlar va tushuntirish o'zbek tilida bo'lsin.",
-    en: "in natural English. Each question must have exactly 3 options. Provide the correct option index (0, 1, or 2). Add a unique, accurate 8–18 word English explanation that teaches why the answer is correct. The question, options, and explanation must all be in English.",
-    ru: "на русском языке. Каждый вопрос должен состоять ровно из 3 вариантов. Укажите индекс правильного ответа (0, 1 или 2). Добавьте уникальное точное объяснение ответа длиной 8–18 слов. Вопрос, варианты и объяснение должны быть на русском языке.",
-    tr: "Türkçe olarak oluşturun. Her soru tam 3 seçenekten oluşmalıdır. Doğru cevap indeksini (0, 1 veya 2) belirtin. Doğru cevabı öğreten, 8–18 kelimelik özgün ve doğru bir açıklama ekleyin. Soru, seçenekler ve açıklama Türkçe olmalıdır."
+    uz: "Savol matni (text), barcha 3 ta variant (options) va to'g'ri javob izohi (explanation) 100% O'ZBEK tilida bo'lishi shart.",
+    en: "The question text, all 3 options, and the explanation MUST be 100% in natural ENGLISH.",
+    ru: "Текст вопроса (text), все 3 варианта ответа (options) и объяснение (explanation) ОБЯЗАТЕЛЬНО должны быть на 100% на РУССКОМ языке.",
+    tr: "Soru metni (text), tüm 3 seçenek (options) ve açıklama (explanation) %100 TÜRKÇE olmalıdır."
   };
 
   const promptDetails = langPromptMap[language] || langPromptMap.uz;
@@ -318,13 +326,18 @@ async function generateQuizChunk(
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
     contents: `Topic: ${topic}.
-Create exactly ${count} varied quiz questions ${promptDetails}
-STRICT LANGUAGE MATCHING RULE: Detect the language of the topic ("${topic}") or target language ("${language}"). ALL generated question texts, 3 option choices, and explanations MUST be written 100% in that exact target language. If the topic is in Uzbek (e.g. "Kino va Mashhur Filmlar"), write all questions, options, and explanations in 100% natural, fluent Uzbek. If in Russian, write 100% in Russian. Do not mix languages or fallback to English.
+Target Language: ${targetLanguageName} (code: ${language}).
+
+TASK: Create exactly ${count} engaging, varied quiz questions about this topic.
+LANGUAGE MANDATE:
+- Regardless of what language the topic ("${topic}") is written in, ${promptDetails}
+- STRICT RULE: Do NOT mix languages. Do NOT leave any option or question in English or Uzbek if Russian/Turkish was selected. Every single word in the output must be in ${targetLanguageName}.
+
 CRITICAL CORRECTNESS RULES:
 1. FIRST decide the correct answer, THEN place it at a RANDOM position (0, 1, or 2) among the 3 options.
 2. The correctOptionIndex MUST exactly match the 0-based position of the correct answer in the options array.
 3. DOUBLE-CHECK: After generating each question, verify that options[correctOptionIndex] is truly the correct answer. If not, fix the index.
-4. The explanation must clearly explain why the answer at correctOptionIndex is correct.
+4. The explanation must clearly explain why the answer at correctOptionIndex is correct (8–18 words in ${targetLanguageName}).
 5. All facts must be 100% accurate and up-to-date. Do not invent fake facts.
 6. Each question must have exactly 3 distinct, plausible options. No duplicate or near-identical options.
 Avoid outdated facts, duplicate questions, near-identical wording, trick questions, and ambiguous answers.
