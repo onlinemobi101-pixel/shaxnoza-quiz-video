@@ -23,7 +23,7 @@ export interface Quiz {
   transitionEffect?: 'slide' | 'zoom' | 'fade';
   language?: 'uz' | 'en' | 'ru' | 'tr';
   videoFormat?: 'vertical' | 'youtube';
-  targetDuration?: 8 | 10 | 12;
+  targetDuration?: 2 | 3 | 5 | 8 | 10 | 12;
 }
 
 export interface UserProfile {

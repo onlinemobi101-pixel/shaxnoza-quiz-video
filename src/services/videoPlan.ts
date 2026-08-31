@@ -4,18 +4,21 @@ export type LongVideoDuration = NonNullable<Quiz["targetDuration"]>;
 
 export interface LongVideoPreset {
   durationMinutes: LongVideoDuration;
-  questionCount: 20 | 25 | 30;
-  timerSeconds: 8 | 10 | 12;
+  questionCount: number;
+  timerSeconds: number;
 }
 
 export const LONG_VIDEO_PRESETS: readonly LongVideoPreset[] = [
+  { durationMinutes: 2, questionCount: 5, timerSeconds: 6 },
+  { durationMinutes: 3, questionCount: 8, timerSeconds: 8 },
+  { durationMinutes: 5, questionCount: 12, timerSeconds: 8 },
   { durationMinutes: 8, questionCount: 20, timerSeconds: 8 },
   { durationMinutes: 10, questionCount: 25, timerSeconds: 10 },
   { durationMinutes: 12, questionCount: 30, timerSeconds: 12 },
 ] as const;
 
-export function getLongVideoPreset(duration: Quiz["targetDuration"] = 8): LongVideoPreset {
-  return LONG_VIDEO_PRESETS.find((preset) => preset.durationMinutes === duration) || LONG_VIDEO_PRESETS[0];
+export function getLongVideoPreset(duration: Quiz["targetDuration"] = 3): LongVideoPreset {
+  return LONG_VIDEO_PRESETS.find((preset) => preset.durationMinutes === duration) || LONG_VIDEO_PRESETS[1];
 }
 
 export function getIntroDurationMs(quiz: Quiz): number {

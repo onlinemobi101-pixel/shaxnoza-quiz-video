@@ -346,7 +346,7 @@ export async function reserveVideoExport(
       startedAt,
       format: metadata.format === "youtube" ? "youtube" : "vertical",
       questionCount: Math.min(100, nonNegativeInteger(metadata.questionCount)),
-      targetDuration: [8, 10, 12].includes(Number(metadata.targetDuration))
+      targetDuration: [2, 3, 5, 8, 10, 12].includes(Number(metadata.targetDuration))
         ? Number(metadata.targetDuration)
         : null,
     });

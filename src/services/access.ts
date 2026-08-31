@@ -74,7 +74,7 @@ async function callAccessAPI(payload: Record<string, unknown>): Promise<any> {
 export async function reserveVideoExport(metadata: {
   format: "youtube" | "vertical";
   questionCount: number;
-  targetDuration?: 8 | 10 | 12;
+  targetDuration?: 2 | 3 | 5 | 8 | 10 | 12;
   force?: boolean;
 }): Promise<VideoReservationResult> {
   return callAccessAPI({ action: "reserveVideoExport", ...metadata });

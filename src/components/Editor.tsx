@@ -1135,7 +1135,7 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
                 <label className="block text-sm font-medium text-neutral-300 mb-3">
                   Maqsadli davomiylik
                 </label>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
                   {LONG_VIDEO_PRESETS.map((preset) => (
                     <button
                       key={preset.durationMinutes}
@@ -1146,12 +1146,12 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
                         timerDuration: preset.timerSeconds,
                       })}
                       className={`rounded-xl border px-2 py-3 text-center transition-all cursor-pointer ${
-                        (quiz.targetDuration || 8) === preset.durationMinutes
+                        (quiz.targetDuration || 3) === preset.durationMinutes
                           ? "bg-cyan-500/15 border-cyan-400 text-cyan-200 ring-2 ring-cyan-500/20"
                           : "bg-black/30 border-white/10 text-neutral-400 hover:text-white"
                       }`}
                     >
-                      <span className="block text-lg font-black">{preset.durationMinutes} min</span>
+                      <span className="block text-base sm:text-lg font-black">{preset.durationMinutes} min</span>
                       <span className="block text-[10px] mt-1">
                         {preset.questionCount} savol · {preset.timerSeconds}s
                       </span>
