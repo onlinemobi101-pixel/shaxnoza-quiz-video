@@ -1,5 +1,5 @@
 import { Quiz, Question } from "../types";
-import { playPCMAsync, stopPCM } from "./tts";
+import { playPCMAsync, stopPCM, decodePCMToAudioBuffer, playAudioBufferAsync } from "./tts";
 import { playPop, playTick, playSuccess, startProceduralBGM, stopProceduralBGM } from "./sfx";
 import { getVideoStrings, VideoStrings } from "./i18n";
 import { getIntroDurationMs, getOutroDurationMs, getTargetQuestionDurationMs } from "./videoPlan";
@@ -43,6 +43,8 @@ export class QuizRenderer {
   
   // Assets
   bgImages: Array<HTMLImageElement | undefined> = [];
+  audioBuffers: Array<AudioBuffer | null> = [];
+  overlayCanvas: HTMLCanvasElement | null = null;
   cachedLines: { [key: number]: string[] } = {};
   silenceOscillator?: OscillatorNode;
   wakeLock: any = null;
@@ -81,16 +83,18 @@ export class QuizRenderer {
       ? (this.isMobileOptimized ? 540 : 1080)
       : (this.isMobileOptimized ? 960 : 1920);
 
-    // Dizayn doim to'liq piksellarda chiziladi (matn xatolarini oldini olish uchun)
+    // GPU bilan to'liq apparatli tezlashtirish (Hardware Acceleration)
     this.canvas.width = this.designWidth;
     this.canvas.height = this.designHeight;
-    this.ctx = this.canvas.getContext('2d', { alpha: false, willReadFrequently: true })!;
+    this.ctx = this.canvas.getContext('2d', { alpha: false })!;
 
     // Output (video encoderga ketadigan) canvas
     this.outputCanvas = document.createElement('canvas');
     this.outputCanvas.width = this.outputWidth;
     this.outputCanvas.height = this.outputHeight;
-    this.outputCtx = this.outputCanvas.getContext('2d', { alpha: false, willReadFrequently: true })!;
+    this.outputCtx = this.outputCanvas.getContext('2d', { alpha: false })!;
+
+    this.initOverlayCanvas();
     
     this.audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
     this.masterGain = this.audioCtx.createGain();
@@ -265,10 +269,19 @@ export class QuizRenderer {
       }
     };
     document.addEventListener('visibilitychange', this.handleVisibilityChange);
-    // Mobil RAMni tejash uchun barcha 20–30 fonni birdan dekodlamaymiz.
-    // Birinchi rasmni tayyorlaymiz, keyingilarini savol navbati kelganda yuklaymiz.
+
     this.bgImages = new Array(this.quiz.questions.length);
-    await this.loadImage(0);
+    this.audioBuffers = new Array(this.quiz.questions.length);
+
+    // Barcha rasm va ovozlarni render boshlanishidan OLDIN to'liq yuklab va dekodlab olamiz.
+    // Natijada yozuv paytida 0ms kechikish bo'ladi va video mutlaqo qotmaydi (30 fps silliq).
+    const preloadTasks = this.quiz.questions.map(async (q, idx) => {
+      await this.loadImage(idx);
+      if (q.audioBase64) {
+        this.audioBuffers[idx] = decodePCMToAudioBuffer(q.audioBase64, 24000, this.audioCtx);
+      }
+    });
+    await Promise.all(preloadTasks);
     await this.onBeforeRecording?.();
     
     if (this.quiz.bgmEnabled) {
@@ -289,10 +302,8 @@ export class QuizRenderer {
 
     for (let i = 0; i < this.quiz.questions.length; i++) {
       if (this.isCancelled) break;
-      await this.loadImage(i);
       this.currentQuestionIndex = i;
-      if (i > 0) this.releaseImage(i - 1);
-      await this.runQuestionSequence(this.quiz.questions[i]);
+      await this.runQuestionSequence(this.quiz.questions[i], i);
     }
 
     if (!this.isCancelled) {
@@ -575,58 +586,74 @@ export class QuizRenderer {
     }
   }
 
-  drawBackgroundOverlay(w: number, h: number) {
+  initOverlayCanvas() {
     const preset = this.quiz.themePreset || 'default';
-    if (preset === 'chalk') {
-      // Wood frame border
-      this.ctx.strokeStyle = '#451a03';
-      this.ctx.lineWidth = 20;
-      this.ctx.strokeRect(10, 10, w - 20, h - 20);
+    if (preset === 'chalk' || preset === 'neon' || preset === 'cyberpunk' || preset === 'retro' || preset === 'kids') {
+      this.overlayCanvas = document.createElement('canvas');
+      this.overlayCanvas.width = this.designWidth;
+      this.overlayCanvas.height = this.designHeight;
+      const oCtx = this.overlayCanvas.getContext('2d');
+      if (!oCtx) return;
 
-      // Dot matrix pattern
-      this.ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
-      for (let x = 40; x < w; x += 44) {
-        for (let y = 40; y < h; y += 44) {
-          this.ctx.beginPath();
-          this.ctx.arc(x, y, 2.5, 0, Math.PI * 2);
-          this.ctx.fill();
+      const w = this.designWidth;
+      const h = this.designHeight;
+
+      if (preset === 'chalk') {
+        // Wood frame border
+        oCtx.strokeStyle = '#451a03';
+        oCtx.lineWidth = 20;
+        oCtx.strokeRect(10, 10, w - 20, h - 20);
+
+        // Dot matrix (pre-rendered once to offscreen canvas)
+        oCtx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+        oCtx.beginPath();
+        for (let x = 40; x < w; x += 44) {
+          for (let y = 40; y < h; y += 44) {
+            oCtx.moveTo(x + 2.5, y);
+            oCtx.arc(x, y, 2.5, 0, Math.PI * 2);
+          }
         }
-      }
-    } else if (preset === 'cyberpunk') {
-      // Scanlines
-      this.ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
-      for (let y = 0; y < h; y += 8) {
-        this.ctx.fillRect(0, y, w, 4);
-      }
-      this.ctx.strokeStyle = 'rgba(217, 70, 239, 0.5)';
-      this.ctx.lineWidth = 6;
-      this.ctx.strokeRect(3, 3, w - 6, h - 6);
-    } else if (preset === 'retro') {
-      // Retro yellow frame & scanlines
-      this.ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
-      for (let y = 0; y < h; y += 8) {
-        this.ctx.fillRect(0, y, w, 4);
-      }
-      this.ctx.strokeStyle = '#facc15';
-      this.ctx.lineWidth = 12;
-      this.ctx.strokeRect(6, 6, w - 12, h - 12);
-    } else if (preset === 'neon') {
-      // Emerald dots
-      this.ctx.fillStyle = 'rgba(16, 185, 129, 0.12)';
-      for (let x = 40; x < w; x += 48) {
-        for (let y = 40; y < h; y += 48) {
-          this.ctx.beginPath();
-          this.ctx.arc(x, y, 2.5, 0, Math.PI * 2);
-          this.ctx.fill();
+        oCtx.fill();
+      } else if (preset === 'cyberpunk') {
+        oCtx.fillStyle = 'rgba(0, 0, 0, 0.25)';
+        for (let y = 0; y < h; y += 8) {
+          oCtx.fillRect(0, y, w, 4);
         }
+        oCtx.strokeStyle = 'rgba(217, 70, 239, 0.5)';
+        oCtx.lineWidth = 6;
+        oCtx.strokeRect(3, 3, w - 6, h - 6);
+      } else if (preset === 'retro') {
+        oCtx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+        for (let y = 0; y < h; y += 8) {
+          oCtx.fillRect(0, y, w, 4);
+        }
+        oCtx.strokeStyle = '#facc15';
+        oCtx.lineWidth = 12;
+        oCtx.strokeRect(6, 6, w - 12, h - 12);
+      } else if (preset === 'neon') {
+        oCtx.fillStyle = 'rgba(16, 185, 129, 0.12)';
+        oCtx.beginPath();
+        for (let x = 40; x < w; x += 48) {
+          for (let y = 40; y < h; y += 48) {
+            oCtx.moveTo(x + 2.5, y);
+            oCtx.arc(x, y, 2.5, 0, Math.PI * 2);
+          }
+        }
+        oCtx.fill();
+        oCtx.strokeStyle = '#10b981';
+        oCtx.lineWidth = 6;
+        oCtx.strokeRect(3, 3, w - 6, h - 6);
+      } else if (preset === 'kids') {
+        oCtx.strokeStyle = '#facc15';
+        oCtx.lineWidth = 12;
+        oCtx.strokeRect(6, 6, w - 12, h - 12);
       }
-      this.ctx.strokeStyle = '#10b981';
-      this.ctx.lineWidth = 6;
-      this.ctx.strokeRect(3, 3, w - 6, h - 6);
-    } else if (preset === 'kids') {
-      this.ctx.strokeStyle = '#facc15';
-      this.ctx.lineWidth = 12;
-      this.ctx.strokeRect(6, 6, w - 12, h - 12);
+    }
+  }
+
+  drawBackgroundOverlay(w: number, h: number) {
+    if (this.overlayCanvas) {
+      this.ctx.drawImage(this.overlayCanvas, 0, 0);
     }
   }
 
@@ -1419,7 +1446,7 @@ export class QuizRenderer {
     }
   }
 
-  async runQuestionSequence(q: Question) {
+  async runQuestionSequence(q: Question, questionIndex = 0) {
     if (this.isCancelled) return;
 
     this.qStartTime = performance.now();
@@ -1430,7 +1457,10 @@ export class QuizRenderer {
     this.setPhase('question');
 
     let audioPromise = Promise.resolve();
-    if (q.audioBase64) {
+    const preloadedBuffer = this.audioBuffers[questionIndex];
+    if (preloadedBuffer) {
+      audioPromise = playAudioBufferAsync(preloadedBuffer, this.masterGain);
+    } else if (q.audioBase64) {
       audioPromise = playPCMAsync(q.audioBase64, 24000, this.masterGain);
     }
 

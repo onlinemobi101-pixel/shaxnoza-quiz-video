@@ -206,6 +206,48 @@ export function playPCM(
   }
 }
 
+export function decodePCMToAudioBuffer(
+  base64Data: string,
+  sampleRate = 24000,
+  audioContext: AudioContext
+): AudioBuffer | null {
+  try {
+    const binaryString = atob(base64Data);
+    const len = binaryString.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+
+    const buffer = audioContext.createBuffer(1, bytes.length / 2, sampleRate);
+    const channelData = buffer.getChannelData(0);
+
+    const dataView = new DataView(bytes.buffer);
+    for (let i = 0; i < channelData.length; i++) {
+      channelData[i] = dataView.getInt16(i * 2, true) / 32768.0;
+    }
+    return buffer;
+  } catch (error) {
+    console.error("Failed to decode PCM:", error);
+    return null;
+  }
+}
+
+export function playAudioBufferAsync(buffer: AudioBuffer, destination: AudioNode): Promise<void> {
+  return new Promise((resolve) => {
+    try {
+      const audioContext = destination.context as AudioContext;
+      const source = audioContext.createBufferSource();
+      source.buffer = buffer;
+      source.connect(destination);
+      source.onended = () => resolve();
+      source.start();
+    } catch {
+      resolve();
+    }
+  });
+}
+
 export function playPCMAsync(base64Data: string, sampleRate = 24000, destination?: AudioNode): Promise<void> {
   return new Promise((resolve) => {
     const source = playPCM(base64Data, sampleRate, resolve, destination);
