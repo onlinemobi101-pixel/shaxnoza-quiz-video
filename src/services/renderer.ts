@@ -575,6 +575,193 @@ export class QuizRenderer {
     }
   }
 
+  drawBackgroundOverlay(w: number, h: number) {
+    const preset = this.quiz.themePreset || 'default';
+    if (preset === 'chalk') {
+      // Wood frame border
+      this.ctx.strokeStyle = '#451a03';
+      this.ctx.lineWidth = 20;
+      this.ctx.strokeRect(10, 10, w - 20, h - 20);
+
+      // Dot matrix pattern
+      this.ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+      for (let x = 40; x < w; x += 44) {
+        for (let y = 40; y < h; y += 44) {
+          this.ctx.beginPath();
+          this.ctx.arc(x, y, 2.5, 0, Math.PI * 2);
+          this.ctx.fill();
+        }
+      }
+    } else if (preset === 'cyberpunk') {
+      // Scanlines
+      this.ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
+      for (let y = 0; y < h; y += 8) {
+        this.ctx.fillRect(0, y, w, 4);
+      }
+      this.ctx.strokeStyle = 'rgba(217, 70, 239, 0.5)';
+      this.ctx.lineWidth = 6;
+      this.ctx.strokeRect(3, 3, w - 6, h - 6);
+    } else if (preset === 'retro') {
+      // Retro yellow frame & scanlines
+      this.ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+      for (let y = 0; y < h; y += 8) {
+        this.ctx.fillRect(0, y, w, 4);
+      }
+      this.ctx.strokeStyle = '#facc15';
+      this.ctx.lineWidth = 12;
+      this.ctx.strokeRect(6, 6, w - 12, h - 12);
+    } else if (preset === 'neon') {
+      // Emerald dots
+      this.ctx.fillStyle = 'rgba(16, 185, 129, 0.12)';
+      for (let x = 40; x < w; x += 48) {
+        for (let y = 40; y < h; y += 48) {
+          this.ctx.beginPath();
+          this.ctx.arc(x, y, 2.5, 0, Math.PI * 2);
+          this.ctx.fill();
+        }
+      }
+      this.ctx.strokeStyle = '#10b981';
+      this.ctx.lineWidth = 6;
+      this.ctx.strokeRect(3, 3, w - 6, h - 6);
+    } else if (preset === 'kids') {
+      this.ctx.strokeStyle = '#facc15';
+      this.ctx.lineWidth = 12;
+      this.ctx.strokeRect(6, 6, w - 12, h - 12);
+    }
+  }
+
+  drawTimer(w: number, phaseTime: number, activeTheme: { main: string; light: string }) {
+    const style = this.quiz.timerStyle || 'line';
+    const duration = this.quiz.timerDuration || 5;
+    const remainingSec = this.phase === 'reveal' ? 0 : Math.max(0, Math.ceil(duration - phaseTime / 1000));
+    const progress = 1 - Math.min(1, phaseTime / (duration * 1000));
+
+    if (style === 'circular') {
+      const cx = w / 2;
+      const cy = 1550;
+      const r = 62;
+      const arcProgress = this.phase === 'reveal' ? 1 : Math.min(1, phaseTime / (duration * 1000));
+
+      // Background track
+      this.ctx.beginPath();
+      this.ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+      this.ctx.lineWidth = 10;
+      this.ctx.stroke();
+
+      // Active glowing progress arc
+      this.ctx.beginPath();
+      this.ctx.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * (1 - arcProgress), false);
+      this.ctx.strokeStyle = activeTheme.main;
+      this.ctx.lineWidth = 10;
+      this.ctx.lineCap = 'round';
+      this.ctx.shadowColor = activeTheme.main;
+      this.ctx.shadowBlur = 16;
+      this.ctx.stroke();
+      this.ctx.shadowColor = 'transparent';
+      this.ctx.lineCap = 'butt';
+
+      // Center number or checkmark
+      this.ctx.fillStyle = '#ffffff';
+      this.ctx.font = '900 44px system-ui, -apple-system, sans-serif';
+      this.ctx.textAlign = 'center';
+      this.ctx.textBaseline = 'middle';
+      this.ctx.fillText(this.phase === 'reveal' ? '✓' : String(remainingSec), cx, cy + 2);
+
+      // Sub-label
+      this.ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
+      this.ctx.font = '900 16px system-ui, -apple-system, sans-serif';
+      this.ctx.fillText(this.phase === 'reveal' ? this.strings.ready : this.strings.seconds, cx, cy + r + 26);
+    } else if (style === 'digital') {
+      const dw = 400;
+      const dh = 96;
+      const dx = (w - dw) / 2;
+      const dy = 1515;
+
+      this.ctx.fillStyle = 'rgba(15, 15, 18, 0.92)';
+      this.drawRoundedRect(dx, dy, dw, dh, 20);
+      this.ctx.fill();
+      this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.16)';
+      this.ctx.lineWidth = 2;
+      this.ctx.stroke();
+
+      // Scanlines
+      this.ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+      for (let sy = dy; sy < dy + dh; sy += 6) {
+        this.ctx.fillRect(dx, sy, dw, 3);
+      }
+
+      // Left section
+      this.ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
+      this.ctx.font = '800 12px "Courier New", monospace';
+      this.ctx.textAlign = 'center';
+      this.ctx.textBaseline = 'middle';
+      this.ctx.fillText('TIMER', dx + 110, dy + 28);
+
+      this.ctx.fillStyle = activeTheme.light;
+      this.ctx.font = '900 38px "Courier New", monospace';
+      this.ctx.shadowColor = activeTheme.main;
+      this.ctx.shadowBlur = 10;
+      this.ctx.fillText(`00:0${remainingSec}`, dx + 110, dy + 62);
+      this.ctx.shadowColor = 'transparent';
+
+      // Divider
+      this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+      this.ctx.beginPath();
+      this.ctx.moveTo(dx + 210, dy + 16);
+      this.ctx.lineTo(dx + 210, dy + dh - 16);
+      this.ctx.stroke();
+
+      // Right section
+      this.ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
+      this.ctx.font = '800 12px "Courier New", monospace';
+      this.ctx.fillText('STATUS', dx + 305, dy + 28);
+
+      this.ctx.fillStyle = this.phase === 'reveal' ? '#34d399' : '#fbbf24';
+      this.ctx.font = '900 18px "Courier New", monospace';
+      this.ctx.fillText(this.phase === 'reveal' ? 'REVEAL' : 'RUNNING', dx + 305, dy + 62);
+    } else {
+      // Line timer (Standard)
+      this.ctx.save();
+      this.ctx.translate(w / 2, 1560);
+
+      this.ctx.fillStyle = 'rgba(255,255,255,0.9)';
+      this.ctx.font = '900 24px system-ui, -apple-system, sans-serif';
+      this.ctx.textAlign = 'left';
+      this.ctx.textBaseline = 'middle';
+      this.ctx.fillText(this.phase === 'timer' ? this.strings.thinking : this.strings.correctAnswer, -420, -18);
+
+      this.ctx.textAlign = 'right';
+      this.ctx.fillStyle = activeTheme.light;
+      this.ctx.fillText(`${remainingSec}s`, 420, -18);
+
+      this.ctx.fillStyle = 'rgba(0,0,0,0.5)';
+      this.drawRoundedRect(-420, 10, 840, 26, 13);
+      this.ctx.fill();
+
+      this.ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+      this.ctx.lineWidth = 2;
+      this.ctx.stroke();
+
+      if (this.phase === 'timer' && progress > 0) {
+        this.ctx.shadowColor = activeTheme.main;
+        this.ctx.shadowBlur = 15;
+
+        const gradient = this.ctx.createLinearGradient(-420, 0, 420, 0);
+        gradient.addColorStop(0, activeTheme.light);
+        gradient.addColorStop(1, activeTheme.main);
+        this.ctx.fillStyle = gradient;
+        this.ctx.beginPath();
+        this.drawRoundedRect(-420, 10, 840 * progress, 26, 13);
+        this.ctx.fill();
+
+        this.ctx.shadowColor = 'transparent';
+      }
+
+      this.ctx.restore();
+    }
+  }
+
   drawFrame() {
     if (!this.isRecording || this.isPaused) return;
 
@@ -586,6 +773,8 @@ export class QuizRenderer {
       return;
     }
     
+    const preset = this.quiz.themePreset || 'default';
+
     // Background (Ken Burns: savol davomida sekin kattalashadi — statik his yo'qoladi)
     const bgImg = this.bgImages[this.currentQuestionIndex];
     if (bgImg && bgImg.complete && bgImg.naturalWidth > 0) {
@@ -599,13 +788,38 @@ export class QuizRenderer {
       this.ctx.fillRect(0, 0, w, h);
     }
 
-    // Dark overlay (yangi dizayn: quyuqroq — oq matn aniq o'qiladi)
+    // Dark overlay
     const gradient = this.ctx.createLinearGradient(0, 0, 0, h);
-    gradient.addColorStop(0, 'rgba(0,0,0,0.65)');
-    gradient.addColorStop(0.5, 'rgba(0,0,0,0.35)');
-    gradient.addColorStop(1, 'rgba(0,0,0,0.92)');
+    if (preset === 'chalk') {
+      gradient.addColorStop(0, 'rgba(10,8,6,0.72)');
+      gradient.addColorStop(0.5, 'rgba(10,8,6,0.45)');
+      gradient.addColorStop(1, 'rgba(10,8,6,0.95)');
+    } else if (preset === 'cyberpunk') {
+      gradient.addColorStop(0, 'rgba(20,5,35,0.7)');
+      gradient.addColorStop(0.5, 'rgba(10,5,20,0.5)');
+      gradient.addColorStop(1, 'rgba(5,2,10,0.96)');
+    } else if (preset === 'retro') {
+      gradient.addColorStop(0, 'rgba(0,0,0,0.75)');
+      gradient.addColorStop(0.5, 'rgba(0,0,0,0.5)');
+      gradient.addColorStop(1, 'rgba(0,0,0,0.95)');
+    } else if (preset === 'sunset') {
+      gradient.addColorStop(0, 'rgba(35,10,5,0.65)');
+      gradient.addColorStop(0.5, 'rgba(25,5,5,0.35)');
+      gradient.addColorStop(1, 'rgba(10,2,2,0.95)');
+    } else if (preset === 'kids') {
+      gradient.addColorStop(0, 'rgba(10,30,60,0.55)');
+      gradient.addColorStop(0.5, 'rgba(10,20,50,0.35)');
+      gradient.addColorStop(1, 'rgba(5,10,30,0.92)');
+    } else {
+      gradient.addColorStop(0, 'rgba(0,0,0,0.65)');
+      gradient.addColorStop(0.5, 'rgba(0,0,0,0.35)');
+      gradient.addColorStop(1, 'rgba(0,0,0,0.92)');
+    }
     this.ctx.fillStyle = gradient;
     this.ctx.fillRect(0, 0, w, h);
+
+    // Custom background overlay (Chalk dots & wood frame, scanlines, etc.)
+    this.drawBackgroundOverlay(w, h);
 
     const q = this.quiz.questions[this.currentQuestionIndex];
     if (!q) return;
@@ -618,7 +832,7 @@ export class QuizRenderer {
       this.ctx.fillStyle = 'rgba(0,0,0,0.7)';
       this.ctx.fillRect(0, 0, w, h);
       
-      this.ctx.fillStyle = '#f43f5e'; // rose-500 for heart
+      this.ctx.fillStyle = '#f43f5e';
       this.ctx.font = '120px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji"';
       this.ctx.textAlign = 'center';
       this.ctx.textBaseline = 'middle';
@@ -648,7 +862,6 @@ export class QuizRenderer {
     }
 
     if (this.phase === 'intro') {
-      // Hook-intro: mavzu nomi + savollar soni (skroll to'xtatuvchi kirish)
       const p = Math.min(1, phaseTime / 400);
       this.ctx.save();
       this.ctx.translate(w / 2, h / 2);
@@ -658,7 +871,6 @@ export class QuizRenderer {
       this.ctx.textAlign = 'center';
       this.ctx.textBaseline = 'middle';
 
-      // Tema rangli badge (matn uzunligiga moslashadi — har tilda toza turadi)
       this.ctx.font = '900 34px system-ui, -apple-system, sans-serif';
       const introBadgeW = Math.max(360, this.ctx.measureText(this.strings.introBadge).width + 90);
       this.ctx.fillStyle = activeTheme.main;
@@ -667,10 +879,13 @@ export class QuizRenderer {
       this.ctx.fillStyle = '#fff';
       this.ctx.fillText(this.strings.introBadge, 0, -301);
 
-      // Sarlavha (mavzu)
       const title = (this.quiz.title || 'QUIZ').toUpperCase();
       this.ctx.fillStyle = '#fff';
-      this.ctx.font = '900 92px system-ui, -apple-system, sans-serif';
+      this.ctx.font = preset === 'chalk'
+        ? 'italic 700 88px serif, "Times New Roman"'
+        : preset === 'cyberpunk' || preset === 'retro' || preset === 'neon'
+          ? '900 84px "Courier New", monospace'
+          : '900 92px system-ui, -apple-system, sans-serif';
       this.ctx.shadowColor = 'rgba(0,0,0,0.7)';
       this.ctx.shadowBlur = 24;
       const words = title.split(' ');
@@ -700,30 +915,83 @@ export class QuizRenderer {
       return;
     }
 
-    // Progress badge (yangi dizayn: pulsli nuqta + "SAVOL n/N")
-    const badgeText = `${this.strings.questionBadge} ${this.currentQuestionIndex + 1}/${this.quiz.questions.length}`;
-    this.ctx.font = '800 30px system-ui, -apple-system, sans-serif';
-    const badgeW = this.ctx.measureText(badgeText).width + 100;
-    this.ctx.fillStyle = 'rgba(0,0,0,0.55)';
-    this.drawRoundedRect(60, 80, badgeW, 64, 32);
-    this.ctx.fill();
-    this.ctx.strokeStyle = 'rgba(255,255,255,0.12)';
-    this.ctx.lineWidth = 2;
-    this.ctx.stroke();
+    // Progress badge
+    const badgeText = `${this.strings.questionBadge}: ${this.currentQuestionIndex + 1} / ${this.quiz.questions.length}`;
+    if (preset === 'chalk') {
+      this.ctx.font = '700 28px serif, "Times New Roman", Georgia';
+      const badgeW = this.ctx.measureText(badgeText).width + 60;
+      this.ctx.fillStyle = 'rgba(38, 38, 38, 0.85)';
+      this.drawRoundedRect(60, 80, badgeW, 60, 14);
+      this.ctx.fill();
+      this.ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+      this.ctx.lineWidth = 2;
+      this.ctx.stroke();
+      this.ctx.fillStyle = '#f4f4f5';
+      this.ctx.textAlign = 'center';
+      this.ctx.textBaseline = 'middle';
+      this.ctx.fillText(badgeText, 60 + badgeW / 2, 110);
+    } else if (preset === 'cyberpunk') {
+      this.ctx.font = 'bold 28px "Courier New", monospace';
+      const badgeW = this.ctx.measureText(badgeText).width + 60;
+      this.ctx.fillStyle = 'rgba(217, 70, 239, 0.2)';
+      this.drawRoundedRect(60, 80, badgeW, 60, 30);
+      this.ctx.fill();
+      this.ctx.strokeStyle = '#d946ef';
+      this.ctx.lineWidth = 2;
+      this.ctx.stroke();
+      this.ctx.fillStyle = '#f0abfc';
+      this.ctx.textAlign = 'center';
+      this.ctx.textBaseline = 'middle';
+      this.ctx.fillText(badgeText, 60 + badgeW / 2, 110);
+    } else if (preset === 'retro') {
+      this.ctx.font = '900 28px "Courier New", monospace';
+      const badgeW = this.ctx.measureText(badgeText).width + 60;
+      this.ctx.fillStyle = '#000000';
+      this.ctx.fillRect(60, 80, badgeW, 60);
+      this.ctx.strokeStyle = '#facc15';
+      this.ctx.lineWidth = 4;
+      this.ctx.strokeRect(60, 80, badgeW, 60);
+      this.ctx.fillStyle = '#facc15';
+      this.ctx.textAlign = 'center';
+      this.ctx.textBaseline = 'middle';
+      this.ctx.fillText(badgeText, 60 + badgeW / 2, 110);
+    } else if (preset === 'kids') {
+      this.ctx.font = '900 28px system-ui, -apple-system, sans-serif';
+      const badgeW = this.ctx.measureText(badgeText).width + 60;
+      this.ctx.fillStyle = '#facc15';
+      this.drawRoundedRect(60, 80, badgeW, 60, 30);
+      this.ctx.fill();
+      this.ctx.strokeStyle = '#fde047';
+      this.ctx.lineWidth = 2;
+      this.ctx.stroke();
+      this.ctx.fillStyle = '#0c4a6e';
+      this.ctx.textAlign = 'center';
+      this.ctx.textBaseline = 'middle';
+      this.ctx.fillText(badgeText, 60 + badgeW / 2, 110);
+    } else {
+      this.ctx.font = '800 30px system-ui, -apple-system, sans-serif';
+      const badgeW = this.ctx.measureText(badgeText).width + 100;
+      this.ctx.fillStyle = 'rgba(0,0,0,0.55)';
+      this.drawRoundedRect(60, 80, badgeW, 64, 32);
+      this.ctx.fill();
+      this.ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+      this.ctx.lineWidth = 2;
+      this.ctx.stroke();
 
-    const pulse = 0.55 + 0.45 * Math.abs(Math.sin(now / 450));
-    this.ctx.globalAlpha = pulse;
-    this.ctx.fillStyle = activeTheme.light;
-    this.ctx.beginPath();
-    this.ctx.arc(96, 112, 9, 0, Math.PI * 2);
-    this.ctx.fill();
-    this.ctx.globalAlpha = 1;
+      const pulse = 0.55 + 0.45 * Math.abs(Math.sin(now / 450));
+      this.ctx.globalAlpha = pulse;
+      this.ctx.fillStyle = activeTheme.light;
+      this.ctx.beginPath();
+      this.ctx.arc(96, 112, 9, 0, Math.PI * 2);
+      this.ctx.fill();
+      this.ctx.globalAlpha = 1;
 
-    this.ctx.fillStyle = 'rgba(255,255,255,0.95)';
-    this.ctx.textAlign = 'left';
-    this.ctx.textBaseline = 'middle';
-    this.ctx.fillText(badgeText, 120, 114);
-    this.ctx.textAlign = 'center';
+      this.ctx.fillStyle = 'rgba(255,255,255,0.95)';
+      this.ctx.textAlign = 'left';
+      this.ctx.textBaseline = 'middle';
+      this.ctx.fillText(badgeText, 120, 114);
+      this.ctx.textAlign = 'center';
+    }
 
     // Question Box
     if (this.phase !== 'init') {
@@ -741,8 +1009,19 @@ export class QuizRenderer {
       this.ctx.scale(boxScale, boxScale);
       this.ctx.globalAlpha = boxOpacity;
 
-      // Matnni oldindan o'lchaymiz — karta balandligi matnga moslashadi
-      this.ctx.font = '900 55px system-ui, -apple-system, sans-serif';
+      // Font selection by preset
+      if (preset === 'chalk') {
+        this.ctx.font = 'italic 700 55px serif, "Times New Roman", Georgia, Cambria';
+      } else if (preset === 'cyberpunk') {
+        this.ctx.font = 'bold 52px "Courier New", monospace';
+      } else if (preset === 'retro') {
+        this.ctx.font = '900 52px "Courier New", monospace';
+      } else if (preset === 'neon') {
+        this.ctx.font = '900 52px "Courier New", monospace';
+      } else {
+        this.ctx.font = '900 55px system-ui, -apple-system, sans-serif';
+      }
+
       let lines = this.cachedLines[this.currentQuestionIndex];
       if (!lines) {
         const words = q.text.split(' ');
@@ -763,22 +1042,88 @@ export class QuizRenderer {
       const lineHeight = 65;
       const cardH = Math.max(230, lines.length * lineHeight + 130);
 
-      this.ctx.shadowColor = 'rgba(0,0,0,0.45)';
-      this.ctx.shadowBlur = 40;
-      this.ctx.shadowOffsetY = 15;
+      // Question Box Styling by Preset
+      if (preset === 'chalk') {
+        this.ctx.fillStyle = 'rgba(25, 25, 28, 0.55)';
+        this.drawRoundedRect(-440, -cardH / 2, 880, cardH, 20);
+        this.ctx.fill();
+        this.ctx.setLineDash([16, 12]);
+        this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+        this.ctx.lineWidth = 3;
+        this.ctx.stroke();
+        this.ctx.setLineDash([]);
+        this.ctx.fillStyle = '#ffffff';
+      } else if (preset === 'cyberpunk') {
+        this.ctx.fillStyle = 'rgba(15, 15, 25, 0.95)';
+        this.drawRoundedRect(-440, -cardH / 2, 880, cardH, 32);
+        this.ctx.fill();
+        this.ctx.strokeStyle = '#22d3ee';
+        this.ctx.lineWidth = 3;
+        this.ctx.shadowColor = '#06b6d4';
+        this.ctx.shadowBlur = 25;
+        this.ctx.stroke();
+        this.ctx.shadowColor = 'transparent';
+        this.ctx.fillStyle = '#67e8f9';
+      } else if (preset === 'retro') {
+        this.ctx.fillStyle = '#000000';
+        this.ctx.fillRect(-440, -cardH / 2, 880, cardH);
+        this.ctx.strokeStyle = '#facc15';
+        this.ctx.lineWidth = 6;
+        this.ctx.strokeRect(-440, -cardH / 2, 880, cardH);
+        this.ctx.fillStyle = '#facc15';
+      } else if (preset === 'sunset') {
+        const qGrad = this.ctx.createLinearGradient(-440, -cardH / 2, 440, cardH / 2);
+        qGrad.addColorStop(0, '#f59e0b');
+        qGrad.addColorStop(0.5, '#f97316');
+        qGrad.addColorStop(1, '#dc2626');
+        this.ctx.fillStyle = qGrad;
+        this.drawRoundedRect(-440, -cardH / 2, 880, cardH, 32);
+        this.ctx.fill();
+        this.ctx.strokeStyle = 'rgba(253, 224, 71, 0.4)';
+        this.ctx.lineWidth = 3;
+        this.ctx.stroke();
+        this.ctx.fillStyle = '#ffffff';
+      } else if (preset === 'kids') {
+        const qGrad = this.ctx.createLinearGradient(-440, 0, 440, 0);
+        qGrad.addColorStop(0, '#facc15');
+        qGrad.addColorStop(0.5, '#fbbf24');
+        qGrad.addColorStop(1, '#fb923c');
+        this.ctx.fillStyle = qGrad;
+        this.drawRoundedRect(-440, -cardH / 2, 880, cardH, 40);
+        this.ctx.fill();
+        this.ctx.strokeStyle = '#ffffff';
+        this.ctx.lineWidth = 6;
+        this.ctx.stroke();
+        this.ctx.fillStyle = '#0c4a6e';
+      } else if (preset === 'neon') {
+        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.92)';
+        this.drawRoundedRect(-440, -cardH / 2, 880, cardH, 32);
+        this.ctx.fill();
+        this.ctx.strokeStyle = '#10b981';
+        this.ctx.lineWidth = 4;
+        this.ctx.shadowColor = '#10b981';
+        this.ctx.shadowBlur = 25;
+        this.ctx.stroke();
+        this.ctx.shadowColor = 'transparent';
+        this.ctx.fillStyle = '#6ee7b7';
+      } else {
+        this.ctx.shadowColor = 'rgba(0,0,0,0.45)';
+        this.ctx.shadowBlur = 40;
+        this.ctx.shadowOffsetY = 15;
 
-      // Dark glassmorphism karta (yangi Player dizayni bilan bir xil)
-      this.ctx.fillStyle = 'rgba(10, 12, 18, 0.62)';
-      this.drawRoundedRect(-440, -cardH / 2, 880, cardH, 45);
-      this.ctx.fill();
+        this.ctx.fillStyle = 'rgba(10, 12, 18, 0.62)';
+        this.drawRoundedRect(-440, -cardH / 2, 880, cardH, 45);
+        this.ctx.fill();
 
-      this.ctx.shadowColor = 'transparent';
+        this.ctx.shadowColor = 'transparent';
 
-      this.ctx.strokeStyle = 'rgba(255,255,255,0.14)';
-      this.ctx.lineWidth = 2;
-      this.ctx.stroke();
+        this.ctx.strokeStyle = 'rgba(255,255,255,0.14)';
+        this.ctx.lineWidth = 2;
+        this.ctx.stroke();
 
-      this.ctx.fillStyle = '#ffffff';
+        this.ctx.fillStyle = '#ffffff';
+      }
+
       this.ctx.textAlign = 'center';
       this.ctx.textBaseline = 'middle';
       this.ctx.shadowColor = 'rgba(0,0,0,0.6)';
@@ -816,20 +1161,88 @@ export class QuizRenderer {
           this.ctx.save();
           this.ctx.globalAlpha = optOpacity;
           
-          let bgColor = 'rgba(20, 20, 20, 0.85)'; // Darker solid background for better readability since Canvas blur does not work
+          let bgColor = 'rgba(20, 20, 20, 0.85)';
           let textColor = '#fff';
           let borderColor = 'rgba(255, 255, 255, 0.3)';
+          let letterBg = 'rgba(0, 0, 0, 0.2)';
+          let letterText = '#ffffff';
+          let optRadius = 30;
+
+          if (preset === 'chalk') {
+            bgColor = 'rgba(0, 0, 0, 0.35)';
+            borderColor = 'rgba(255, 255, 255, 0.25)';
+            textColor = '#e4e4e7';
+            letterBg = 'rgba(40, 40, 40, 0.85)';
+            optRadius = 20;
+          } else if (preset === 'cyberpunk') {
+            bgColor = 'rgba(15, 15, 25, 0.85)';
+            borderColor = 'rgba(168, 85, 247, 0.5)';
+            textColor = '#d8b4fe';
+            letterBg = '#3b0764';
+            letterText = '#67e8f9';
+            optRadius = 24;
+          } else if (preset === 'retro') {
+            bgColor = '#000000';
+            borderColor = '#ffffff';
+            textColor = '#ffffff';
+            letterBg = '#000000';
+            letterText = '#facc15';
+            optRadius = 0;
+          } else if (preset === 'kids') {
+            bgColor = 'rgba(255, 255, 255, 0.2)';
+            borderColor = 'rgba(255, 255, 255, 0.4)';
+            textColor = '#ffffff';
+            letterBg = '#38bdf8';
+            letterText = '#0c4a6e';
+            optRadius = 28;
+          } else if (preset === 'neon') {
+            bgColor = 'rgba(0, 0, 0, 0.85)';
+            borderColor = 'rgba(16, 185, 129, 0.4)';
+            textColor = '#a7f3d0';
+            letterBg = '#022c22';
+            letterText = '#6ee7b7';
+            optRadius = 24;
+          }
           
           if (this.phase === 'reveal') {
             if (idx === q.correctOptionIndex) {
-              bgColor = activeTheme.main;
-              borderColor = activeTheme.light;
-              // Yengil puls — to'g'ri javob "nafas oladi"
+              if (preset === 'chalk') {
+                bgColor = '#ffffff';
+                textColor = '#09090b';
+                borderColor = '#e4e4e7';
+                letterBg = '#27272a';
+                letterText = '#ffffff';
+              } else if (preset === 'cyberpunk') {
+                bgColor = '#06b6d4';
+                borderColor = '#67e8f9';
+                textColor = '#ffffff';
+              } else if (preset === 'retro') {
+                bgColor = '#facc15';
+                borderColor = '#ca8a04';
+                textColor = '#000000';
+                letterBg = '#000000';
+                letterText = '#facc15';
+              } else if (preset === 'neon') {
+                bgColor = '#10b981';
+                borderColor = '#ffffff';
+                textColor = '#000000';
+                letterBg = '#000000';
+                letterText = '#ffffff';
+              } else {
+                bgColor = activeTheme.main;
+                borderColor = activeTheme.light;
+              }
               optScale = 1.05 + 0.015 * Math.sin(phaseTime / 120);
             } else {
-              bgColor = 'rgba(0, 0, 0, 0.6)';
-              textColor = 'rgba(255,255,255,0.4)';
-              borderColor = 'rgba(255,255,255,0.1)';
+              if (preset === 'retro') {
+                bgColor = '#171717';
+                textColor = '#525252';
+                borderColor = '#262626';
+              } else {
+                bgColor = 'rgba(0, 0, 0, 0.6)';
+                textColor = 'rgba(255,255,255,0.35)';
+                borderColor = 'rgba(255,255,255,0.08)';
+              }
               optScale = 0.98;
             }
           }
@@ -837,9 +1250,8 @@ export class QuizRenderer {
           this.ctx.translate(w/2 + optX, startY + idx * 150);
           this.ctx.scale(optScale, optScale);
 
-          // Shadow for options (to'g'ri javobda tema rangli nur)
           if (this.phase === 'reveal' && idx === q.correctOptionIndex) {
-            this.ctx.shadowColor = activeTheme.main;
+            this.ctx.shadowColor = preset === 'chalk' ? 'rgba(255,255,255,0.35)' : activeTheme.main;
             this.ctx.shadowBlur = 32;
             this.ctx.shadowOffsetY = 0;
           } else {
@@ -849,15 +1261,24 @@ export class QuizRenderer {
           }
           
           this.ctx.fillStyle = bgColor;
-          this.drawRoundedRect(-420, 0, 840, 120, 30);
-          this.ctx.fill();
+          if (optRadius > 0) {
+            this.drawRoundedRect(-420, 0, 840, 120, optRadius);
+            this.ctx.fill();
+          } else {
+            this.ctx.fillRect(-420, 0, 840, 120);
+          }
           
           this.ctx.shadowColor = 'transparent';
           
           if (borderColor !== 'transparent') {
             this.ctx.strokeStyle = borderColor;
-            this.ctx.lineWidth = 3;
-            this.ctx.stroke();
+            this.ctx.lineWidth = preset === 'retro' ? 4 : 3;
+            if (optRadius > 0) {
+              this.drawRoundedRect(-420, 0, 840, 120, optRadius);
+              this.ctx.stroke();
+            } else {
+              this.ctx.strokeRect(-420, 0, 840, 120);
+            }
           }
           
           this.ctx.fillStyle = textColor;
@@ -865,17 +1286,38 @@ export class QuizRenderer {
 
           const label = ['A', 'B', 'C', 'D'][idx];
           
-          this.ctx.fillStyle = 'rgba(0,0,0,0.2)';
-          this.ctx.beginPath();
-          this.ctx.arc(-330, 60, 45, 0, Math.PI * 2);
-          this.ctx.fill();
+          // Letter box
+          this.ctx.fillStyle = letterBg;
+          if (preset === 'retro') {
+            this.ctx.fillRect(-375, 15, 90, 90);
+            this.ctx.strokeStyle = '#facc15';
+            this.ctx.lineWidth = 3;
+            this.ctx.strokeRect(-375, 15, 90, 90);
+          } else {
+            this.ctx.beginPath();
+            this.ctx.arc(-330, 60, 45, 0, Math.PI * 2);
+            this.ctx.fill();
+          }
 
-          this.ctx.fillStyle = textColor;
-          this.ctx.font = 'bold 38px system-ui, -apple-system, sans-serif';
+          this.ctx.fillStyle = letterText;
+          this.ctx.font = preset === 'chalk'
+            ? 'bold 38px serif, "Times New Roman"'
+            : preset === 'retro' || preset === 'cyberpunk' || preset === 'neon'
+              ? '900 38px "Courier New", monospace'
+              : 'bold 38px system-ui, -apple-system, sans-serif';
           this.ctx.textAlign = 'center';
           this.ctx.fillText(label, -330, 60);
 
-          this.ctx.font = (this.phase === 'reveal' && idx === q.correctOptionIndex) ? 'bold 45px system-ui, -apple-system, sans-serif' : '500 42px system-ui, -apple-system, sans-serif';
+          this.ctx.fillStyle = textColor;
+          const isCorrectReveal = this.phase === 'reveal' && idx === q.correctOptionIndex;
+          if (preset === 'chalk') {
+            this.ctx.font = isCorrectReveal ? 'bold 45px serif, "Times New Roman"' : '600 42px serif, "Times New Roman"';
+          } else if (preset === 'retro' || preset === 'cyberpunk' || preset === 'neon') {
+            this.ctx.font = isCorrectReveal ? '900 44px "Courier New", monospace' : '700 40px "Courier New", monospace';
+          } else {
+            this.ctx.font = isCorrectReveal ? 'bold 45px system-ui, -apple-system, sans-serif' : '500 42px system-ui, -apple-system, sans-serif';
+          }
+
           this.ctx.textAlign = 'left';
           this.ctx.fillText(opt, -250, 60);
           
@@ -884,55 +1326,38 @@ export class QuizRenderer {
       });
     }
 
-    // Timer
-    if (this.phase === 'timer' || this.phase === 'reveal') {
+    // Explanation Box on Reveal
+    if ((this.phase === 'reveal' || this.phase === 'end') && q.explanation) {
       this.ctx.save();
-      // 1560: TikTok/Instagram caption zonasidan yuqorida (xavfsiz zona)
-      this.ctx.translate(w/2, 1560);
-      
-      this.ctx.fillStyle = 'rgba(255,255,255,0.9)';
-      this.ctx.font = '900 24px system-ui, -apple-system, sans-serif';
-      this.ctx.textAlign = 'center';
-      this.ctx.letterSpacing = '5px';
-      this.ctx.fillText(this.phase === 'timer' ? this.strings.thinking : this.strings.correctAnswer, 0, -20);
-      this.ctx.letterSpacing = '0px'; // reset
-      
-      // Timer background
-      this.ctx.fillStyle = 'rgba(0,0,0,0.5)';
-      this.drawRoundedRect(-420, 10, 840, 26, 13);
+      this.ctx.translate(w / 2, 1370);
+      this.ctx.fillStyle = preset === 'chalk' ? 'rgba(25, 25, 28, 0.85)' : 'rgba(2, 6, 23, 0.82)';
+      this.drawRoundedRect(-420, -50, 840, 100, 20);
       this.ctx.fill();
-      
-      this.ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+      this.ctx.strokeStyle = activeTheme.main;
       this.ctx.lineWidth = 2;
       this.ctx.stroke();
-      
-      let progress = 0;
-      if (this.phase === 'timer') {
-        const duration = this.quiz.timerDuration || 5;
-        progress = 1 - Math.min(1, phaseTime / (duration * 1000));
-      }
-      
-      if (progress > 0) {
-        // Shine/Glow effect on the bar
-        this.ctx.shadowColor = activeTheme.main;
-        this.ctx.shadowBlur = 15;
-        
-        const gradient = this.ctx.createLinearGradient(-420, 0, 420, 0);
-        gradient.addColorStop(0, activeTheme.light);
-        gradient.addColorStop(1, activeTheme.main);
-        this.ctx.fillStyle = gradient;
-        this.ctx.beginPath();
-        this.drawRoundedRect(-420, 10, 840 * progress, 26, 13);
-        this.ctx.fill();
-        
-        this.ctx.shadowColor = 'transparent';
-      }
-      
+
+      this.ctx.fillStyle = activeTheme.light;
+      this.ctx.font = '900 24px system-ui, -apple-system, sans-serif';
+      this.ctx.textAlign = 'left';
+      this.ctx.textBaseline = 'middle';
+      this.ctx.fillText('WHY?', -390, 0);
+
+      this.ctx.fillStyle = '#ffffff';
+      this.ctx.font = preset === 'chalk' ? 'italic 600 28px serif, "Times New Roman"' : '600 28px system-ui, sans-serif';
+      const explLines = this.getWrappedLines(q.explanation, 670, 2);
+      explLines.forEach((line, index) => {
+        this.ctx.fillText(line, -310, (index - (explLines.length - 1) / 2) * 32);
+      });
       this.ctx.restore();
     }
 
+    // Timer (Circular, Digital or Line)
+    if (this.phase === 'timer' || this.phase === 'reveal') {
+      this.drawTimer(w, phaseTime, activeTheme);
+    }
+
     if (this.quiz.watermark) {
-      // Xavfsiz zona: platforma UI (caption/tugmalar) ostida qolmasin
       this.ctx.fillStyle = 'rgba(0,0,0,0.2)';
       this.drawRoundedRect(w/2 - 200, h - 215, 400, 60, 30);
       this.ctx.fill();
