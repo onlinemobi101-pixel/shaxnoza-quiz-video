@@ -45,20 +45,31 @@ export function Landing({ onStart, onShowPricing }: LandingProps) {
           <div className="flex flex-col sm:flex-row gap-3">
             <button
               onClick={onStart}
-              className="flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 hover:scale-[1.02] active:scale-[0.98] text-white px-8 py-4 rounded-2xl font-display font-bold text-base transition-all shadow-xl shadow-emerald-900/30 border border-white/10 border-t-white/20 cursor-pointer"
+              className="flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 hover:scale-[1.02] active:scale-[0.98] text-white px-7 py-4 rounded-2xl font-display font-bold text-base transition-all shadow-xl shadow-emerald-900/30 border border-white/10 border-t-white/20 cursor-pointer"
             >
               Bepul boshlash
               <ArrowRight size={19} />
             </button>
+            <a
+              href="https://t.me/QuizVideoAIBot"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-2 bg-[#229ED9]/15 hover:bg-[#229ED9]/25 border border-[#229ED9]/35 text-[#229ED9] hover:scale-[1.02] active:scale-[0.98] px-6 py-4 rounded-2xl font-bold text-base transition-all cursor-pointer shadow-lg shadow-[#229ED9]/10"
+            >
+              <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .38z"/>
+              </svg>
+              Telegram Bot
+            </a>
             <button
               onClick={onShowPricing}
-              className="flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white px-8 py-4 rounded-2xl font-semibold text-base transition-all cursor-pointer"
+              className="flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white px-6 py-4 rounded-2xl font-semibold text-base transition-all cursor-pointer"
             >
-              Narxlarni ko'rish
+              Narxlar
             </button>
           </div>
           <p className="text-xs text-slate-500 mt-4">
-            Google orqali kirib 1 ta video bepul yarating • Karta ma'lumotlari so'ralmaydi
+            Brauzerda yoki to'g'ridan-to'g'ri Telegram botimizda (@QuizVideoAIBot) bepul sinab ko'ring
           </p>
         </motion.div>
 
