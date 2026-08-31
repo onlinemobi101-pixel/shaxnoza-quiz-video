@@ -12,6 +12,7 @@ interface AuthModalProps {
 export function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const isInAppBrowser = typeof navigator !== "undefined" && /Instagram|FBAN|FBAV|musical_ly|Telegram|Line/i.test(navigator.userAgent);
 
   const handleGoogleSignIn = async () => {
     setIsLoading(true);
@@ -84,6 +85,14 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
               {error && (
                 <div className="mb-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-medium text-center">
                   {error}
+                </div>
+              )}
+
+              {isInAppBrowser && (
+                <div className="mb-4 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs text-left leading-relaxed">
+                  <span className="font-semibold text-amber-200">💡 Instagram/Telegram foydalanuvchilari uchun:</span>
+                  <br />
+                  Google orqali kirish uchun yuqoridagi <strong>⋮ (uch nuqta)</strong> ni bosing va <strong>«Brauzerda ochish» (Chrome / Safari)</strong> ni tanlang.
                 </div>
               )}
 
