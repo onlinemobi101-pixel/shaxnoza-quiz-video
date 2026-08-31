@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { collection, getDocs, doc, updateDoc } from "firebase/firestore";
-import { db } from "../services/firebase";
+import { db, auth } from "../services/firebase";
 import { UserProfile } from "../types";
 import { AdminUsageSummary, getAdminUsageSummary } from "../services/access";
 import {
@@ -18,7 +18,9 @@ import {
   Save,
   Loader2,
   CheckCircle,
-  AlertCircle
+  AlertCircle,
+  Send,
+  Radio,
 } from "lucide-react";
 
 interface AdminPanelProps {
@@ -43,6 +45,55 @@ export function AdminPanel({ onBack, currentUserId }: AdminPanelProps) {
       premiumUntil: string;
     };
   }>({});
+
+  // Broadcast State
+  const [broadcastText, setBroadcastText] = useState("");
+  const [isBroadcasting, setIsBroadcasting] = useState(false);
+  const [broadcastResult, setBroadcastResult] = useState<{ total: number; sent: number; failed: number } | null>(null);
+
+  const handleSendBroadcast = async () => {
+    if (!broadcastText.trim()) {
+      setStatusMessage({ type: "error", text: "Xabar matnini kiriting!" });
+      return;
+    }
+    if (!confirm("Rostdan ham barcha bot foydalanuvchilariga ushbu xabarni yubormoqchimisiz?")) {
+      return;
+    }
+
+    setIsBroadcasting(true);
+    setBroadcastResult(null);
+    try {
+      const user = auth.currentUser;
+      if (!user) throw new Error("Avtorizatsiya talab qilinadi");
+      const token = await user.getIdToken();
+
+      const res = await fetch("/api/telegram?action=broadcast", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          message: broadcastText.trim(),
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Xatolik yuz berdi");
+
+      setBroadcastResult({ total: data.total, sent: data.sent, failed: data.failed });
+      setStatusMessage({
+        type: "success",
+        text: `Xabar muvaffaqiyatli tarqatildi! (${data.sent}/${data.total} ta yetkazildi)`,
+      });
+      setBroadcastText("");
+    } catch (err: any) {
+      console.error("Broadcast error:", err);
+      setStatusMessage({ type: "error", text: err.message || "Xabar tarqatishda xatolik yuz berdi" });
+    } finally {
+      setIsBroadcasting(false);
+    }
+  };
 
   const fetchUsers = async () => {
     setIsLoading(true);
@@ -320,6 +371,72 @@ export function AdminPanel({ onBack, currentUserId }: AdminPanelProps) {
           </div>
         </div>
       )}
+
+      {/* 📢 Telegram Broadcast (Ommaviy Xabar Tarqatish) Card */}
+      <div className="bg-gradient-to-br from-indigo-950/60 via-slate-900/80 to-slate-950 border border-indigo-500/30 rounded-3xl p-6 mb-8 shadow-2xl relative overflow-hidden">
+        <div className="flex items-center justify-between gap-4 mb-4 flex-wrap">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center text-indigo-400">
+              <Radio size={20} className="animate-pulse" />
+            </div>
+            <div>
+              <h3 className="text-lg font-display font-bold text-white flex items-center gap-2">
+                Telegram Ommaviy Xabar Tarqatish (Broadcast)
+                <span className="text-[10px] bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 px-2 py-0.5 rounded-full font-bold uppercase">
+                  Admin Tool
+                </span>
+              </h3>
+              <p className="text-xs text-slate-400">
+                Barcha bot foydalanuvchilariga bir vaqtning o'zida e'lon, aksiya yoki yangilik yuborish
+              </p>
+            </div>
+          </div>
+
+          <div className="text-xs text-slate-400 bg-white/5 border border-white/10 px-3 py-1.5 rounded-xl font-mono">
+            Bot orqali: <code className="text-amber-300">/send &lt;xabar&gt;</code>
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <textarea
+            value={broadcastText}
+            onChange={(e) => setBroadcastText(e.target.value)}
+            disabled={isBroadcasting}
+            rows={3}
+            placeholder="Xabar matnini yozing... (HTML teglarini qo'llab-quvvatlaydi: <b>qalin</b>, <i>kursiv</i>, <code>kod</code>)"
+            className="w-full bg-slate-950/80 border border-white/10 focus:border-indigo-500/60 rounded-2xl p-4 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 transition-all font-sans leading-relaxed"
+          />
+
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div className="text-xs text-slate-400">
+              {broadcastResult && (
+                <span className="text-emerald-400 font-semibold">
+                  Oxirgi natija: {broadcastResult.sent}/{broadcastResult.total} ta yetkazildi ({broadcastResult.failed} ta bloklagan).
+                </span>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={handleSendBroadcast}
+              disabled={isBroadcasting || !broadcastText.trim()}
+              className="bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 disabled:opacity-50 text-white font-bold text-xs sm:text-sm px-6 py-3 rounded-xl transition-all shadow-lg shadow-indigo-900/30 flex items-center gap-2 cursor-pointer active:scale-98"
+            >
+              {isBroadcasting ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  Yuborilmoqda...
+                </>
+              ) : (
+                <>
+                  <Send size={16} />
+                  Barchaga Yuborish
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
 
       {/* Search Input Box */}
       <div className="bg-white/5 border border-white/10 rounded-3xl p-5 mb-8 shadow-xl flex items-center gap-4">

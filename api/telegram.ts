@@ -125,6 +125,105 @@ async function answerCallbackQuery(callbackQueryId: string, text?: string) {
   }).catch(() => {});
 }
 
+async function isTelegramAdmin(chatId: number | string): Promise<boolean> {
+  try {
+    const numId = Number(chatId);
+    const snap = await adminDb
+      .collection("users")
+      .where("telegramId", "in", [chatId, numId])
+      .limit(1)
+      .get();
+    if (!snap.empty) {
+      const data = snap.docs[0].data();
+      if (data.role === "admin") return true;
+    }
+    const settingsSnap = await adminDb.collection("settings").doc("telegram").get();
+    const adminIds: (string | number)[] = settingsSnap.data()?.adminChatIds || [];
+    if (adminIds.includes(chatId) || adminIds.includes(numId)) return true;
+    return false;
+  } catch (err) {
+    console.error("Error checking telegram admin:", err);
+    return false;
+  }
+}
+
+async function broadcastTelegramMessage(
+  text: string,
+  replyMarkup?: any,
+  photoUrl?: string
+): Promise<{ total: number; sent: number; failed: number }> {
+  if (!TELEGRAM_BOT_TOKEN || !text) return { total: 0, sent: 0, failed: 0 };
+
+  const chatIds = new Set<string | number>();
+  
+  try {
+    const usersSnap = await adminDb.collection("users").get();
+    usersSnap.forEach((doc) => {
+      const data = doc.data();
+      if (data.telegramId) {
+        chatIds.add(data.telegramId);
+      }
+    });
+
+    const referralsSnap = await adminDb.collection("referrals").get();
+    referralsSnap.forEach((doc) => {
+      const data = doc.data();
+      if (data.referredUserChatId) {
+        chatIds.add(data.referredUserChatId);
+      }
+    });
+  } catch (err) {
+    console.error("Error fetching chatIds for broadcast:", err);
+  }
+
+  const allTargets = Array.from(chatIds);
+  let sent = 0;
+  let failed = 0;
+
+  for (const targetId of allTargets) {
+    try {
+      if (photoUrl) {
+        const photoApi = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendPhoto`;
+        const res = await fetch(photoApi, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            chat_id: targetId,
+            photo: photoUrl,
+            caption: text,
+            parse_mode: "HTML",
+            reply_markup: replyMarkup,
+          }),
+        });
+        const d = await res.json();
+        if (d.ok) sent++;
+        else failed++;
+      } else {
+        const msgApi = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
+        const res = await fetch(msgApi, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            chat_id: targetId,
+            text,
+            parse_mode: "HTML",
+            reply_markup: replyMarkup,
+          }),
+        });
+        const d = await res.json();
+        if (d.ok) sent++;
+        else failed++;
+      }
+    } catch {
+      failed++;
+    }
+
+    await new Promise((r) => setTimeout(r, 35));
+  }
+
+  return { total: allTargets.length, sent, failed };
+}
+
 async function sendTelegramMessage(chatId: number | string, text: string, replyMarkup?: any) {
   if (!TELEGRAM_BOT_TOKEN) return;
   const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
@@ -137,7 +236,74 @@ async function sendTelegramMessage(chatId: number | string, text: string, replyM
       parse_mode: "HTML",
       reply_markup: replyMarkup,
     }),
-  });
+  }).catch(() => {});
+}
+
+async function processReferralBonus(referrerParam: string, newChatId: string, newUserName: string) {
+  try {
+    if (!referrerParam || referrerParam === newChatId) return;
+
+    const referralId = `ref_${newChatId}`;
+    const referralRef = adminDb.collection("referrals").doc(referralId);
+    const referralSnap = await referralRef.get();
+    if (referralSnap.exists) return;
+
+    await referralRef.set({
+      referrer: referrerParam,
+      referredUserChatId: newChatId,
+      referredUserName: newUserName,
+      createdAt: new Date().toISOString(),
+    });
+
+    let referrerDocRef = adminDb.collection("users").doc(referrerParam);
+    let referrerSnap = await referrerDocRef.get();
+
+    if (!referrerSnap.exists) {
+      const querySnap = await adminDb
+        .collection("users")
+        .where("telegramId", "==", Number(referrerParam) || referrerParam)
+        .limit(1)
+        .get();
+      if (!querySnap.empty) {
+        referrerDocRef = querySnap.docs[0].ref;
+        referrerSnap = querySnap.docs[0];
+      }
+    }
+
+    await referrerDocRef.set(
+      {
+        referralsCount: FieldValue.increment(1),
+        bonusVideos: FieldValue.increment(1),
+      },
+      { merge: true }
+    );
+
+    const referrerData = referrerSnap.exists ? referrerSnap.data() : null;
+    const targetChatId = referrerData?.telegramId || (Number(referrerParam) > 1000 ? referrerParam : null);
+
+    if (targetChatId) {
+      const bonusMsg =
+        `🎉 <b>Yangi do'stingiz qo'shildi!</b>\n\n` +
+        `<b>${newUserName}</b> sizning referal havolangiz orqali botga kirdi.\n\n` +
+        `🎁 <b>Sizga +1 ta bepul video qo'shildi!</b>\n` +
+        `<i>Ko'proq do'stlarni taklif qiling va bepul videolar yutib oling!</i>`;
+
+      const markup = {
+        inline_keyboard: [
+          [
+            {
+              text: "🎬 Generatorni ochish (Mini App)",
+              web_app: { url: WEBAPP_URL },
+            },
+          ],
+        ],
+      };
+
+      await sendTelegramMessage(targetChatId, bonusMsg, markup).catch(() => {});
+    }
+  } catch (err) {
+    console.error("Error processing referral bonus:", err);
+  }
 }
 
 export default async function handler(req: IncomingMessage, res: ServerResponse) {
@@ -253,77 +419,51 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       return;
     }
 
-    // 2. Telegram Webhook Updates (/start, /help, callback_query)
-    if (contentType.includes("application/json")) {
-      const update = JSON.parse(rawBody.toString("utf-8") || "{}");
-      
-async function processReferralBonus(referrerParam: string, newChatId: string, newUserName: string) {
-  try {
-    if (!referrerParam || referrerParam === newChatId) return;
-
-    const referralId = `ref_${newChatId}`;
-    const referralRef = adminDb.collection("referrals").doc(referralId);
-    const referralSnap = await referralRef.get();
-    if (referralSnap.exists) return;
-
-    await referralRef.set({
-      referrer: referrerParam,
-      referredUserChatId: newChatId,
-      referredUserName: newUserName,
-      createdAt: new Date().toISOString(),
-    });
-
-    let referrerDocRef = adminDb.collection("users").doc(referrerParam);
-    let referrerSnap = await referrerDocRef.get();
-
-    if (!referrerSnap.exists) {
-      const querySnap = await adminDb
-        .collection("users")
-        .where("telegramId", "==", Number(referrerParam) || referrerParam)
-        .limit(1)
-        .get();
-      if (!querySnap.empty) {
-        referrerDocRef = querySnap.docs[0].ref;
-        referrerSnap = querySnap.docs[0];
+    // 2. Admin Broadcast Action (from Admin Panel web interface)
+    if (action === "broadcast") {
+      const authHeader = req.headers["authorization"] || "";
+      const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+      if (!token) {
+        sendJSON(res, 401, { error: "AUTH_REQUIRED" });
+        return;
       }
-    }
 
-    await referrerDocRef.set(
-      {
-        referralsCount: FieldValue.increment(1),
-        bonusVideos: FieldValue.increment(1),
-      },
-      { merge: true }
-    );
+      let decoded;
+      try {
+        const { adminAuth } = await import("./firebase-admin.js");
+        decoded = await adminAuth.verifyIdToken(token);
+      } catch {
+        sendJSON(res, 401, { error: "INVALID_AUTH_TOKEN" });
+        return;
+      }
 
-    const referrerData = referrerSnap.exists ? referrerSnap.data() : null;
-    const targetChatId = referrerData?.telegramId || (Number(referrerParam) > 1000 ? referrerParam : null);
+      const json = JSON.parse(rawBody.toString("utf-8") || "{}");
+      const messageText = json.message || "";
+      if (!messageText) {
+        sendJSON(res, 400, { error: "MESSAGE_REQUIRED" });
+        return;
+      }
 
-    if (targetChatId) {
-      const bonusMsg =
-        `🎉 <b>Yangi do'stingiz qo'shildi!</b>\n\n` +
-        `<b>${newUserName}</b> sizning referal havolangiz orqali botga kirdi.\n\n` +
-        `🎁 <b>Sizga +1 ta bepul video qo'shildi!</b>\n` +
-        `<i>Ko'proq do'stlarni taklif qiling va bepul videolar yutib oling!</i>`;
-
-      const markup = {
+      const defaultMarkup = {
         inline_keyboard: [
           [
             {
-              text: "🎬 Generatorni ochish (Mini App)",
-              web_app: { url: WEBAPP_URL },
+              text: json.buttonText || "🎬 Generatorni ochish (Mini App)",
+              web_app: { url: json.buttonUrl || WEBAPP_URL },
             },
           ],
         ],
       };
 
-      await sendTelegramMessage(targetChatId, bonusMsg, markup).catch(() => {});
+      const stats = await broadcastTelegramMessage(messageText, defaultMarkup, json.photoUrl);
+      sendJSON(res, 200, { success: true, ...stats });
+      return;
     }
-  } catch (err) {
-    console.error("Error processing referral bonus:", err);
-  }
-}
 
+    // 3. Telegram Webhook Updates (/start, /help, /send, /stats, callback_query)
+    if (contentType.includes("application/json")) {
+      const update = JSON.parse(rawBody.toString("utf-8") || "{}");
+      
       // Inline tugma bosilganda (Callback Query)
       const callbackQuery = update?.callback_query;
       if (callbackQuery) {
@@ -377,6 +517,93 @@ async function processReferralBonus(referrerParam: string, newChatId: string, ne
       const chatId = message?.chat?.id;
       const text = (message?.text || "").trim();
       const firstName = message?.from?.first_name || "Do'stim";
+
+      // Admin buyruqlari: Ommaviy xabar yuborish (/send yoki /broadcast)
+      if (chatId && (text.startsWith("/send") || text.startsWith("/broadcast"))) {
+        const isAdminUser = await isTelegramAdmin(chatId);
+        if (!isAdminUser) {
+          const usersSnap = await adminDb.collection("users").where("telegramId", "in", [chatId, Number(chatId)]).limit(1).get();
+          const userRole = !usersSnap.empty ? usersSnap.docs[0].data()?.role : null;
+          if (userRole !== "admin") {
+            await sendTelegramMessage(chatId, "❌ Bu buyruq faqat bot adminlari uchun mo'ljallangan.");
+            sendJSON(res, 200, { ok: true });
+            return;
+          }
+        }
+
+        const msgContent = text.replace(/^\/(send|broadcast)\s*/i, "").trim();
+        if (!msgContent) {
+          await sendTelegramMessage(
+            chatId,
+            `ℹ️ <b>Ommaviy xabar yuborish formati:</b>\n\n<code>/send Sizning xabaringiz...</code>\n\n<i>Matnda HTML teglaridan (<b>qalin</b>, <i>kursiv</i>) foydalanishingiz mumkin.</i>`
+          );
+          sendJSON(res, 200, { ok: true });
+          return;
+        }
+
+        await sendTelegramMessage(chatId, "⏳ <b>Ommaviy xabar tarqatish boshlandi...</b>\n<i>Iltimos, kuting, barcha foydalanuvchilarga yetkazilmoqda.</i>");
+
+        const defaultMarkup = {
+          inline_keyboard: [
+            [
+              {
+                text: "🎬 Generatorni ochish (Mini App)",
+                web_app: { url: WEBAPP_URL },
+              },
+            ],
+          ],
+        };
+
+        const result = await broadcastTelegramMessage(msgContent, defaultMarkup);
+
+        await sendTelegramMessage(
+          chatId,
+          `📢 <b>Xabar tarqatish yakunlandi!</b>\n\n` +
+          `👥 Jami foydalanuvchilar: <b>${result.total}</b> ta\n` +
+          `✅ Muvaffaqiyatli yetkazildi: <b>${result.sent}</b> ta\n` +
+          `❌ Yetkazilmadi (bloklagan): <b>${result.failed}</b> ta`
+        );
+        sendJSON(res, 200, { ok: true });
+        return;
+      }
+
+      // Admin buyrug'i: Bot statistikasi (/stats)
+      if (chatId && text === "/stats") {
+        const isAdminUser = await isTelegramAdmin(chatId);
+        if (!isAdminUser) {
+          const usersSnap = await adminDb.collection("users").where("telegramId", "in", [chatId, Number(chatId)]).limit(1).get();
+          const userRole = !usersSnap.empty ? usersSnap.docs[0].data()?.role : null;
+          if (userRole !== "admin") {
+            await sendTelegramMessage(chatId, "❌ Bu buyruq faqat bot adminlari uchun mo'ljallangan.");
+            sendJSON(res, 200, { ok: true });
+            return;
+          }
+        }
+
+        const usersSnap = await adminDb.collection("users").get();
+        const totalUsers = usersSnap.size;
+        let tgUsers = 0;
+        let proUsers = 0;
+        usersSnap.forEach((d) => {
+          const u = d.data();
+          if (u.telegramId) tgUsers++;
+          if (u.role === "premium" || u.role === "pack10" || u.role === "admin") proUsers++;
+        });
+
+        const referralsSnap = await adminDb.collection("referrals").get();
+        const totalReferrals = referralsSnap.size;
+
+        await sendTelegramMessage(
+          chatId,
+          `📊 <b>Quiz Video Generator — Jonli Statistika:</b>\n\n` +
+          `👥 Jami ro'yxatdan o'tganlar: <b>${totalUsers}</b> ta\n` +
+          `✈️ Telegram bot foydalanuvchilari: <b>${tgUsers}</b> ta\n` +
+          `🎁 Referal orqali qo'shilganlar: <b>${totalReferrals}</b> ta\n` +
+          `👑 Pro / Pullik obunachilar: <b>${proUsers}</b> ta`
+        );
+        sendJSON(res, 200, { ok: true });
+        return;
+      }
 
       // Admin buyruqlari: Majburiy kanalni o'rnatish yoki o'chirish
       if (chatId && text.startsWith("/setchannel")) {
