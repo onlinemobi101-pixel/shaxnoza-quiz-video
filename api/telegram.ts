@@ -1,6 +1,7 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { FieldValue } from "firebase-admin/firestore";
 import { adminDb } from "./firebase-admin.js";
+import { transcribeAudio } from "./ai.js";
 
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "";
 const WEBAPP_URL = process.env.TELEGRAM_WEBAPP_URL || "https://quiz-video-generator-yangi-phi.vercel.app";
@@ -676,6 +677,95 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
         };
 
         await sendTelegramMessage(chatId, helpText, replyMarkup);
+        sendJSON(res, 200, { ok: true });
+        return;
+      }
+
+      // Ovozli xabarlar (Voice / Audio notes) ni qabul qilish va mavzuga aylantirish
+      const voice = message?.voice || message?.audio;
+      if (chatId && voice) {
+        const channel = await getRequiredChannel();
+        if (channel) {
+          const isSub = await checkUserSubscription(chatId, channel);
+          if (!isSub) {
+            await sendSubscriptionRequiredMessage(chatId, firstName, channel);
+            sendJSON(res, 200, { ok: true });
+            return;
+          }
+        }
+
+        try {
+          const fileId = voice.file_id;
+          const fileRes = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getFile?file_id=${fileId}`);
+          const fileData = await fileRes.json();
+          const filePath = fileData.result?.file_path;
+
+          if (filePath) {
+            const downloadUrl = `https://api.telegram.org/file/bot${TELEGRAM_BOT_TOKEN}/${filePath}`;
+            const audioBuffer = Buffer.from(await (await fetch(downloadUrl)).arrayBuffer());
+            const transcribedTopic = await transcribeAudio(audioBuffer, voice.mime_type || "audio/ogg");
+
+            if (transcribedTopic) {
+              const launchUrl = `${WEBAPP_URL}?topic=${encodeURIComponent(transcribedTopic)}`;
+              const replyText =
+                `🎙 <b>Ovozingiz eshitildi:</b>\n` +
+                `💬 <i>«${transcribedTopic}»</i>\n\n` +
+                `🎬 <b>Ushbu mavzuda video yaratish uchun quyidagi tugmani bosing:</b>`;
+
+              const markup = {
+                inline_keyboard: [
+                  [
+                    {
+                      text: `✨ «${transcribedTopic.slice(0, 25)}${transcribedTopic.length > 25 ? '...' : ''}» bo'yicha video yasash`,
+                      web_app: { url: launchUrl },
+                    },
+                  ],
+                ],
+              };
+
+              await sendTelegramMessage(chatId, replyText, markup);
+              sendJSON(res, 200, { ok: true });
+              return;
+            }
+          }
+        } catch (voiceErr) {
+          console.error("Voice transcription error:", voiceErr);
+        }
+
+        await sendTelegramMessage(chatId, "⚠️ Ovozingizni to'liq aniqlab bo'lmadi. Iltimos, qaytadan yuboring yoki mavzuni matn ko'rinishida yozing.");
+        sendJSON(res, 200, { ok: true });
+        return;
+      }
+
+      // Foydalanuvchi oddiy matn yuborsa (Mavzu sifatida qabul qilib, tugma chiqarish)
+      if (chatId && text && !text.startsWith("/")) {
+        const channel = await getRequiredChannel();
+        if (channel) {
+          const isSub = await checkUserSubscription(chatId, channel);
+          if (!isSub) {
+            await sendSubscriptionRequiredMessage(chatId, firstName, channel);
+            sendJSON(res, 200, { ok: true });
+            return;
+          }
+        }
+
+        const launchUrl = `${WEBAPP_URL}?topic=${encodeURIComponent(text)}`;
+        const promptReply =
+          `💡 <b>"${text}" mavzusi tanlandi!</b>\n\n` +
+          `🎬 Ushbu mavzuda AI savollar va video tayyorlash uchun quyidagi tugmani bosing:`;
+
+        const markup = {
+          inline_keyboard: [
+            [
+              {
+                text: `🎬 "${text.slice(0, 25)}${text.length > 25 ? '...' : ''}" bo'yicha video yasash`,
+                web_app: { url: launchUrl },
+              },
+            ],
+          ],
+        };
+
+        await sendTelegramMessage(chatId, promptReply, markup);
         sendJSON(res, 200, { ok: true });
         return;
       }

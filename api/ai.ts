@@ -87,6 +87,7 @@ type ApiAction =
   | "imageKeyword"
   | "tts"
   | "ttsBatch"
+  | "transcribe"
   | "reserveVideoExport"
   | "completeVideoExport"
   | "failVideoExport"
@@ -115,6 +116,7 @@ const RATE_LIMITS: Record<ApiAction, { max: number; windowMs: number }> = {
   imageKeyword: { max: 40, windowMs: 60 * 60 * 1000 },
   tts: { max: 40, windowMs: 10 * 60 * 1000 },
   ttsBatch: { max: 60, windowMs: 10 * 60 * 1000 },
+  transcribe: { max: 30, windowMs: 10 * 60 * 1000 },
   reserveVideoExport: { max: 10, windowMs: 60 * 1000 },
   completeVideoExport: { max: 20, windowMs: 60 * 1000 },
   failVideoExport: { max: 20, windowMs: 60 * 1000 },
@@ -470,6 +472,41 @@ async function generateTTS(
   return audio;
 }
 
+export async function transcribeAudio(
+  buffer: Buffer,
+  mimeType: string = "audio/ogg",
+  user?: AuthenticatedUser
+): Promise<string> {
+  const ai = getAI();
+  const startedAt = Date.now();
+  const response = await ai.models.generateContent({
+    model: "gemini-3.7-flash",
+    contents: [
+      {
+        inlineData: {
+          mimeType,
+          data: buffer.toString("base64"),
+        },
+      },
+      {
+        text: "Listen to this voice audio carefully. Transcribe what the user said into natural language. If the user is asking to create a quiz or video on a topic (e.g. 'Kosmos haqida video qil' or 'Tarixdan test tuzib ber'), extract the clean main topic (e.g. 'Kosmos va Koinot' or 'Jahon Tarixi'). Return ONLY the clean topic/transcription as plain text without quotes, markdown, or extra explanations.",
+      },
+    ],
+  });
+
+  if (user) {
+    await recordModelUsage(user, {
+      action: "transcribe" as any,
+      model: "gemini-3.7-flash",
+      kind: "text",
+      usage: response.usageMetadata,
+      durationMs: Date.now() - startedAt,
+    });
+  }
+
+  return response.text?.trim() || "";
+}
+
 // Bir nechta yozuvni cheklangan parallellik bilan qayta ishlaydi (bir vaqtda ko'pi bilan `limit` ta).
 async function mapWithConcurrency<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
   const results: R[] = new Array(items.length);
@@ -718,6 +755,15 @@ export default async function handler(req: IncomingMessage & { body?: any }, res
         const failedClips = audios.filter((clip) => !clip).length;
         if (failedClips > 0) await refundAiBudget(user, "ttsClips", failedClips);
         sendJSON(res, 200, { audios });
+        return;
+      }
+      case "transcribe": {
+        const { audioBase64, mimeType } = body;
+        if (!audioBase64 || typeof audioBase64 !== "string") throw new ApiError(400, "INVALID_AUDIO");
+        const buffer = Buffer.from(audioBase64, "base64");
+        await requirePlanAccess(user);
+        const text = await transcribeAudio(buffer, mimeType || "audio/webm", user);
+        sendJSON(res, 200, { text });
         return;
       }
       case "reserveVideoExport": {

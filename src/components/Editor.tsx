@@ -19,6 +19,8 @@ import {
   Pause,
   VolumeX,
   Check,
+  Mic,
+  MicOff,
 } from "lucide-react";
 import { generateTTS, generateTTSBatch } from "../services/tts";
 import { getVideoStrings } from "../services/i18n";
@@ -139,6 +141,81 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
     } catch (err) {
       console.error(err);
       setPlayingAudioId(null);
+    }
+  };
+
+  // Ovozli xabar / Mikrofon orqali mavzu aytish (Voice Input)
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef<any>(null);
+
+  // URL orqali kelgan mavzuni avtomatik yuklash (?topic=...)
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const topicParam = params.get("topic");
+      if (topicParam && topicParam.trim()) {
+        setAiTopic(topicParam.trim());
+      }
+    } catch {}
+  }, []);
+
+  const handleToggleVoiceInput = () => {
+    const SpeechRecognition =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      alert(
+        "Kechirasiz, brauzeringiz ovozli qidiruvni qo'llab-quvvatlamaydi. Iltimos, Chrome, Safari yoki Telegram ichida sinab ko'ring."
+      );
+      return;
+    }
+
+    if (isListening && recognitionRef.current) {
+      recognitionRef.current.stop();
+      setIsListening(false);
+      return;
+    }
+
+    try {
+      const recognition = new SpeechRecognition();
+      recognitionRef.current = recognition;
+      recognition.continuous = false;
+      recognition.interimResults = true;
+
+      const langCodeMap: Record<string, string> = {
+        uz: "uz-UZ",
+        ru: "ru-RU",
+        en: "en-US",
+        tr: "tr-TR",
+      };
+      recognition.lang = langCodeMap[selectedLanguage] || "uz-UZ";
+
+      recognition.onstart = () => {
+        setIsListening(true);
+      };
+
+      recognition.onresult = (event: any) => {
+        const transcript = Array.from(event.results)
+          .map((result: any) => result[0].transcript)
+          .join("");
+        if (transcript) {
+          setAiTopic(transcript);
+        }
+      };
+
+      recognition.onerror = (event: any) => {
+        console.warn("Speech recognition error:", event.error);
+        setIsListening(false);
+      };
+
+      recognition.onend = () => {
+        setIsListening(false);
+      };
+
+      recognition.start();
+    } catch (err) {
+      console.error("Failed to start speech recognition:", err);
+      setIsListening(false);
     }
   };
 
@@ -981,22 +1058,42 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
           Yoki pastda savollarni qo'lda kiriting.
         </p>
         <div className="flex flex-col md:flex-row gap-3 relative z-10">
-          <input
-            type="text"
-            value={aiTopic}
-            onChange={(e) => setAiTopic(e.target.value)}
-            placeholder={
-              selectedLanguage === "ru"
-                ? "Введите тему (например: История, Космос, Спорт...)"
-                : selectedLanguage === "en"
-                ? "Enter a topic (e.g. History, Space, Sports...)"
-                : selectedLanguage === "tr"
-                ? "Bir konu yazın (örnek: Tarih, Uzay, Spor...)"
-                : "Mavzuni kiriting (masalan: Tarix, Kosmos, Sport...)"
-            }
-            className="flex-1 bg-black/40 backdrop-blur-md border border-indigo-500/30 rounded-xl px-4 py-3.5 text-white focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/20 transition-all placeholder:text-indigo-200/30 font-semibold"
-            onKeyDown={(e) => e.key === 'Enter' && handleAIGenerate()}
-          />
+          <div className="relative flex-1 flex items-center">
+            <input
+              type="text"
+              value={aiTopic}
+              onChange={(e) => setAiTopic(e.target.value)}
+              placeholder={
+                isListening
+                  ? "🎙 Eshitilmoqda... Mavzuni ayting..."
+                  : selectedLanguage === "ru"
+                  ? "Введите тему (например: История, Космос, Спорт...)"
+                  : selectedLanguage === "en"
+                  ? "Enter a topic (e.g. History, Space, Sports...)"
+                  : selectedLanguage === "tr"
+                  ? "Bir konu yazın (örnek: Tarih, Uzay, Spor...)"
+                  : "Mavzuni kiriting (masalan: Tarix, Kosmos, Sport...)"
+              }
+              className={`w-full bg-black/40 backdrop-blur-md border ${
+                isListening
+                  ? "border-red-500 ring-2 ring-red-500/30 text-white animate-pulse"
+                  : "border-indigo-500/30 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/20"
+              } rounded-xl px-4 py-3.5 pr-12 text-white focus:outline-none transition-all placeholder:text-indigo-200/30 font-semibold`}
+              onKeyDown={(e) => e.key === 'Enter' && handleAIGenerate()}
+            />
+            <button
+              type="button"
+              onClick={handleToggleVoiceInput}
+              title={isListening ? "To'xtatish" : "Ovoz orqali aytish"}
+              className={`absolute right-2.5 p-2 rounded-lg transition-all cursor-pointer ${
+                isListening
+                  ? "bg-red-500 text-white animate-bounce shadow-lg shadow-red-500/40"
+                  : "text-indigo-300 hover:text-white hover:bg-white/10"
+              }`}
+            >
+              {isListening ? <MicOff size={18} /> : <Mic size={18} />}
+            </button>
+          </div>
           <div className="relative md:w-52 shrink-0">
             <select
               value={selectedLanguage}
