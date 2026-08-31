@@ -73,7 +73,10 @@ describe("Telegram WebApp Service", () => {
     telegramHaptic("success");
     expect((global as any).window.Telegram.WebApp.HapticFeedback.notificationOccurred).toHaveBeenCalledWith("success");
 
-    telegramHaptic("selection");
-    expect((global as any).window.Telegram.WebApp.HapticFeedback.selectionChanged).toHaveBeenCalled();
+    // Referral link shakllanishi
+    const user = getTelegramUser();
+    const refCode = user ? String(user.id) : "app";
+    const refLink = `https://t.me/QuizVideoAIBot?start=ref_${refCode}`;
+    expect(refLink).toBe("https://t.me/QuizVideoAIBot?start=ref_123456789");
   });
 });

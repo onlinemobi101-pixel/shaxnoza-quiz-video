@@ -17,6 +17,8 @@ export interface ServerUserProfile {
   quotaCycle: string | null;
   quotaUsed: number;
   quotaLimit: number | null;
+  referralsCount?: number;
+  bonusVideos?: number;
   activeExportReservation?: {
     id?: string;
     startedAt?: Timestamp;
@@ -150,7 +152,9 @@ function resolveQuota(profile: ServerUserProfile, role: Role): QuotaState {
   const cycle = storedCycleIsCurrent
     ? storedCycle
     : expectedCycle;
-  const limit = role === "admin" ? null : PLAN_LIMITS[role];
+  const bonusVideos = nonNegativeInteger(profile.bonusVideos);
+  const baseLimit = role === "admin" ? null : PLAN_LIMITS[role];
+  const limit = baseLimit === null ? null : (baseLimit + bonusVideos);
 
   let used: number;
   if (storedCycle === cycle) {
@@ -183,6 +187,8 @@ export function normalizeProfile(data: FirebaseFirestore.DocumentData | undefine
     quotaCycle: typeof data?.quotaCycle === "string" ? data.quotaCycle : null,
     quotaUsed: nonNegativeInteger(data?.quotaUsed),
     quotaLimit: data?.quotaLimit === null ? null : nonNegativeInteger(data?.quotaLimit),
+    referralsCount: nonNegativeInteger(data?.referralsCount),
+    bonusVideos: nonNegativeInteger(data?.bonusVideos),
     activeExportReservation: data?.activeExportReservation || null,
   };
 }
@@ -240,10 +246,12 @@ export async function consumeAiBudget(
     const cycle = resolveQuota(profile, role).quotaCycle;
     const storedCycle = typeof data.aiCycle === "string" ? data.aiCycle : null;
     const cycleIsCurrent = storedCycle === cycle;
-
     const field = AI_USAGE_FIELDS[resource];
     const used = cycleIsCurrent ? nonNegativeInteger(data[field]) : 0;
-    const limit = AI_BUDGETS[role][resource];
+    const bonusVideos = nonNegativeInteger(profile.bonusVideos);
+    const baseLimit = AI_BUDGETS[role][resource];
+    const bonusMultiplier = resource === "quizzes" ? 2 : (resource === "ttsClips" ? 15 : 10);
+    const limit = baseLimit + (role === "free" ? bonusVideos * bonusMultiplier : 0);
     if (used + amount > limit) throw new UsageError(403, errorCode);
 
     const payload: Record<string, unknown> = {

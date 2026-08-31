@@ -35,5 +35,7 @@ export interface UserProfile {
   quotaCycle: string | null;
   quotaUsed: number;
   quotaLimit: number | null;
+  referralsCount?: number;
+  bonusVideos?: number;
 }
 

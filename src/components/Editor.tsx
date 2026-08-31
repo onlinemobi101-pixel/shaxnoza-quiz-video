@@ -45,10 +45,11 @@ interface EditorProps {
   userProfile: UserProfile | null;
   onOpenPaywall: () => void;
   onRequireAuth: () => void;
+  onOpenReferral?: () => void;
   onVideoCreated?: (result: PlanUsageResult) => void;
 }
 
-export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall, onRequireAuth, onVideoCreated }: EditorProps) {
+export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall, onRequireAuth, onOpenReferral, onVideoCreated }: EditorProps) {
   const [generatingAudioId, setGeneratingAudioId] = useState<string | null>(
     null,
   );
@@ -909,7 +910,7 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
       </div>
 
       {!isTelegramWebApp() && (
-        <div className="mb-6 p-4 rounded-2xl bg-[#229ED9]/10 border border-[#229ED9]/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-slate-200 shadow-lg shadow-[#229ED9]/5">
+        <div className="mb-4 p-4 rounded-2xl bg-[#229ED9]/10 border border-[#229ED9]/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-slate-200 shadow-lg shadow-[#229ED9]/5">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-[#229ED9]/20 border border-[#229ED9]/40 flex items-center justify-center text-[#229ED9] shrink-0">
               <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24">
@@ -929,6 +930,35 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
           >
             Botda ochish ↗
           </a>
+        </div>
+      )}
+
+      {onOpenReferral && (
+        <div className="mb-6 p-4 rounded-2xl bg-gradient-to-r from-emerald-500/15 via-cyan-500/10 to-emerald-500/15 border border-emerald-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-slate-200 shadow-lg shadow-emerald-900/10">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 shrink-0 text-lg">
+              🎁
+            </div>
+            <div>
+              <p className="font-bold text-white text-sm flex items-center gap-2">
+                Do'stingizni taklif qiling — Bepul video oling!
+                <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] px-2 py-0.5 rounded-full font-extrabold">+1 Video</span>
+              </p>
+              <p className="text-slate-400">
+                Har bir taklif qilgan do'stingiz uchun sizga +1 ta bepul video sovg'a qilinadi.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              telegramHaptic("medium");
+              onOpenReferral();
+            }}
+            className="shrink-0 bg-gradient-to-r from-emerald-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 text-white font-bold text-xs px-4 py-2.5 rounded-xl transition-all shadow-md active:scale-95 flex items-center gap-1.5 cursor-pointer"
+          >
+            Havolani olish →
+          </button>
         </div>
       )}
 

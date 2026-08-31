@@ -1,4 +1,6 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
+import { FieldValue } from "firebase-admin/firestore";
+import { adminDb } from "./firebase-admin.js";
 
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "";
 const WEBAPP_URL = process.env.TELEGRAM_WEBAPP_URL || "https://quiz-video-generator-yangi-phi.vercel.app";
@@ -180,17 +182,95 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
         }
       }
 
+async function processReferralBonus(referrerParam: string, newChatId: string, newUserName: string) {
+  try {
+    if (!referrerParam || referrerParam === newChatId) return;
+
+    const referralId = `ref_${newChatId}`;
+    const referralRef = adminDb.collection("referrals").doc(referralId);
+    const referralSnap = await referralRef.get();
+    if (referralSnap.exists) return;
+
+    await referralRef.set({
+      referrer: referrerParam,
+      referredUserChatId: newChatId,
+      referredUserName: newUserName,
+      createdAt: new Date().toISOString(),
+    });
+
+    let referrerDocRef = adminDb.collection("users").doc(referrerParam);
+    let referrerSnap = await referrerDocRef.get();
+
+    if (!referrerSnap.exists) {
+      const querySnap = await adminDb
+        .collection("users")
+        .where("telegramId", "==", Number(referrerParam) || referrerParam)
+        .limit(1)
+        .get();
+      if (!querySnap.empty) {
+        referrerDocRef = querySnap.docs[0].ref;
+        referrerSnap = querySnap.docs[0];
+      }
+    }
+
+    await referrerDocRef.set(
+      {
+        referralsCount: FieldValue.increment(1),
+        bonusVideos: FieldValue.increment(1),
+      },
+      { merge: true }
+    );
+
+    const referrerData = referrerSnap.exists ? referrerSnap.data() : null;
+    const targetChatId = referrerData?.telegramId || (Number(referrerParam) > 1000 ? referrerParam : null);
+
+    if (targetChatId) {
+      const bonusMsg =
+        `🎉 <b>Yangi do'stingiz qo'shildi!</b>\n\n` +
+        `<b>${newUserName}</b> sizning referal havolangiz orqali botga kirdi.\n\n` +
+        `🎁 <b>Sizga +1 ta bepul video qo'shildi!</b>\n` +
+        `<i>Ko'proq do'stlarni taklif qiling va bepul videolar yutib oling!</i>`;
+
+      const markup = {
+        inline_keyboard: [
+          [
+            {
+              text: "🎬 Generatorni ochish (Mini App)",
+              web_app: { url: WEBAPP_URL },
+            },
+          ],
+        ],
+      };
+
+      await sendTelegramMessage(targetChatId, bonusMsg, markup).catch(() => {});
+    }
+  } catch (err) {
+    console.error("Error processing referral bonus:", err);
+  }
+}
+
       const message = update?.message;
       const chatId = message?.chat?.id;
       const text = message?.text || "";
       const firstName = message?.from?.first_name || "Do'stim";
 
       if (chatId && text.startsWith("/start")) {
+        const parts = text.split(" ");
+        const startParam = parts[1] || "";
+
+        if (startParam.startsWith("ref_")) {
+          const referrerParam = startParam.replace("ref_", "").trim();
+          if (referrerParam) {
+            processReferralBonus(referrerParam, String(chatId), firstName).catch(() => {});
+          }
+        }
+
         const welcomeText = 
           `Assalomu alaykum, <b>${firstName}</b>! 🎬\n\n` +
           `<b>Quiz Video Generator</b> botiga xush kelibsiz!\n\n` +
           `Bu bot orqali siz <b>YouTube Shorts</b>, <b>TikTok</b> va <b>Instagram Reels</b> uchun sun'iy intellekt (AI) yordamida qiziqarli test videolarini 1 daqiqada tayyorlashingiz mumkin.\n\n` +
           `✨ <i>AI Savollar, Ovozlar, Rasm tanlash va 30 FPS silliq render!</i>\n\n` +
+          `🎁 <i>Do'stlaringizni taklif qilib, har bir do'stingiz uchun <b>+1 ta bepul video</b> yutib olishingiz mumkin!</i>\n\n` +
           `👇 Ishni boshlash uchun quyidagi tugmani bosing:`;
 
         const replyMarkup = {

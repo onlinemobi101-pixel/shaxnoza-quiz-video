@@ -24,6 +24,7 @@ import { initTelegramWebApp, isTelegramWebApp, getTelegramUser } from "./service
 const AdminPanel = lazy(() => import("./components/AdminPanel").then(module => ({ default: module.AdminPanel })));
 const AuthModal = lazy(() => import("./components/AuthModal").then(module => ({ default: module.AuthModal })));
 const PaywallModal = lazy(() => import("./components/PaywallModal").then(module => ({ default: module.PaywallModal })));
+const ReferralModal = lazy(() => import("./components/ReferralModal").then(module => ({ default: module.ReferralModal })));
 
 function getEffectiveRole(
   role: UserProfile["role"] | undefined,
@@ -42,7 +43,9 @@ function getProfileQuota(
 ): Pick<UserProfile, "quotaCycle" | "quotaUsed" | "quotaLimit"> {
   const quotaCycle = typeof data.quotaCycle === "string" ? data.quotaCycle : null;
   const cycleMatchesRole = isCurrentPlanCycle(role, quotaCycle);
-  const quotaLimit = role === "admin" ? null : PLAN_EXPORT_LIMITS[role];
+  const bonusVideos = Number(data.bonusVideos) || 0;
+  const baseLimit = role === "admin" ? null : PLAN_EXPORT_LIMITS[role];
+  const quotaLimit = baseLimit === null ? null : (baseLimit + bonusVideos);
   const legacyUsed = role === "premium" || role === "admin"
     ? 0
     : Math.min(Number(data.videosCreated) || 0, quotaLimit || 0);
@@ -58,6 +61,7 @@ function getProfileQuota(
 export default function App() {
   const [quiz, setQuiz] = useState<Quiz>(() => loadQuizDraft(firstQuiz));
   const [autosaveStatus, setAutosaveStatus] = useState<AutosaveStatus>("ok");
+  const [isReferralOpen, setIsReferralOpen] = useState(false);
   const [mode, setMode] = useState<"landing" | "editor" | "player" | "admin">(() => {
     // Telegram Mini App ichida ochilsa: to'g'ridan-to'g'ri tahrirlagichni ochamiz
     if (isTelegramWebApp()) return "editor";
@@ -173,6 +177,8 @@ export default function App() {
                 role,
                 videosCreated: data.videosCreated || 0,
                 premiumUntil,
+                referralsCount: Number(data.referralsCount) || 0,
+                bonusVideos: Number(data.bonusVideos) || 0,
                 ...quota,
               });
             } else {
@@ -186,6 +192,8 @@ export default function App() {
                 quotaUsed: 0,
                 quotaLimit: defaultRole === "admin" ? null : PLAN_EXPORT_LIMITS[defaultRole],
                 email: currentUser.email,
+                referralsCount: 0,
+                bonusVideos: 0,
                 createdAt: new Date().toISOString()
               };
               try {
@@ -201,39 +209,33 @@ export default function App() {
             }
             setIsAuthLoading(false);
           },
-          (snapError) => {
-            console.error("Profile snapshot read failed:", snapError);
-            setUserProfile({
-              uid: currentUser.uid,
-              email: currentUser.email,
-              role: "free",
-              videosCreated: 0,
-              premiumUntil: null,
-              quotaCycle: null,
-              quotaUsed: 0,
-              quotaLimit: 1,
-            });
+          (err) => {
+            console.error("User profile snapshot error:", err);
             setIsAuthLoading(false);
           }
         );
       } else {
+        setUserProfile(null);
         setIsAuthLoading(false);
       }
     });
 
     return () => {
       clearTimeout(safetyTimeout);
-      if (unsubProfile) unsubProfile();
       unsubscribe();
+      if (unsubProfile) {
+        unsubProfile();
+      }
     };
   }, []);
 
   const handleSignOut = async () => {
     try {
       await signOut(auth);
-      alert("Tizimdan muvaffaqiyatli chiqdingiz!");
-    } catch (err) {
-      console.error("Sign out error:", err);
+      setUser(null);
+      setUserProfile(null);
+    } catch (error) {
+      console.error("Error signing out:", error);
     }
   };
 
@@ -254,7 +256,18 @@ export default function App() {
           </div>
         </button>
 
-        <div className="flex items-center gap-3 font-sans">
+        <div className="flex items-center gap-3 font-sans flex-wrap justify-center">
+          {/* Bepul video yutish (Referal) tugmasi */}
+          <button
+            id="header-referral-btn"
+            onClick={() => setIsReferralOpen(true)}
+            className="flex items-center gap-1.5 bg-gradient-to-r from-emerald-500/15 to-cyan-500/15 hover:from-emerald-500/25 hover:to-cyan-500/25 border border-emerald-500/30 text-emerald-300 px-3 py-1.5 rounded-xl text-xs font-bold transition-all hover:scale-105 cursor-pointer shadow-sm shadow-emerald-500/10"
+            title="Do'stlarni taklif qilish va bepul video yutish"
+          >
+            <span>🎁</span>
+            <span>+1 Bepul video olish</span>
+          </button>
+
           {isAuthLoading ? (
             <div className="flex items-center gap-2 text-xs text-slate-400 font-medium bg-white/5 px-3 py-1.5 rounded-xl border border-white/5">
               <Loader2 size={14} className="animate-spin" />
@@ -268,14 +281,14 @@ export default function App() {
                   Admin (cheklanmagan)
                 </div>
               ) : userProfile?.role === "premium" ? (
-                <div className="flex items-center gap-1.5 bg-gradient-to-r from-amber-500/10 to-amber-600/10 border border-amber-500/30 text-amber-400 px-3 py-1.5 rounded-xl text-xs font-semibold shadow-sm">
-                  <Crown size={14} className="fill-current animate-pulse" />
-                  Premium ({getPlanUsage(userProfile)}/{getPlanLimit(userProfile)} video)
+                <div className="flex items-center gap-1.5 bg-amber-500/10 border border-amber-500/30 text-amber-400 px-3 py-1.5 rounded-xl text-xs font-semibold">
+                  <Crown size={14} className="text-amber-400 fill-current" />
+                  Pro ({getPlanUsage(userProfile)}/{getPlanLimit(userProfile)} video)
                 </div>
               ) : userProfile?.role === "pack10" ? (
                 <div className="flex items-center gap-1.5 bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 px-3 py-1.5 rounded-xl text-xs font-semibold">
                   <Sparkles size={14} className="text-cyan-400" />
-                  Paket ({getPlanUsage(userProfile)}/{getPlanLimit(userProfile)} video)
+                  10 talik ({getPlanUsage(userProfile)}/{getPlanLimit(userProfile)} video)
                 </div>
               ) : (
                 <div className="flex items-center gap-1.5 bg-slate-950 border border-slate-800 text-slate-300 px-3 py-1.5 rounded-xl text-xs font-semibold">
@@ -428,6 +441,7 @@ export default function App() {
             userProfile={userProfile}
             onOpenPaywall={() => setIsPaywallOpen(true)}
             onRequireAuth={() => setIsAuthOpen(true)}
+            onOpenReferral={() => setIsReferralOpen(true)}
             onVideoCreated={(result) => {
               setUserProfile(prev => prev ? {
                 ...prev,
@@ -450,6 +464,14 @@ export default function App() {
           />
         )}
       </main>
+
+      <Suspense fallback={null}>
+        <ReferralModal
+          isOpen={isReferralOpen}
+          onClose={() => setIsReferralOpen(false)}
+          userProfile={userProfile}
+        />
+      </Suspense>
 
       <Suspense fallback={null}>
         <PaywallModal
