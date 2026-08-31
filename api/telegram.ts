@@ -17,6 +17,19 @@ async function readBody(req: IncomingMessage): Promise<Buffer> {
   return Buffer.concat(chunks);
 }
 
+async function answerCallbackQuery(callbackQueryId: string, text?: string) {
+  if (!TELEGRAM_BOT_TOKEN) return;
+  const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/answerCallbackQuery`;
+  await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      callback_query_id: callbackQueryId,
+      text,
+    }),
+  }).catch(() => {});
+}
+
 async function sendTelegramMessage(chatId: number | string, text: string, replyMarkup?: any) {
   if (!TELEGRAM_BOT_TOKEN) return;
   const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
@@ -128,9 +141,45 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       return;
     }
 
-    // 2. Telegram Webhook Updates (/start, /help)
+    // 2. Telegram Webhook Updates (/start, /help, callback_query)
     if (contentType.includes("application/json")) {
       const update = JSON.parse(rawBody.toString("utf-8") || "{}");
+      
+      // Inline tugma bosilganda (Callback Query)
+      const callbackQuery = update?.callback_query;
+      if (callbackQuery) {
+        const cbChatId = callbackQuery.message?.chat?.id;
+        const cbData = callbackQuery.data;
+        const cbId = callbackQuery.id;
+
+        await answerCallbackQuery(cbId);
+
+        if (cbChatId && cbData === "help") {
+          const helpText =
+            `📖 <b>Qanday qilib video tayyorlanadi?</b>\n\n` +
+            `1️⃣ <b>«🎬 Generatorni ochish»</b> tugmasini bosing.\n` +
+            `2️⃣ Istalgan mavzuni yozing (masalan: <i>Kosmos</i>, <i>Tarix</i>, <i>Geografiya</i>).\n` +
+            `3️⃣ AI savollarni tuzadi, ovozlar qo'shadi va fon rasmlarini yuklaydi.\n` +
+            `4️⃣ <b>«Video Yuklab Olish»</b> tugmasini bosing — video tayyor bo'ladi va ushbu chatga ham yuboriladi!\n\n` +
+            `🚀 Hoziroq quyidagi tugmani bosib sinab ko'ring:`;
+
+          const replyMarkup = {
+            inline_keyboard: [
+              [
+                {
+                  text: "🎬 Generatorni ochish (Mini App)",
+                  web_app: { url: WEBAPP_URL },
+                },
+              ],
+            ],
+          };
+
+          await sendTelegramMessage(cbChatId, helpText, replyMarkup);
+          sendJSON(res, 200, { ok: true });
+          return;
+        }
+      }
+
       const message = update?.message;
       const chatId = message?.chat?.id;
       const text = message?.text || "";
@@ -169,17 +218,17 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       if (chatId && (text.startsWith("/help") || text.startsWith("ℹ️"))) {
         const helpText =
           `📖 <b>Qanday qilib video tayyorlanadi?</b>\n\n` +
-          `1️⃣ <b>Generatorni ochish</b> tugmasini bosing.\n` +
-          `2️⃣ Mavzuni kiriting (masalan: <i>Koinot sirlari</i> yoki <i>Tarix</i>).\n` +
-          `3️⃣ AI savollar va ovozlarni avtomatik tayyorlaydi.\n` +
-          `4️⃣ <b>«Video Yuklab Olish»</b> tugmasini bosing — video tayyor bo'lib, to'g'ridan-to'g'ri galereyangizga saqlanadi.\n\n` +
-          `🚀 Hoziroq sinab ko'ring!`;
+          `1️⃣ <b>«🎬 Generatorni ochish»</b> tugmasini bosing.\n` +
+          `2️⃣ Istalgan mavzuni yozing (masalan: <i>Kosmos</i>, <i>Tarix</i>, <i>Geografiya</i>).\n` +
+          `3️⃣ AI savollarni tuzadi, ovozlar qo'shadi va fon rasmlarini yuklaydi.\n` +
+          `4️⃣ <b>«Video Yuklab Olish»</b> tugmasini bosing — video tayyor bo'ladi va ushbu chatga ham yuboriladi!\n\n` +
+          `🚀 Hoziroq quyidagi tugmani bosib sinab ko'ring:`;
 
         const replyMarkup = {
           inline_keyboard: [
             [
               {
-                text: "🎬 Generatorni ochish",
+                text: "🎬 Generatorni ochish (Mini App)",
                 web_app: { url: WEBAPP_URL },
               },
             ],
