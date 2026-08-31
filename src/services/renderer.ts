@@ -1,6 +1,6 @@
 import { Quiz, Question } from "../types";
 import { playPCMAsync, stopPCM, decodePCMToAudioBuffer, playAudioBufferAsync } from "./tts";
-import { playPop, playTick, playSuccess, startProceduralBGM, stopProceduralBGM } from "./sfx";
+import { playPop, playTick, playSuccess, startProceduralBGM, startCustomBGM, stopProceduralBGM } from "./sfx";
 import { getVideoStrings, VideoStrings } from "./i18n";
 import { getIntroDurationMs, getOutroDurationMs, getTargetQuestionDurationMs } from "./videoPlan";
 
@@ -285,7 +285,11 @@ export class QuizRenderer {
     await this.onBeforeRecording?.();
     
     if (this.quiz.bgmEnabled) {
-      startProceduralBGM(this.masterGain, this.quiz.bgmType);
+      if (this.quiz.customBgmBase64) {
+        await startCustomBGM(this.quiz.customBgmBase64, this.masterGain, 0.18);
+      } else if (this.quiz.bgmType !== "custom") {
+        startProceduralBGM(this.masterGain, this.quiz.bgmType || 'calm');
+      }
     }
     
     this.isRecording = true;

@@ -90,8 +90,56 @@ export const playSuccess = (destination?: AudioNode) => {
 let bgmOscillators: OscillatorNode[] = [];
 let bgmGain: GainNode | null = null;
 let bgmInterval: any = null;
+let customAudioSource: AudioBufferSourceNode | null = null;
+let customAudioGain: GainNode | null = null;
 
-export const startProceduralBGM = (destination?: AudioNode, bgmType: 'calm' | 'happy' | 'tense' = 'calm') => {
+export const startCustomBGM = async (
+  base64Audio: string,
+  destination?: AudioNode,
+  volume: number = 0.15
+) => {
+  try {
+    stopProceduralBGM();
+    const ctx = destination ? (destination.context as AudioContext) : getAudioContext();
+    if (ctx.state === 'suspended') {
+      await ctx.resume();
+    }
+
+    const cleanBase64 = base64Audio.includes('base64,')
+      ? base64Audio.split('base64,')[1]
+      : base64Audio;
+    const binaryString = atob(cleanBase64);
+    const len = binaryString.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+
+    const audioBuffer = await ctx.decodeAudioData(bytes.buffer.slice(0));
+
+    customAudioGain = ctx.createGain();
+    customAudioGain.gain.setValueAtTime(volume, ctx.currentTime);
+
+    if (destination) {
+      customAudioGain.connect(destination);
+    } else {
+      customAudioGain.connect(ctx.destination);
+    }
+
+    customAudioSource = ctx.createBufferSource();
+    customAudioSource.buffer = audioBuffer;
+    customAudioSource.loop = true;
+    customAudioSource.connect(customAudioGain);
+    customAudioSource.start();
+  } catch (err) {
+    console.error("Custom BGM Error:", err);
+  }
+};
+
+export const startProceduralBGM = (
+  destination?: AudioNode,
+  bgmType: 'calm' | 'happy' | 'tense' | 'custom' | string = 'calm'
+) => {
   try {
     stopProceduralBGM();
     const ctx = destination ? (destination.context as AudioContext) : getAudioContext();
@@ -170,7 +218,16 @@ export const stopProceduralBGM = () => {
   bgmOscillators.forEach(o => {try { o.stop(); } catch(e) {}});
   bgmOscillators = [];
   if (bgmGain) {
-    bgmGain.disconnect();
+    try { bgmGain.disconnect(); } catch (e) {}
     bgmGain = null;
+  }
+  if (customAudioSource) {
+    try { customAudioSource.stop(); } catch (e) {}
+    try { customAudioSource.disconnect(); } catch (e) {}
+    customAudioSource = null;
+  }
+  if (customAudioGain) {
+    try { customAudioGain.disconnect(); } catch (e) {}
+    customAudioGain = null;
   }
 };

@@ -21,6 +21,7 @@ import {
   Check,
   Mic,
   MicOff,
+  Music,
 } from "lucide-react";
 import { generateTTS, generateTTSBatch } from "../services/tts";
 import { getVideoStrings } from "../services/i18n";
@@ -217,6 +218,33 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
       console.error("Failed to start speech recognition:", err);
       setIsListening(false);
     }
+  };
+
+  const handleCustomBgmUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+
+    if (file.size > 25 * 1024 * 1024) {
+      alert("Musiqa hajmi 25 MB dan oshmasligi kerak.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = reader.result as string;
+      setQuiz({
+        ...quiz,
+        bgmEnabled: true,
+        bgmType: 'custom',
+        customBgmBase64: base64,
+        customBgmName: file.name,
+      });
+    };
+    reader.onerror = () => {
+      alert("Musiqa faylini o'qishda xatolik yuz berdi.");
+    };
+    reader.readAsDataURL(file);
   };
 
   // TTS xatolarini bitta joyda tushunarli xabarga aylantiramiz
@@ -1535,26 +1563,91 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
             </label>
 
             {quiz.bgmEnabled && (
-              <div className="pt-2">
-                <label className="block text-xs font-semibold text-neutral-400 mb-2 uppercase tracking-wider">
+              <div className="pt-2 space-y-3">
+                <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wider">
                   Musiqa uslubi (BGM Style)
                 </label>
-                <div className="grid grid-cols-3 gap-2">
-                  {(['calm', 'happy', 'tense'] as const).map((style) => (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {(['calm', 'happy', 'tense', 'custom'] as const).map((style) => (
                     <button
                       key={style}
                       type="button"
                       onClick={() => setQuiz({ ...quiz, bgmType: style })}
-                      className={`py-2.5 px-3 rounded-xl text-xs font-bold capitalize transition-all border ${
+                      className={`py-2.5 px-3 rounded-xl text-xs font-bold capitalize transition-all border cursor-pointer ${
                         (quiz.bgmType || 'calm') === style
                           ? "bg-emerald-500/20 border-emerald-500 text-emerald-300 shadow-sm"
                           : "bg-black/30 border-white/5 text-neutral-400 hover:text-white hover:border-white/10"
                       }`}
                     >
-                      {style === 'calm' ? 'Sokin' : style === 'happy' ? 'Quvnoq' : 'Hayajonli'}
+                      {style === 'calm'
+                        ? '🍃 Sokin'
+                        : style === 'happy'
+                        ? '🎉 Quvnoq'
+                        : style === 'tense'
+                        ? '⚡️ Hayajonli'
+                        : '📁 O\'z MP3 Musiqangiz'}
                     </button>
                   ))}
                 </div>
+
+                {/* Custom MP3 Upload Card */}
+                {quiz.bgmType === 'custom' && (
+                  <div className="p-4 rounded-2xl border border-emerald-500/30 bg-emerald-500/5 space-y-3">
+                    <div className="flex items-center justify-between gap-3 flex-wrap">
+                      <div>
+                        <p className="text-xs font-bold text-emerald-300 flex items-center gap-1.5">
+                          <Music size={14} />
+                          O'zingizning MP3 musiqangiz:
+                        </p>
+                        <p className="text-[11px] text-neutral-400 mt-0.5">
+                          {quiz.customBgmName || "Hali musiqa yuklanmagan (.mp3, .wav, .m4a)"}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        {quiz.customBgmBase64 && (
+                          <button
+                            type="button"
+                            onClick={() => playAudio(quiz.customBgmBase64!, "custom_bgm")}
+                            className="p-2 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/30 text-emerald-300 text-xs font-bold transition-all flex items-center gap-1 cursor-pointer"
+                          >
+                            {playingAudioId === "custom_bgm" ? <Pause size={14} /> : <Play size={14} />}
+                            {playingAudioId === "custom_bgm" ? "To'xtatish" : "Eshitish"}
+                          </button>
+                        )}
+
+                        <label className="py-2 px-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-xs transition-all cursor-pointer flex items-center gap-1.5 shadow-md">
+                          <Upload size={14} />
+                          {quiz.customBgmBase64 ? "Almashtirish" : "MP3 Yuklash"}
+                          <input
+                            type="file"
+                            accept="audio/*"
+                            className="hidden"
+                            onChange={handleCustomBgmUpload}
+                          />
+                        </label>
+
+                        {quiz.customBgmBase64 && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setQuiz({
+                                ...quiz,
+                                customBgmBase64: undefined,
+                                customBgmName: undefined,
+                                bgmType: 'calm',
+                              })
+                            }
+                            className="p-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 text-xs font-bold transition-all cursor-pointer"
+                            title="Musiqani o'chirish"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>

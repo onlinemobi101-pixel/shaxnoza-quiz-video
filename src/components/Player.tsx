@@ -3,7 +3,7 @@ import { Quiz } from "../types";
 import { motion, AnimatePresence } from "motion/react";
 import { X, Maximize2, RotateCcw, Heart } from "lucide-react";
 import { playPCMAsync, stopPCM } from "../services/tts";
-import { playPop, playTick, playSuccess, startProceduralBGM, stopProceduralBGM } from "../services/sfx";
+import { playPop, playTick, playSuccess, startProceduralBGM, startCustomBGM, stopProceduralBGM } from "../services/sfx";
 import { getVideoStrings } from "../services/i18n";
 import { getOutroDurationMs, getTargetQuestionDurationMs } from "../services/videoPlan";
 
@@ -28,12 +28,16 @@ export function Player({ quiz, onExit }: PlayerProps) {
   // BGM butun preview davomida bitta joydan boshqariladi (savol almashganda uzilmasin)
   useEffect(() => {
     if (quiz.bgmEnabled) {
-      startProceduralBGM(undefined, quiz.bgmType);
+      if (quiz.customBgmBase64) {
+        startCustomBGM(quiz.customBgmBase64, undefined, 0.18);
+      } else if (quiz.bgmType !== "custom") {
+        startProceduralBGM(undefined, quiz.bgmType || "calm");
+      }
     }
     return () => {
       stopProceduralBGM();
     };
-  }, [quiz.bgmEnabled, quiz.bgmType]);
+  }, [quiz.bgmEnabled, quiz.bgmType, quiz.customBgmBase64]);
 
   useEffect(() => {
     if (!question) return;

@@ -18,7 +18,9 @@ export interface Quiz {
   themeColor?: 'emerald' | 'cyan' | 'violet' | 'rose' | 'amber';
   themePreset?: 'default' | 'cyberpunk' | 'retro' | 'sunset' | 'chalk' | 'kids' | 'neon';
   bgmEnabled?: boolean;
-  bgmType?: 'calm' | 'happy' | 'tense';
+  bgmType?: 'calm' | 'happy' | 'tense' | 'custom';
+  customBgmBase64?: string;
+  customBgmName?: string;
   timerStyle?: 'circular' | 'line' | 'digital';
   transitionEffect?: 'slide' | 'zoom' | 'fade';
   language?: 'uz' | 'en' | 'ru' | 'tr';
