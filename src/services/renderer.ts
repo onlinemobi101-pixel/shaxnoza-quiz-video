@@ -285,10 +285,11 @@ export class QuizRenderer {
     await this.onBeforeRecording?.();
     
     if (this.quiz.bgmEnabled) {
+      const volume = this.quiz.bgmVolume !== undefined ? this.quiz.bgmVolume : 0.20;
       if (this.quiz.customBgmBase64) {
-        await startCustomBGM(this.quiz.customBgmBase64, this.masterGain, 0.18);
+        await startCustomBGM(this.quiz.customBgmBase64, this.masterGain, volume);
       } else if (this.quiz.bgmType !== "custom") {
-        startProceduralBGM(this.masterGain, this.quiz.bgmType || 'calm');
+        startProceduralBGM(this.masterGain, this.quiz.bgmType || 'calm', volume * 0.2);
       }
     }
     

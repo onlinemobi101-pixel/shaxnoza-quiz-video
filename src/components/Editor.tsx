@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { generateTTS, generateTTSBatch } from "../services/tts";
 import { getVideoStrings } from "../services/i18n";
+import { setBGMVolume } from "../services/sfx";
 import { getLongVideoPreset, LONG_VIDEO_PRESETS } from "../services/videoPlan";
 import { generateQuizAI, analyzeQuestionsForImages, getUnsplashImageForKeyword } from "../services/ai";
 import { compressImageFile } from "../services/images";
@@ -1648,6 +1649,40 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
                     </div>
                   </div>
                 )}
+
+                {/* BGM Volume Slider */}
+                <div className="p-3.5 rounded-2xl border border-white/10 bg-white/5 space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-semibold text-neutral-300 flex items-center gap-1.5">
+                      <Volume2 size={15} className="text-emerald-400" />
+                      Musiqa ovozi balandligi (Volume):
+                    </span>
+                    <span className="font-mono font-bold text-emerald-300 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
+                      {Math.round((quiz.bgmVolume !== undefined ? quiz.bgmVolume : 0.20) * 100)}%
+                      {Math.round((quiz.bgmVolume !== undefined ? quiz.bgmVolume : 0.20) * 100) === 20 ? " (Tavsiya)" : ""}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <VolumeX size={16} className="text-neutral-500 shrink-0" />
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      step="5"
+                      value={Math.round((quiz.bgmVolume !== undefined ? quiz.bgmVolume : 0.20) * 100)}
+                      onChange={(e) => {
+                        const val = Number(e.target.value) / 100;
+                        setQuiz({ ...quiz, bgmVolume: val });
+                        setBGMVolume(val);
+                      }}
+                      className="flex-1 h-2 bg-neutral-800 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                    />
+                    <Volume2 size={16} className="text-emerald-400 shrink-0" />
+                  </div>
+                  <p className="text-[11px] text-neutral-400 leading-tight">
+                    * AI suxandon ovozi aniq eshitilishi uchun <b>15% - 30%</b> oralig'i eng maqbul hisoblanadi.
+                  </p>
+                </div>
               </div>
             )}
           </div>

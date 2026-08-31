@@ -136,15 +136,28 @@ export const startCustomBGM = async (
   }
 };
 
+export const setBGMVolume = (volume: number) => {
+  try {
+    const ctx = getAudioContext();
+    if (customAudioGain) {
+      customAudioGain.gain.setValueAtTime(Math.max(0, Math.min(1, volume)), ctx.currentTime);
+    }
+    if (bgmGain) {
+      bgmGain.gain.setValueAtTime(Math.max(0, Math.min(1, volume * 0.25)), ctx.currentTime);
+    }
+  } catch (e) {}
+};
+
 export const startProceduralBGM = (
   destination?: AudioNode,
-  bgmType: 'calm' | 'happy' | 'tense' | 'custom' | string = 'calm'
+  bgmType: 'calm' | 'happy' | 'tense' | 'custom' | string = 'calm',
+  volume: number = 0.04
 ) => {
   try {
     stopProceduralBGM();
     const ctx = destination ? (destination.context as AudioContext) : getAudioContext();
     bgmGain = ctx.createGain();
-    bgmGain.gain.setValueAtTime(0.04, ctx.currentTime); // Very quiet & pleasant background level
+    bgmGain.gain.setValueAtTime(volume, ctx.currentTime); // Background level
     if (destination) {
       bgmGain.connect(destination);
     } else {

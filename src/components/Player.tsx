@@ -28,16 +28,17 @@ export function Player({ quiz, onExit }: PlayerProps) {
   // BGM butun preview davomida bitta joydan boshqariladi (savol almashganda uzilmasin)
   useEffect(() => {
     if (quiz.bgmEnabled) {
+      const volume = quiz.bgmVolume !== undefined ? quiz.bgmVolume : 0.20;
       if (quiz.customBgmBase64) {
-        startCustomBGM(quiz.customBgmBase64, undefined, 0.18);
+        startCustomBGM(quiz.customBgmBase64, undefined, volume);
       } else if (quiz.bgmType !== "custom") {
-        startProceduralBGM(undefined, quiz.bgmType || "calm");
+        startProceduralBGM(undefined, quiz.bgmType || "calm", volume * 0.2);
       }
     }
     return () => {
       stopProceduralBGM();
     };
-  }, [quiz.bgmEnabled, quiz.bgmType, quiz.customBgmBase64]);
+  }, [quiz.bgmEnabled, quiz.bgmType, quiz.customBgmBase64, quiz.bgmVolume]);
 
   useEffect(() => {
     if (!question) return;

@@ -21,6 +21,7 @@ export interface Quiz {
   bgmType?: 'calm' | 'happy' | 'tense' | 'custom';
   customBgmBase64?: string;
   customBgmName?: string;
+  bgmVolume?: number; // 0.0 to 1.0 (default ~0.20 or 20%)
   timerStyle?: 'circular' | 'line' | 'digital';
   transitionEffect?: 'slide' | 'zoom' | 'fade';
   language?: 'uz' | 'en' | 'ru' | 'tr';
