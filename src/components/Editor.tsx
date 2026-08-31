@@ -24,7 +24,7 @@ import {
   Music,
 } from "lucide-react";
 import { generateTTS, generateTTSBatch } from "../services/tts";
-import { getVideoStrings } from "../services/i18n";
+import { getVideoStrings, getUIStrings, UILanguage } from "../services/i18n";
 import { setBGMVolume } from "../services/sfx";
 import { getLongVideoPreset, LONG_VIDEO_PRESETS } from "../services/videoPlan";
 import { generateQuizAI, analyzeQuestionsForImages, getUnsplashImageForKeyword } from "../services/ai";
@@ -48,13 +48,16 @@ interface EditorProps {
   onPlay: () => void;
   user: User | null;
   userProfile: UserProfile | null;
+  uiLang?: UILanguage;
+  onUiLangChange?: (lang: UILanguage) => void;
   onOpenPaywall: () => void;
   onRequireAuth: () => void;
   onOpenReferral?: () => void;
   onVideoCreated?: (result: PlanUsageResult) => void;
 }
 
-export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall, onRequireAuth, onOpenReferral, onVideoCreated }: EditorProps) {
+export function Editor({ quiz, setQuiz, onPlay, user, userProfile, uiLang, onUiLangChange, onOpenPaywall, onRequireAuth, onOpenReferral, onVideoCreated }: EditorProps) {
+  const ui = getUIStrings(uiLang || quiz.language || "uz");
   const [generatingAudioId, setGeneratingAudioId] = useState<string | null>(
     null,
   );
@@ -1080,11 +1083,10 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
           <div className="w-8 h-8 shrink-0 rounded-full bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center text-indigo-300 font-display font-black text-sm">
             1
           </div>
-          <h2 className="text-xl font-display font-bold text-indigo-100 tracking-tight">Savollar tayyorlang</h2>
+          <h2 className="text-xl font-display font-bold text-indigo-100 tracking-tight">{ui.step1Title}</h2>
         </div>
         <p className="text-sm text-indigo-200/60 mb-5 relative z-10 leading-relaxed">
-          Mavzuni yozing — AI {(isYouTubeFormat && isAdmin) ? `${longVideoPreset.questionCount} ta savol, javob izohlari` : "5 ta savol"} va rasmlarni avtomatik tuzib beradi.
-          Yoki pastda savollarni qo'lda kiriting.
+          {ui.step1Subtitle}
         </p>
         <div className="flex flex-col md:flex-row gap-3 relative z-10">
           <div className="relative flex-1 flex items-center">
@@ -1094,14 +1096,8 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
               onChange={(e) => setAiTopic(e.target.value)}
               placeholder={
                 isListening
-                  ? "🎙 Eshitilmoqda... Mavzuni ayting..."
-                  : selectedLanguage === "ru"
-                  ? "Введите тему (например: История, Космос, Спорт...)"
-                  : selectedLanguage === "en"
-                  ? "Enter a topic (e.g. History, Space, Sports...)"
-                  : selectedLanguage === "tr"
-                  ? "Bir konu yazın (örnek: Tarih, Uzay, Spor...)"
-                  : "Mavzuni kiriting (masalan: Tarix, Kosmos, Sport...)"
+                  ? ui.voiceListening
+                  : ui.topicPlaceholder
               }
               className={`w-full bg-black/40 backdrop-blur-md border ${
                 isListening
@@ -1113,7 +1109,7 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
             <button
               type="button"
               onClick={handleToggleVoiceInput}
-              title={isListening ? "To'xtatish" : "Ovoz orqali aytish"}
+              title={isListening ? "Stop" : "Voice Input"}
               className={`absolute right-2.5 p-2 rounded-lg transition-all cursor-pointer ${
                 isListening
                   ? "bg-red-500 text-white animate-bounce shadow-lg shadow-red-500/40"
@@ -1126,13 +1122,19 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
           <div className="relative md:w-52 shrink-0">
             <select
               value={selectedLanguage}
-              onChange={(e) => setSelectedLanguage(e.target.value as any)}
+              onChange={(e) => {
+                const newLang = e.target.value as any;
+                setSelectedLanguage(newLang);
+                if (onUiLangChange) {
+                  onUiLangChange(newLang);
+                }
+              }}
               className="w-full bg-black/40 backdrop-blur-md border border-indigo-500/30 rounded-xl px-4 py-3.5 text-white focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/20 transition-all appearance-none cursor-pointer font-semibold"
             >
               <option value="uz" className="bg-neutral-900">🇺🇿 O'zbek tili</option>
-              <option value="en" className="bg-neutral-900">🇺🇸 Ingliz tili</option>
-              <option value="ru" className="bg-neutral-900">🇷🇺 Rus tili</option>
-              <option value="tr" className="bg-neutral-900">🇹🇷 Turk tili</option>
+              <option value="en" className="bg-neutral-900">🇺🇸 English</option>
+              <option value="ru" className="bg-neutral-900">🇷🇺 Русский</option>
+              <option value="tr" className="bg-neutral-900">🇹🇷 Türkçe</option>
             </select>
             <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-indigo-400">
               <ArrowDown size={16} />
@@ -1144,14 +1146,14 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
             className="md:w-auto shrink-0 flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:hover:scale-100 text-white px-6 py-3.5 rounded-xl font-bold transition-all shadow-lg shadow-indigo-900/20 border border-white/10 border-t-white/20 cursor-pointer whitespace-nowrap"
           >
             {isGeneratingAI ? <Loader2 size={20} className="animate-spin" /> : <Sparkles size={20} />}
-            {isGeneratingAI ? (generatingAudioId ? "Ovozlar yaratilmoqda..." : "Savollar tuzilmoqda...") : "AI bilan yaratish"}
+            {isGeneratingAI ? (generatingAudioId ? ui.btnGeneratingVoices : ui.btnGeneratingQuestions) : ui.btnGenerateAI}
           </button>
         </div>
 
         {/* Trending Topics Quick-Select */}
         <div className="mt-4 pt-3 border-t border-indigo-500/20 relative z-10">
           <p className="text-xs font-bold text-indigo-200/80 mb-2 uppercase tracking-wider">
-            🔥 Ommabop mavzular (Bitta bosishda AI yaratadi):
+            {ui.trendingTitle}
           </p>
           <div className="flex flex-wrap gap-2">
             {(
@@ -1697,29 +1699,29 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
           <div className="w-8 h-8 shrink-0 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-300 font-display font-black text-sm">
             2
           </div>
-          <h2 className="text-xl font-display font-bold text-white tracking-tight">Savollarni tekshiring</h2>
+          <h2 className="text-xl font-display font-bold text-white tracking-tight">{ui.step2Title}</h2>
           <span className="text-xs font-bold bg-white/5 border border-white/10 text-neutral-300 px-2.5 py-1 rounded-full">
-            {quiz.questions.length} ta
+            {quiz.questions.length}
           </span>
         </div>
         <div className="flex flex-wrap gap-2">
           <button
             onClick={handleBulkImageGenerate}
             disabled={isGeneratingBulkImages || quiz.questions.length === 0}
-            title="AI barcha savollarga mos rasm topib qo'yadi"
+            title="AI Image Generator"
             className="flex items-center gap-1.5 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 text-amber-300 text-xs font-bold px-3.5 py-2 rounded-xl transition-all disabled:opacity-40 cursor-pointer"
           >
             {isGeneratingBulkImages ? <Loader2 size={14} className="animate-spin" /> : <ImageIcon size={14} />}
-            {isGeneratingBulkImages ? "Tahlil..." : "Barcha rasmlar (AI)"}
+            {isGeneratingBulkImages ? "..." : ui.btnBulkImages}
           </button>
           <button
             onClick={handleBulkVoiceGenerate}
             disabled={isGeneratingBulkVoices || quiz.questions.length === 0}
-            title="AI barcha savollar va javoblar uchun ovoz yaratadi"
+            title="AI Voice Generator"
             className="flex items-center gap-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 text-emerald-300 text-xs font-bold px-3.5 py-2 rounded-xl transition-all disabled:opacity-40 cursor-pointer"
           >
             {isGeneratingBulkVoices ? <Loader2 size={14} className="animate-spin" /> : <Volume2 size={14} />}
-            {isGeneratingBulkVoices ? "Yaratilmoqda..." : "Barcha ovozlar (AI)"}
+            {isGeneratingBulkVoices ? "..." : ui.btnBulkVoices}
           </button>
         </div>
       </div>
@@ -1735,7 +1737,7 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
                 <div className="bg-gradient-to-br from-emerald-500/20 to-cyan-500/20 border border-emerald-500/30 text-emerald-300 w-10 h-10 rounded-2xl flex items-center justify-center font-display font-bold text-lg shadow-inner">
                   {qIndex + 1}
                 </div>
-                <h3 className="text-2xl font-display font-bold tracking-tight">Savol</h3>
+                <h3 className="text-2xl font-display font-bold tracking-tight">{ui.questionLabel}</h3>
               </div>
               <div className="flex gap-2">
                 <button
@@ -1861,7 +1863,7 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
 
               <div>
                 <label className="block text-sm font-medium text-neutral-300 mb-2">
-                  Javobdan keyingi qisqa tushuntirish
+                  {ui.explanationLabel}
                 </label>
                 <textarea
                   value={q.explanation || ""}
@@ -1869,16 +1871,13 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
                   rows={2}
                   maxLength={240}
                   className="w-full resize-y bg-black/40 backdrop-blur-md border border-white/10 rounded-xl px-4 py-3.5 text-white font-medium focus:outline-none focus:border-emerald-500/50 focus:ring-2 focus:ring-emerald-500/20 transition-all placeholder:text-neutral-600"
-                  placeholder="Example: The Pacific is the world's largest and deepest ocean."
+                  placeholder={ui.explanationPlaceholder}
                 />
-                <p className="mt-1.5 text-xs text-neutral-500">
-                  Bu matn javob ochilganda ekranda chiqadi va AI ovoz bilan o‘qiladi.
-                </p>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-neutral-300 mb-2">
-                  Orqa fon rasmi (URL, fayl yuklash yoki qidirish)
+                  {ui.bgImageLabel}
                 </label>
                 <div className="flex flex-col sm:flex-row gap-4 items-start">
                   <div className="relative flex-1 w-full flex flex-col gap-3">
@@ -2163,7 +2162,7 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
           className="w-full py-8 border-[1.5px] border-dashed border-white/20 rounded-3xl text-neutral-400 hover:text-white hover:border-emerald-500/50 hover:bg-emerald-500/5 hover:shadow-[0_0_30px_rgba(16,185,129,0.1)] transition-all flex items-center justify-center gap-3 font-display font-bold text-lg hover:scale-[1.01] active:scale-[0.99]"
         >
           <Plus size={24} />
-          Yangi savol qo'shish
+          {ui.btnAddQuestion}
         </button>
 
         <div className="mt-8 mb-4">
@@ -2179,9 +2178,9 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
               3
             </div>
             <div className="flex flex-col text-xs leading-tight">
-              <span className="font-bold text-white">{quiz.questions.length} ta savol</span>
+              <span className="font-bold text-white">{quiz.questions.length}</span>
               <span className="text-neutral-400">
-                {quiz.questions.filter((q) => q.audioBase64).length}/{quiz.questions.length} ovoz tayyor
+                {quiz.questions.filter((q) => q.audioBase64).length}/{quiz.questions.length}
               </span>
             </div>
           </div>
@@ -2192,7 +2191,7 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
               className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 disabled:opacity-50 text-white px-5 py-3 rounded-xl font-semibold text-sm transition-all cursor-pointer"
             >
               <Play size={17} fill="currentColor" />
-              Ko'rish
+              {ui.btnPreview}
             </button>
             <button
               onClick={() => handleExport(false)}
@@ -2208,7 +2207,7 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, onOpenPaywall
               ) : (
                 <>
                   <Download size={17} />
-                  Video Yuklab Olish
+                  {ui.btnExportVideo}
                 </>
               )}
             </button>

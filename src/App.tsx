@@ -11,6 +11,7 @@ import { firstQuiz } from "./data/firstQuiz";
 import { isAdminEmail } from "./services/admins";
 import { AutosaveStatus, loadQuizDraft, saveQuizDraft } from "./services/draft";
 import { safeGetItem, safeSetItem } from "./services/storage";
+import { UILanguage, getUIStrings } from "./services/i18n";
 import {
   getPlanLimit,
   getPlanUsage,
@@ -62,6 +63,9 @@ export default function App() {
   const [quiz, setQuiz] = useState<Quiz>(() => loadQuizDraft(firstQuiz));
   const [autosaveStatus, setAutosaveStatus] = useState<AutosaveStatus>("ok");
   const [isReferralOpen, setIsReferralOpen] = useState(false);
+  const [uiLang, setUiLang] = useState<UILanguage>(() => (safeGetItem("qv_ui_lang") as UILanguage) || "uz");
+  const ui = getUIStrings(uiLang);
+
   const [mode, setMode] = useState<"landing" | "editor" | "player" | "admin">(() => {
     // Telegram Mini App ichida ochilsa: to'g'ridan-to'g'ri tahrirlagichni ochamiz
     if (isTelegramWebApp()) return "editor";
@@ -257,6 +261,25 @@ export default function App() {
         </button>
 
         <div className="flex items-center gap-3 font-sans flex-wrap justify-center">
+          {/* UI Tilini almashtirish */}
+          <div className="relative">
+            <select
+              value={uiLang}
+              onChange={(e) => {
+                const newLang = e.target.value as UILanguage;
+                setUiLang(newLang);
+                safeSetItem("qv_ui_lang", newLang);
+              }}
+              aria-label="Interfeys tili"
+              className="bg-slate-900/80 border border-slate-700/60 rounded-xl px-2.5 py-1.5 text-xs font-bold text-slate-200 cursor-pointer focus:outline-none focus:border-emerald-500 transition-all shadow-sm"
+            >
+              <option value="uz" className="bg-neutral-900">🇺🇿 O'zbek</option>
+              <option value="ru" className="bg-neutral-900">🇷🇺 Русский</option>
+              <option value="en" className="bg-neutral-900">🇺🇸 English</option>
+              <option value="tr" className="bg-neutral-900">🇹🇷 Türkçe</option>
+            </select>
+          </div>
+
           {/* Bepul video yutish (Referal) tugmasi */}
           <button
             id="header-referral-btn"
@@ -265,7 +288,7 @@ export default function App() {
             title="Do'stlarni taklif qilish va bepul video yutish"
           >
             <span>🎁</span>
-            <span>+1 Bepul video olish</span>
+            <span>{ui.navReferral}</span>
           </button>
 
           {isAuthLoading ? (
@@ -278,7 +301,7 @@ export default function App() {
               {userProfile?.role === "admin" ? (
                 <div className="flex items-center gap-1.5 bg-amber-500/10 border border-amber-500/30 text-amber-400 px-3 py-1.5 rounded-xl text-xs font-semibold">
                   <Shield size={14} className="text-amber-400" />
-                  Admin (cheklanmagan)
+                  Admin ({ui.unlimitedBadge})
                 </div>
               ) : userProfile?.role === "premium" ? (
                 <div className="flex items-center gap-1.5 bg-amber-500/10 border border-amber-500/30 text-amber-400 px-3 py-1.5 rounded-xl text-xs font-semibold">
@@ -288,12 +311,12 @@ export default function App() {
               ) : userProfile?.role === "pack10" ? (
                 <div className="flex items-center gap-1.5 bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 px-3 py-1.5 rounded-xl text-xs font-semibold">
                   <Sparkles size={14} className="text-cyan-400" />
-                  10 talik ({getPlanUsage(userProfile)}/{getPlanLimit(userProfile)} video)
+                  10 ({getPlanUsage(userProfile)}/{getPlanLimit(userProfile)} video)
                 </div>
               ) : (
                 <div className="flex items-center gap-1.5 bg-slate-950 border border-slate-800 text-slate-300 px-3 py-1.5 rounded-xl text-xs font-semibold">
                   <Sparkles size={14} className="text-emerald-400" />
-                  Bepul ({getPlanUsage(userProfile)}/{getPlanLimit(userProfile)} video)
+                  {ui.freeBadge} ({getPlanUsage(userProfile)}/{getPlanLimit(userProfile)} video)
                 </div>
               )}
 
@@ -326,7 +349,7 @@ export default function App() {
                   }`}
                 >
                   <Shield size={13} />
-                  {mode === "admin" ? "Tahrirchi" : "Admin Panel"}
+                  {mode === "admin" ? "Tahrirchi" : ui.navAdmin}
                 </button>
               )}
 
@@ -337,7 +360,7 @@ export default function App() {
                   className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-semibold text-xs px-3.5 py-1.5 rounded-xl transition-colors cursor-pointer flex items-center gap-1"
                 >
                   <Crown size={13} className="fill-current" />
-                  Premiumga o'tish
+                  {ui.navUpgrade}
                 </button>
               )}
 
@@ -349,7 +372,7 @@ export default function App() {
                     className="bg-white/5 hover:bg-white/10 border border-white/10 text-white font-medium text-xs px-3.5 py-1.5 rounded-xl transition-colors cursor-pointer flex items-center gap-1"
                   >
                     <LogIn size={13} />
-                    Kirish
+                    {ui.navLogin}
                   </button>
                 )
               ) : (
@@ -359,7 +382,7 @@ export default function App() {
                   className="bg-white/5 hover:bg-white/10 border border-white/10 text-slate-400 hover:text-white font-medium text-xs px-3.5 py-1.5 rounded-xl transition-colors cursor-pointer flex items-center gap-1"
                 >
                   <LogOut size={13} />
-                  Chiqish
+                  {ui.navLogout}
                 </button>
               )}
             </div>
@@ -367,7 +390,7 @@ export default function App() {
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-1.5 bg-slate-950 border border-slate-800 text-slate-300 px-3 py-1.5 rounded-xl text-xs font-semibold">
                 <Sparkles size={14} className="text-emerald-400" />
-                Bepul (0/1 video)
+                {ui.freeBadge} (0/1 video)
               </div>
               <a
                 href="https://t.me/QuizVideoAIBot"
@@ -388,7 +411,7 @@ export default function App() {
                 className="bg-gradient-to-r from-indigo-500 to-cyan-500 hover:from-indigo-600 hover:to-cyan-600 text-white font-semibold text-xs px-4 py-2 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shadow-lg shadow-indigo-500/20"
               >
                 <LogIn size={13} />
-                Gmail bilan Kirish
+                {ui.navLogin}
               </button>
             </div>
           )}
@@ -439,6 +462,8 @@ export default function App() {
             onPlay={() => setMode("player")}
             user={user}
             userProfile={userProfile}
+            uiLang={uiLang}
+            onUiLangChange={setUiLang}
             onOpenPaywall={() => setIsPaywallOpen(true)}
             onRequireAuth={() => setIsAuthOpen(true)}
             onOpenReferral={() => setIsReferralOpen(true)}
