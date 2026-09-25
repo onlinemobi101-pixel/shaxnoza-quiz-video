@@ -23,7 +23,7 @@ import {
   MicOff,
   Music,
 } from "lucide-react";
-import { generateTTS, generateTTSBatch } from "../services/tts";
+import { generateTTS, generateTTSBatch, playPCM, stopPCM } from "../services/tts";
 import { getVideoStrings, getUIStrings, UILanguage } from "../services/i18n";
 import { setBGMVolume } from "../services/sfx";
 import { getLongVideoPreset, LONG_VIDEO_PRESETS } from "../services/videoPlan";
@@ -113,36 +113,30 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, uiLang, onUiL
 
   // Ovozni tinglash (play) uchun holat
   const [playingAudioId, setPlayingAudioId] = useState<string | null>(null);
-  const audioInstanceRef = useRef<HTMLAudioElement | null>(null);
+  useEffect(() => {
+    return () => {
+      stopPCM();
+    };
+  }, []);
 
   const playAudio = (base64: string, playId: string) => {
     try {
-      if (audioInstanceRef.current) {
-        audioInstanceRef.current.pause();
-        audioInstanceRef.current = null;
-      }
+      stopPCM();
 
       if (playingAudioId === playId) {
         setPlayingAudioId(null);
         return;
       }
 
-      const audio = new Audio(base64);
-      audioInstanceRef.current = audio;
       setPlayingAudioId(playId);
-
-      audio.onended = () => {
+      const source = playPCM(base64, 24000, () => {
         setPlayingAudioId(null);
-        audioInstanceRef.current = null;
-      };
+      });
 
-      audio.onerror = () => {
+      if (!source) {
         setPlayingAudioId(null);
-        audioInstanceRef.current = null;
         alert("Ovoz faylini tinglashda xatolik yuz berdi.");
-      };
-
-      audio.play();
+      }
     } catch (err) {
       console.error(err);
       setPlayingAudioId(null);

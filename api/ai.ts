@@ -451,7 +451,9 @@ Javobni quyidagi JSON formatida qaytaring:
   return JSON.parse(response.text || "[]");
 }
 
-let activeTTSModel = process.env.GEMINI_TTS_MODEL || "gemini-3.8-flash-tts";
+let activeTTSModel =
+  process.env.GEMINI_TTS_MODEL ||
+  (process.env.GEMINI_API_KEY ? "gemini-3.8-flash-tts" : "gemini-3.1-flash-tts-preview");
 
 async function generateTTS(
   text: string,
