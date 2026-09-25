@@ -533,14 +533,16 @@ export async function failVideoExport(
 function estimatedModelCostUsd(
   kind: "text" | "tts" | "image",
   usage: ModelUsageMetadata,
+  model?: string,
 ): number {
   if (kind === "image") return 0;
-  // 2026-07-20 PayGo narxlari; environment qiymatlari bu fallbacklarni almashtiradi.
+  // Gemini 3.8 Flash TTS narxi: $0.50 input, $9.00 output (3.1 preview: $1 input, $20 output).
+  const is38Tts = kind === "tts" && model && model.includes("3.8");
   const inputRate = kind === "tts"
-    ? envRate("VERTEX_TTS_INPUT_USD_PER_1M_TOKENS", 1)
+    ? (is38Tts ? envRate("VERTEX_TTS_38_INPUT_USD_PER_1M_TOKENS", 0.5) : envRate("VERTEX_TTS_INPUT_USD_PER_1M_TOKENS", 1))
     : envRate("VERTEX_TEXT_INPUT_USD_PER_1M_TOKENS", 0.25);
   const outputRate = kind === "tts"
-    ? envRate("VERTEX_TTS_OUTPUT_USD_PER_1M_TOKENS", 20)
+    ? (is38Tts ? envRate("VERTEX_TTS_38_OUTPUT_USD_PER_1M_TOKENS", 9) : envRate("VERTEX_TTS_OUTPUT_USD_PER_1M_TOKENS", 20))
     : envRate("VERTEX_TEXT_OUTPUT_USD_PER_1M_TOKENS", 1.5);
   return (
     nonNegativeInteger(usage.promptTokenCount) * inputRate +
@@ -567,7 +569,7 @@ export async function recordModelUsage(
 ): Promise<void> {
   try {
     const usage = details.usage || {};
-    const estimatedCostUsd = estimatedModelCostUsd(details.kind, usage);
+    const estimatedCostUsd = estimatedModelCostUsd(details.kind, usage, details.model);
     const costCategory = details.kind === "tts"
       ? "voice"
       : details.kind === "image" || details.action === "imageKeyword"

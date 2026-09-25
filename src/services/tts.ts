@@ -169,20 +169,11 @@ export function playPCM(
 ): AudioBufferSourceNode | null {
   try {
     stopPCM();
-    const binaryString = atob(base64Data);
-    const len = binaryString.length;
-    const bytes = new Uint8Array(len);
-    for (let i = 0; i < len; i++) {
-      bytes[i] = binaryString.charCodeAt(i);
-    }
-
     const audioContext = destination ? (destination.context as AudioContext) : getSharedAudioContext();
-    const buffer = audioContext.createBuffer(1, bytes.length / 2, sampleRate);
-    const channelData = buffer.getChannelData(0);
-
-    const dataView = new DataView(bytes.buffer);
-    for (let i = 0; i < channelData.length; i++) {
-      channelData[i] = dataView.getInt16(i * 2, true) / 32768.0;
+    const buffer = decodePCMToAudioBuffer(base64Data, sampleRate, audioContext);
+    if (!buffer) {
+      if (onEnded) onEnded();
+      return null;
     }
 
     const source = audioContext.createBufferSource();
@@ -219,6 +210,46 @@ export function decodePCMToAudioBuffer(
       bytes[i] = binaryString.charCodeAt(i);
     }
 
+    // WAV (RIFF sarlavhali) tekshiruvi — Gemini 3.8 Flash TTS unar so'rovlarda standart bo'yicha WAV qaytaradi
+    const isWav =
+      len > 44 &&
+      bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46 && // 'RIFF'
+      bytes[8] === 0x57 && bytes[9] === 0x41 && bytes[10] === 0x56 && bytes[11] === 0x45; // 'WAVE'
+
+    if (isWav) {
+      let pcmOffset = 44;
+      let actualSampleRate = sampleRate;
+      let channels = 1;
+      let offset = 12;
+
+      while (offset < len - 8) {
+        const chunkId = String.fromCharCode(bytes[offset], bytes[offset + 1], bytes[offset + 2], bytes[offset + 3]);
+        const chunkSize = (bytes[offset + 4]) | (bytes[offset + 5] << 8) | (bytes[offset + 6] << 16) | (bytes[offset + 7] << 24);
+        if (chunkId === "fmt ") {
+          channels = bytes[offset + 10] | (bytes[offset + 11] << 8);
+          actualSampleRate = (bytes[offset + 12]) | (bytes[offset + 13] << 8) | (bytes[offset + 14] << 16) | (bytes[offset + 15] << 24);
+        } else if (chunkId === "data") {
+          pcmOffset = offset + 8;
+          break;
+        }
+        offset += 8 + chunkSize;
+      }
+
+      const pcmBytes = bytes.subarray(pcmOffset);
+      const numSamples = Math.floor(pcmBytes.length / (2 * channels));
+      const buffer = audioContext.createBuffer(channels, numSamples, actualSampleRate);
+
+      const dataView = new DataView(pcmBytes.buffer, pcmBytes.byteOffset, pcmBytes.byteLength);
+      for (let ch = 0; ch < channels; ch++) {
+        const channelData = buffer.getChannelData(ch);
+        for (let i = 0; i < numSamples; i++) {
+          channelData[i] = dataView.getInt16((i * channels + ch) * 2, true) / 32768.0;
+        }
+      }
+      return buffer;
+    }
+
+    // Xom PCM (Gemini 3.1 Flash TTS Preview va boshqalar)
     const buffer = audioContext.createBuffer(1, bytes.length / 2, sampleRate);
     const channelData = buffer.getChannelData(0);
 

@@ -192,24 +192,36 @@ let cachedTTSAI: GoogleGenAI | null = null;
 
 function getAI(): GoogleGenAI {
   if (!cachedAI) {
-    cachedAI = new GoogleGenAI({
-      vertexai: true,
-      project: VERTEX_PROJECT,
-      location: "global",
-      googleAuthOptions: { credentials: getVertexCredentials(), scopes: ["https://www.googleapis.com/auth/cloud-platform"] },
-    });
+    if (process.env.GEMINI_API_KEY) {
+      cachedAI = new GoogleGenAI({
+        apiKey: process.env.GEMINI_API_KEY,
+      });
+    } else {
+      cachedAI = new GoogleGenAI({
+        vertexai: true,
+        project: VERTEX_PROJECT,
+        location: "global",
+        googleAuthOptions: { credentials: getVertexCredentials(), scopes: ["https://www.googleapis.com/auth/cloud-platform"] },
+      });
+    }
   }
   return cachedAI;
 }
 
 function getTTSAI(): GoogleGenAI {
   if (!cachedTTSAI) {
-    cachedTTSAI = new GoogleGenAI({
-      vertexai: true,
-      project: VERTEX_PROJECT,
-      location: "us-central1",
-      googleAuthOptions: { credentials: getVertexCredentials(), scopes: ["https://www.googleapis.com/auth/cloud-platform"] },
-    });
+    if (process.env.GEMINI_API_KEY) {
+      cachedTTSAI = new GoogleGenAI({
+        apiKey: process.env.GEMINI_API_KEY,
+      });
+    } else {
+      cachedTTSAI = new GoogleGenAI({
+        vertexai: true,
+        project: VERTEX_PROJECT,
+        location: "us-central1",
+        googleAuthOptions: { credentials: getVertexCredentials(), scopes: ["https://www.googleapis.com/auth/cloud-platform"] },
+      });
+    }
   }
   return cachedTTSAI;
 }
@@ -439,6 +451,8 @@ Javobni quyidagi JSON formatida qaytaring:
   return JSON.parse(response.text || "[]");
 }
 
+let activeTTSModel = process.env.GEMINI_TTS_MODEL || "gemini-3.8-flash-tts";
+
 async function generateTTS(
   text: string,
   voiceName: string,
@@ -446,23 +460,50 @@ async function generateTTS(
 ): Promise<string | null> {
   const ai = getTTSAI();
   const startedAt = Date.now();
-  const response = await ai.models.generateContent({
-    model: "gemini-3.1-flash-tts-preview",
-    contents: text,
-    config: {
-      responseModalities: [Modality.AUDIO],
-      speechConfig: {
-        voiceConfig: {
-          prebuiltVoiceConfig: { voiceName },
+  let modelToUse = activeTTSModel;
+  let response: any;
+
+  try {
+    response = await ai.models.generateContent({
+      model: modelToUse,
+      contents: text,
+      config: {
+        responseModalities: [Modality.AUDIO],
+        speechConfig: {
+          voiceConfig: {
+            prebuiltVoiceConfig: { voiceName },
+          },
         },
       },
-    },
-  });
+    });
+  } catch (err: any) {
+    const msg = String(err?.message || "");
+    const isNotFound = err?.status === 404 || msg.includes("404") || msg.includes("NOT_FOUND") || msg.includes("not found");
+    if (isNotFound && modelToUse === "gemini-3.8-flash-tts") {
+      console.warn(`[TTS] ${modelToUse} endpointda topilmadi (404), gemini-3.1-flash-tts-preview ga o'tilmoqda...`);
+      activeTTSModel = "gemini-3.1-flash-tts-preview";
+      modelToUse = "gemini-3.1-flash-tts-preview";
+      response = await ai.models.generateContent({
+        model: modelToUse,
+        contents: text,
+        config: {
+          responseModalities: [Modality.AUDIO],
+          speechConfig: {
+            voiceConfig: {
+              prebuiltVoiceConfig: { voiceName },
+            },
+          },
+        },
+      });
+    } else {
+      throw err;
+    }
+  }
 
   const audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data || null;
   await recordModelUsage(user, {
     action: "tts",
-    model: "gemini-3.1-flash-tts-preview",
+    model: modelToUse,
     kind: "tts",
     usage: response.usageMetadata,
     textCharacters: text.length,
