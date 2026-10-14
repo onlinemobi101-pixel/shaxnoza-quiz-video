@@ -173,7 +173,7 @@ async function enforceRateLimit(user: AuthenticatedUser, action: ApiAction, cost
 // DIQQAT: bu Firebase loyihasidan BOSHQA GCP loyihasi (Firebase uchun —
 // api/firebase-admin.ts). Boshqa loyihaga ko'chirilganda VERTEX_PROJECT env orqali
 // almashtiriladi; standart qiymat hozirgi ishlab turgan sozlamani saqlaydi.
-const VERTEX_PROJECT = process.env.VERTEX_PROJECT || "gen-lang-client-0604912271";
+const VERTEX_PROJECT = process.env.VERTEX_PROJECT || "gen-lang-client-0819871674";
 
 function getVertexCredentials() {
   const raw = process.env.GCP_SERVICE_ACCOUNT_JSON;
@@ -218,7 +218,7 @@ function getTTSAI(): GoogleGenAI {
       cachedTTSAI = new GoogleGenAI({
         vertexai: true,
         project: VERTEX_PROJECT,
-        location: "us-central1",
+        location: process.env.VERTEX_TTS_LOCATION || "global",
         googleAuthOptions: { credentials: getVertexCredentials(), scopes: ["https://www.googleapis.com/auth/cloud-platform"] },
       });
     }
