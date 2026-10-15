@@ -38,6 +38,8 @@ service cloud.firestore {
             'quotaUsed',
             'quotaLimit',
             'email',
+            'referralsCount',
+            'bonusVideos',
             'createdAt'
           ]) &&
           request.resource.data.role == 'free' &&
@@ -46,7 +48,9 @@ service cloud.firestore {
           request.resource.data.quotaCycle == null &&
           request.resource.data.quotaUsed == 0 &&
           request.resource.data.quotaLimit == 1 &&
-          request.resource.data.email == request.auth.token.email
+          request.resource.data.email == request.auth.token.email &&
+          request.resource.data.referralsCount == 0 &&
+          request.resource.data.bonusVideos == 0
         )
       );
 
