@@ -305,21 +305,35 @@ export default function App() {
                   Admin ({ui.unlimitedBadge})
                 </div>
               ) : userProfile?.role === "premium" ? (
-                <div className="flex items-center gap-1.5 bg-amber-500/10 border border-amber-500/30 text-amber-400 px-3 py-1.5 rounded-xl text-xs font-semibold">
+                <div 
+                  className="flex items-center gap-1.5 bg-amber-500/10 border border-amber-500/30 text-amber-400 px-3 py-1.5 rounded-xl text-xs font-semibold"
+                  title={`Jami limit: ${getPlanLimit(userProfile) ?? 100} ta, Sarflangan: ${getPlanUsage(userProfile)} ta`}
+                >
                   <Crown size={14} className="text-amber-400 fill-current" />
-                  Pro ({getPlanUsage(userProfile)}/{getPlanLimit(userProfile)} video)
+                  Pro ({Math.max(0, (getPlanLimit(userProfile) ?? 100) - getPlanUsage(userProfile))} ta qoldi)
                 </div>
               ) : userProfile?.role === "pack10" ? (
-                <div className="flex items-center gap-1.5 bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 px-3 py-1.5 rounded-xl text-xs font-semibold">
+                <div 
+                  className="flex items-center gap-1.5 bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 px-3 py-1.5 rounded-xl text-xs font-semibold"
+                  title={`Jami limit: ${getPlanLimit(userProfile) ?? 10} ta, Sarflangan: ${getPlanUsage(userProfile)} ta`}
+                >
                   <Sparkles size={14} className="text-cyan-400" />
-                  10 ({getPlanUsage(userProfile)}/{getPlanLimit(userProfile)} video)
+                  10 ({Math.max(0, (getPlanLimit(userProfile) ?? 10) - getPlanUsage(userProfile))} ta qoldi)
                 </div>
-              ) : (
-                <div className="flex items-center gap-1.5 bg-slate-950 border border-slate-800 text-slate-300 px-3 py-1.5 rounded-xl text-xs font-semibold">
-                  <Sparkles size={14} className="text-emerald-400" />
-                  {ui.freeBadge} ({getPlanUsage(userProfile)}/{getPlanLimit(userProfile)} video)
-                </div>
-              )}
+              ) : (() => {
+                const limit = getPlanLimit(userProfile) ?? 1;
+                const used = getPlanUsage(userProfile);
+                const remaining = Math.max(0, limit - used);
+                return (
+                  <div 
+                    className="flex items-center gap-1.5 bg-slate-950 border border-slate-800 text-slate-300 px-3 py-1.5 rounded-xl text-xs font-semibold"
+                    title={`Jami limit: ${limit} ta, Sarflangan: ${used} ta`}
+                  >
+                    <Sparkles size={14} className={remaining > 0 ? "text-emerald-400" : "text-amber-400"} />
+                    {ui.freeBadge} ({remaining} ta qoldi)
+                  </div>
+                );
+              })()}
 
               <div className="text-xs text-slate-400 flex items-center gap-1.5 bg-white/5 border border-white/5 px-3 py-1.5 rounded-xl">
                 {user.isAnonymous && getTelegramUser() ? (
