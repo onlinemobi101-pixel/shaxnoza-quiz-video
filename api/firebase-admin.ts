@@ -18,6 +18,26 @@ OAuth2Client.prototype.getRequestHeaders = async function (...args: any[]) {
     (headers as any).forEach((val: string, key: string) => {
       plain[key] = val;
     });
+    // @google/genai (Vertex AI NodeAuth) for..of orqali authHeaders ni aylantiradi:
+    Object.defineProperty(plain, Symbol.iterator, {
+      enumerable: false,
+      value: function* () {
+        for (const [k, v] of Object.entries(plain)) {
+          yield [k, v];
+        }
+      },
+    });
+    // Ehtiyot chorasi sifatida .get va .forEach ham qo'shiladi:
+    Object.defineProperty(plain, "get", {
+      enumerable: false,
+      value: (name: string) => {
+        const lower = name.toLowerCase();
+        for (const [k, v] of Object.entries(plain)) {
+          if (k.toLowerCase() === lower) return v;
+        }
+        return null;
+      },
+    });
     return plain as any;
   }
   return headers;
