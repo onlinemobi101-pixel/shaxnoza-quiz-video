@@ -224,6 +224,32 @@ export async function requirePlanAccess(
   return { ...profile, effectiveRole: role, quota };
 }
 
+export async function runTransactionWithRetry<T>(
+  fn: (transaction: FirebaseFirestore.Transaction) => Promise<T>,
+  maxRetries = 3,
+): Promise<T> {
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      return await adminDb.runTransaction(fn);
+    } catch (err: any) {
+      const msg = String(err?.message || err);
+      const isTransient =
+        msg.includes("Premature close") ||
+        msg.includes("ECONNRESET") ||
+        msg.includes("ETIMEDOUT") ||
+        msg.includes("UNAVAILABLE") ||
+        msg.includes("14 UNAVAILABLE") ||
+        msg.includes("socket hang up");
+      if (isTransient && attempt < maxRetries - 1) {
+        await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)));
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw new Error("Transaction failed after retries");
+}
+
 // AI byudjetidan `amount` birlik yechadi. Chaqiruvdan OLDIN bajariladi (rate-limit kabi),
 // shuning uchun xato bo'lgan chaqiruvlar cheksiz qayta urinishga yo'l ochmaydi.
 // Model javob bermagan hollarda refundAiBudget() bilan qaytarib beriladi.
@@ -236,7 +262,7 @@ export async function consumeAiBudget(
   if (amount <= 0) return;
   const userRef = adminDb.collection("users").doc(user.uid);
 
-  await adminDb.runTransaction(async (transaction) => {
+  await runTransactionWithRetry(async (transaction) => {
     const snapshot = await transaction.get(userRef);
     const data = snapshot.data() || {};
     const profile = normalizeProfile(data);
@@ -278,7 +304,7 @@ export async function refundAiBudget(
   const userRef = adminDb.collection("users").doc(user.uid);
   const field = AI_USAGE_FIELDS[resource];
   try {
-    await adminDb.runTransaction(async (transaction) => {
+    await runTransactionWithRetry(async (transaction) => {
       const snapshot = await transaction.get(userRef);
       if (!snapshot.exists) return;
       const used = nonNegativeInteger(snapshot.data()?.[field]);
@@ -302,7 +328,7 @@ export async function reserveVideoExport(
   const reservationId = randomUUID();
   const reservationRef = adminDb.collection("exportReservations").doc(reservationId);
 
-  return adminDb.runTransaction(async (transaction) => {
+  return runTransactionWithRetry(async (transaction) => {
     const snapshot = await transaction.get(userRef);
     let profileData = snapshot.data();
     if (!snapshot.exists) {
@@ -390,7 +416,7 @@ export async function completeVideoExport(
   const monthRef = adminDb.collection("usageMonths").doc(month);
   const userMonthRef = monthRef.collection("users").doc(user.uid);
 
-  return adminDb.runTransaction(async (transaction) => {
+  return runTransactionWithRetry(async (transaction) => {
     const [userSnapshot, reservationSnapshot, userMonthSnapshot] = await Promise.all([
       transaction.get(userRef),
       transaction.get(reservationRef),
@@ -495,7 +521,7 @@ export async function failVideoExport(
   const monthRef = adminDb.collection("usageMonths").doc(month);
   const userMonthRef = monthRef.collection("users").doc(user.uid);
 
-  await adminDb.runTransaction(async (transaction) => {
+  await runTransactionWithRetry(async (transaction) => {
     const [userSnapshot, reservationSnapshot] = await Promise.all([
       transaction.get(userRef),
       transaction.get(reservationRef),

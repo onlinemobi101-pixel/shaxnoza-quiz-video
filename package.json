@@ -35,5 +35,9 @@
     "typescript": "~5.8.2",
     "vite": "^6.2.0",
     "vitest": "^4.1.10"
+  },
+  "overrides": {
+    "google-auth-library": "^10.9.1",
+    "gaxios": "^7.3.1"
   }
 }

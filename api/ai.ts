@@ -17,6 +17,7 @@ import {
   refundAiBudget,
   requirePlanAccess,
   reserveVideoExport,
+  runTransactionWithRetry,
 } from "./usage.js";
 
 const CURATED_IMAGES: Record<string, string> = {
@@ -149,7 +150,7 @@ async function enforceRateLimit(user: AuthenticatedUser, action: ApiAction, cost
 
   const config = RATE_LIMITS[action];
   const ref = adminDb.collection("apiUsage").doc(user.uid);
-  await adminDb.runTransaction(async (transaction) => {
+  await runTransactionWithRetry(async (transaction) => {
     const snapshot = await transaction.get(ref);
     const data = snapshot.data() || {};
     const windowField = `${action}WindowStart`;
