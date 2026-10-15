@@ -22,6 +22,8 @@ export function Player({ quiz, onExit }: PlayerProps) {
 
   const question = quiz.questions[currentQuestionIndex];
   const isYouTubeFormat = quiz.videoFormat === "youtube";
+  const isHidingLast = Boolean(quiz.hideLastAnswer && currentQuestionIndex === quiz.questions.length - 1);
+  const activeBackgroundVideo = question?.backgroundVideo || quiz.backgroundVideoUrl;
   // Video matnlari quiz tiliga mos (preview eksport bilan bir xil ko'rinsin)
   const vs = getVideoStrings(quiz.language);
 
@@ -95,14 +97,17 @@ export function Player({ quiz, onExit }: PlayerProps) {
       if (isCancelled) return;
       setTimerCountdown(0);
 
+      const isLastQuestion = currentQuestionIndex === quiz.questions.length - 1;
+      const isHidingLast = Boolean(quiz.hideLastAnswer && isLastQuestion);
+
       setPhase("reveal");
       playSuccess();
       let revealAudioPromise = Promise.resolve();
-      if (question.correctAudioBase64) {
+      if (question.correctAudioBase64 && !isHidingLast) {
         revealAudioPromise = playPCMAsync(question.correctAudioBase64);
       }
       
-      const revealMinimumMs = isYouTubeFormat ? 5200 : 3000;
+      const revealMinimumMs = isHidingLast ? 3000 : (isYouTubeFormat ? 5200 : 3000);
       await Promise.all([revealAudioPromise, sleep(revealMinimumMs)]);
       if (isCancelled) return;
 
@@ -120,10 +125,15 @@ export function Player({ quiz, onExit }: PlayerProps) {
       if (currentQuestionIndex < quiz.questions.length - 1) {
         setCurrentQuestionIndex((prev) => prev + 1);
       } else {
-        setPhase("outro");
-        playSuccess(); // Small chime for outro
-        await sleep(getOutroDurationMs(quiz));
-        if (isCancelled) return;
+        if (quiz.outroEnabled !== false) {
+          setPhase("outro");
+          playSuccess(); // Small chime for outro
+          if (quiz.outroAudioBase64) {
+            playPCMAsync(quiz.outroAudioBase64);
+          }
+          await sleep(3000);
+          if (isCancelled) return;
+        }
         
         stopProceduralBGM();
         setPhase("done"); // Trigger end screen
@@ -158,19 +168,21 @@ export function Player({ quiz, onExit }: PlayerProps) {
   if (phase === 'outro') {
     return (
       <div className="min-h-screen bg-neutral-950 flex flex-col items-center justify-center p-4 relative overflow-hidden">
-        <div className="absolute inset-0 bg-black/60 backdrop-blur-2xl z-0" />
+        <div className="absolute inset-0 bg-gradient-to-br from-indigo-950/80 via-black to-purple-950/80 backdrop-blur-2xl z-0" />
         <motion.div 
-          initial={{ scale: 0.8, opacity: 0 }}
+          initial={{ scale: 0.85, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
-          className="z-10 flex flex-col items-center text-center"
+          transition={{ duration: 0.5, ease: "easeOut" }}
+          className="z-10 flex flex-col items-center text-center max-w-xl mx-auto px-6 py-8 rounded-3xl bg-white/[0.08] backdrop-blur-2xl border border-white/20 shadow-[0_20px_60px_rgba(0,0,0,0.6)]"
         >
-          <Heart size={80} className="text-rose-500 mb-6 drop-shadow-[0_0_30px_rgba(243,63,94,0.6)] animate-pulse" fill="currentColor" />
-          <h2 className="text-4xl md:text-5xl font-black text-white mb-4 drop-shadow-lg">{vs.outroTitle}</h2>
-          <p className="text-xl md:text-2xl text-neutral-300 font-medium">{vs.outroSubtitle}</p>
+          <div className="text-5xl mb-4 animate-bounce">⚡</div>
+          <h2 className="text-3xl md:text-4xl font-black text-white mb-3 drop-shadow-lg tracking-tight">{vs.outroTitle}</h2>
+          <p className="text-base md:text-lg text-emerald-300 font-bold mb-3 leading-relaxed max-w-lg">{vs.outroCtaText}</p>
+          <p className="text-sm md:text-base text-neutral-300 font-medium">{vs.outroSubtitle}</p>
           
           {quiz.watermark && (
-            <div className="mt-12 bg-white/10 backdrop-blur-md px-6 py-3 rounded-full border border-white/20">
-              <span className="text-2xl font-bold tracking-wider">{quiz.watermark}</span>
+            <div className="mt-6 bg-gradient-to-r from-amber-500/20 to-orange-500/20 backdrop-blur-md px-6 py-2.5 rounded-full border border-amber-400/40">
+              <span className="text-lg md:text-xl font-black text-amber-300 tracking-wider">{quiz.watermark}</span>
             </div>
           )}
         </motion.div>
@@ -402,22 +414,36 @@ export function Player({ quiz, onExit }: PlayerProps) {
           ? "relative w-full max-w-[1200px] max-h-[85vh] aspect-video bg-neutral-900 rounded-3xl shadow-[0_20px_60px_rgba(0,0,0,0.55)] ring-[6px] ring-neutral-900/90"
           : activePreset.container} relative overflow-hidden`}
       >
-        {/* Background Image with Transition */}
-        <AnimatePresence mode="popLayout">
-          <motion.div
-            key={currentQuestionIndex}
-            initial={{ opacity: 0, scale: 1 }}
-            animate={{ opacity: 1, scale: 1.15 }}
-            exit={{ opacity: 0, scale: 1.15 }}
-            transition={{ opacity: { duration: 0.6 }, scale: { duration: 25, ease: "linear" } }}
-            className="absolute inset-0 z-0 pointer-events-none"
-            style={{
-              backgroundImage: `url(${question.backgroundImage})`,
-              backgroundSize: "cover",
-              backgroundPosition: "center",
-            }}
-          />
-        </AnimatePresence>
+        {/* Background Image / Video with Transition */}
+        {activeBackgroundVideo ? (
+          <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
+            <video
+              src={activeBackgroundVideo}
+              autoPlay
+              loop
+              muted
+              playsInline
+              className="absolute inset-0 w-full h-full object-cover"
+            />
+            <div className="absolute inset-0 bg-black/50" />
+          </div>
+        ) : (
+          <AnimatePresence mode="popLayout">
+            <motion.div
+              key={currentQuestionIndex}
+              initial={{ opacity: 0, scale: 1 }}
+              animate={{ opacity: 1, scale: 1.15 }}
+              exit={{ opacity: 0, scale: 1.15 }}
+              transition={{ opacity: { duration: 0.6 }, scale: { duration: 25, ease: "linear" } }}
+              className="absolute inset-0 z-0 pointer-events-none"
+              style={{
+                backgroundImage: `url(${question.backgroundImage})`,
+                backgroundSize: "cover",
+                backgroundPosition: "center",
+              }}
+            />
+          </AnimatePresence>
+        )}
 
         {/* Dark Overlay gradient */}
         <div className={`${activePreset.overlay} z-1 pointer-events-none`} />
@@ -475,7 +501,7 @@ export function Player({ quiz, onExit }: PlayerProps) {
                       phase === "reveal") &&
                       question.options.map((opt, idx) => {
                         const isReveal = phase === "reveal";
-                        const isCorrect = idx === question.correctOptionIndex;
+                        const isCorrect = !isHidingLast && idx === question.correctOptionIndex;
 
                         let optionStyle = activePreset.optionNormal;
                         let scale = 1;
@@ -484,7 +510,7 @@ export function Player({ quiz, onExit }: PlayerProps) {
                           if (isCorrect) {
                             optionStyle = typeof activePreset.optionCorrect === 'function' ? (activePreset.optionCorrect as any)(activeTheme) : activePreset.optionCorrect;
                             scale = 1.05;
-                          } else {
+                          } else if (!isHidingLast) {
                             optionStyle = activePreset.optionIncorrect;
                             scale = 0.98;
                           }
@@ -519,16 +545,37 @@ export function Player({ quiz, onExit }: PlayerProps) {
                   </AnimatePresence>
                 </div>
 
-                {(phase === "reveal" || phase === "end") && question.explanation && (
+                {(phase === "reveal" || phase === "end") && (isHidingLast || question.explanation) && (
                   <motion.div
                     initial={{ opacity: 0, y: 12 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className={`mt-3 rounded-2xl border border-white/15 bg-black/55 backdrop-blur-xl text-white ${
-                      isYouTubeFormat ? "px-5 py-2 text-xs sm:text-sm" : "px-4 py-3 text-sm"
-                    }`}
+                    className={`mt-3 rounded-2xl border ${
+                      isHidingLast
+                        ? "border-amber-400/40 bg-amber-950/70 shadow-[0_0_25px_rgba(245,158,11,0.25)] text-amber-100"
+                        : "border-white/15 bg-black/60 backdrop-blur-xl text-white"
+                    } ${
+                      isYouTubeFormat ? "px-5 py-2.5 text-xs sm:text-sm" : "px-4 py-3.5 text-sm sm:text-base"
+                    } break-words leading-relaxed`}
                   >
-                    <span className="font-black text-emerald-300 mr-2">WHY?</span>
-                    {question.explanation}
+                    {isHidingLast ? (
+                      <div className="flex items-center gap-2.5">
+                        <span className="shrink-0 px-2 py-0.5 rounded-full bg-amber-500 text-black font-black text-xs tracking-wider uppercase">
+                          {vs.hideLastAnswerBadge}
+                        </span>
+                        <span className="font-bold text-white text-xs sm:text-sm">
+                          {vs.hideLastAnswerCommentPrompt}
+                        </span>
+                      </div>
+                    ) : (
+                      <>
+                        <span className="font-black text-emerald-300 mr-2 uppercase tracking-wide">
+                          {vs.explanationBadge || 'WHY?'}
+                        </span>
+                        <span className="font-medium text-white/95">
+                          {question.explanation}
+                        </span>
+                      </>
+                    )}
                   </motion.div>
                 )}
               </motion.div>

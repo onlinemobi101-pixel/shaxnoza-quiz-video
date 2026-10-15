@@ -8,6 +8,10 @@ export interface VideoStrings {
   questionBadge: string; // "SAVOL" (badge: SAVOL 1/5)
   thinking: string; // taymer yorlig'i
   correctAnswer: string; // javob ochilgandagi yorliq
+  explanationBadge: string; // "IZOH", "WHY?", "ФАКТ", "NEDEN?"
+  hideLastAnswerCommentPrompt: string; // "Oxirgi savol javobini va necha ball to'plaganingizni izohda yozing!"
+  hideLastAnswerBadge: string; // "IZOHDA YOZING 💬"
+  outroCtaText: string; // "🤖 Bunday videolarni 1 daqiqada yarating!..."
   introBadge: string; // intro'dagi rangli badge
   introCount: (n: number) => string; // intro pastki matni
   outroTitle: string;
@@ -22,6 +26,10 @@ const STRINGS: Record<QuizLanguage, VideoStrings> = {
     questionBadge: "SAVOL",
     thinking: "O'YLASH VAQTI...",
     correctAnswer: "TO'G'RI JAVOB",
+    explanationBadge: "IZOH",
+    hideLastAnswerCommentPrompt: "Oxirgi savol javobini va necha ball to'plaganingizni izohda yozing!",
+    hideLastAnswerBadge: "IZOHDA YOZING 💬",
+    outroCtaText: "🤖 Bunday videolarni 1 daqiqada yarating! Profilimizdagi havolaga kiring yoki izohga «AI» deb yozing!",
     introBadge: "NECHTASINI TOPASIZ?",
     introCount: (n) => `${n} ta savol • Javoblari ichida`,
     outroTitle: "Videoga Like Bosing!",
@@ -35,6 +43,10 @@ const STRINGS: Record<QuizLanguage, VideoStrings> = {
     questionBadge: "QUESTION",
     thinking: "TIME TO THINK...",
     correctAnswer: "CORRECT ANSWER",
+    explanationBadge: "WHY?",
+    hideLastAnswerCommentPrompt: "Write the answer to the last question and your score in the comments!",
+    hideLastAnswerBadge: "WRITE IN COMMENTS 💬",
+    outroCtaText: "🤖 Create videos like this in 1 minute! Click the link in bio or comment «QUIZ» below!",
     introBadge: "HOW MANY CAN YOU GET?",
     introCount: (n) => `${n} questions • Answers inside`,
     outroTitle: "Like this video!",
@@ -48,6 +60,10 @@ const STRINGS: Record<QuizLanguage, VideoStrings> = {
     questionBadge: "ВОПРОС",
     thinking: "ВРЕМЯ ПОДУМАТЬ...",
     correctAnswer: "ПРАВИЛЬНЫЙ ОТВЕТ",
+    explanationBadge: "ФАКТ",
+    hideLastAnswerCommentPrompt: "Напишите ответ на последний вопрос и ваш счёт в комментариях!",
+    hideLastAnswerBadge: "ПИШИТЕ В КОММЕНТАРИЯХ 💬",
+    outroCtaText: "🤖 Создавайте такие видео за 1 минуту! Ссылка в профиле или напишите «ИИ» в комментарии!",
     introBadge: "СКОЛЬКО УГАДАЕШЬ?",
     introCount: (n) => `Вопросов: ${n} • Ответы внутри`,
     outroTitle: "Ставь лайк!",
@@ -61,6 +77,10 @@ const STRINGS: Record<QuizLanguage, VideoStrings> = {
     questionBadge: "SORU",
     thinking: "DÜŞÜNME ZAMANI...",
     correctAnswer: "DOĞRU CEVAP",
+    explanationBadge: "NEDEN?",
+    hideLastAnswerCommentPrompt: "Son sorunun cevabını ve puanınızı yorumlara yazın!",
+    hideLastAnswerBadge: "YORUMLARA YAZIN 💬",
+    outroCtaText: "🤖 1 dakikada böyle videolar yapın! Profildeki linke tıklayın veya yorumlara «AI» yazın!",
     introBadge: "KAÇINI BİLEBİLİRSİN?",
     introCount: (n) => `${n} soru • Cevaplar içinde`,
     outroTitle: "Videoyu beğen!",
@@ -171,7 +191,47 @@ export interface UIStrings {
   customBgmUpload: string;
   watermarkLabel: string;
   watermarkTip: string;
+  watermarkPaywallAlert: string;
   bgmRecommendTip: string;
+
+  questionCountLabel: string;
+  questionCount3: string;
+  questionCount5: string;
+  hideLastAnswerLabel: string;
+  hideLastAnswerDesc: string;
+  outroEnabledLabel: string;
+  outroEnabledDesc: string;
+
+  // Background Video & Auto-Factory
+  uploadBgVideoBtn: string;
+  removeBgVideoBtn: string;
+  bgVideoActive: string;
+  autoFactoryTitle: string;
+  autoFactoryBtn: string;
+
+  // Paywall & B2B
+  paywallB2BBadge: string;
+  paywallB2BTitle: string;
+  paywallB2BDesc: string;
+  paywallB2BPrice: string;
+  paywallB2BPriceUnit: string;
+  paywallB2BBtn: string;
+  paywallB2BTelegramMsg: string;
+
+  // Landing Page
+  landingHeroBadge: string;
+  landingHeroTitle: string;
+  landingHeroDesc: string;
+  landingHeroStartFree: string;
+  landingHeroPricingBtn: string;
+  landingWhoTitle: string;
+  landingWhoSubtitle: string;
+  landingAudience1Title: string;
+  landingAudience1Desc: string;
+  landingAudience2Title: string;
+  landingAudience2Desc: string;
+  landingAudience3Title: string;
+  landingAudience3Desc: string;
 
   // Action bar
   btnPreview: string;
@@ -272,7 +332,44 @@ const UI_DICTIONARY: Record<UILanguage, UIStrings> = {
     customBgmUpload: "O'z MP3 musiqangizni yuklash",
     watermarkLabel: "Watermark (@username)",
     watermarkTip: "* Bepul va oddiy tariflarda suv belgisi majburiy bo'lib, uni o'chirish faqat premium foydalanuvchilar uchun ruxsat etiladi.",
+    watermarkPaywallAlert: "Shaxsiy kanal nomini qo'yish faqat Pack10 va Premium tariflarida mavjud",
     bgmRecommendTip: "* AI suxandon ovozi aniq eshitilishi uchun 15% - 30% oralig'i eng maqbul hisoblanadi.",
+
+    questionCountLabel: "Savollar soni",
+    questionCount3: "3 ta savol (Shorts/Reels tezkor — tavsiya etiladi)",
+    questionCount5: "5 ta savol (Standart)",
+    hideLastAnswerLabel: "Oxirgi savol javobini yashirish (Komment yig'ish)",
+    hideLastAnswerDesc: "Eng oxirgi savolda to'g'ri javob ochilmaydi va tomoshabinlarga javobni izohda yozish tavsiya qilinadi",
+    outroEnabledLabel: "Yakuniy chorlov (Outro) qo'shish",
+    outroEnabledDesc: "Videoning oxiriga 3 soniyalik chiroyli sotuv va profilga taklif kartasi qo'shiladi",
+
+    uploadBgVideoBtn: "🎬 Orqa fonga video (.mp4/.webm) yuklash",
+    removeBgVideoBtn: "🗑 Videoni o'chirish / Rasm rejimiga qaytish",
+    bgVideoActive: "🎬 Harakatlanuvchi video fon yoqilgan",
+    autoFactoryTitle: "🚀 4 Tilda Avto-Zavod va 30 Kunlik Reja",
+    autoFactoryBtn: "🚀 Avto-Zavod (4 til)",
+
+    paywallB2BBadge: "VIP / 30 KUNLIK REJA",
+    paywallB2BTitle: "VIP / B2B Tayyor Paket (30 ta video)",
+    paywallB2BDesc: "Oʻquv markazlari, repetitorlar va ekspertlar uchun: vaqtingiz yoʻqmi? Biz sizning mavzularingiz va shaxsiy logotipingiz asosida 1 oylik (30 dona) tayyor videoni 24 soatda oʻzimiz tayyorlab beramiz!",
+    paywallB2BPrice: "350 000 soʻm",
+    paywallB2BPriceUnit: "1 oylik (30 ta) video",
+    paywallB2BBtn: "✈️ Buyurtma berish (Telegram)",
+    paywallB2BTelegramMsg: "Assalomu alaykum! Men B2B Tayyor Paket (30 ta video) buyurtma qilmoqchiman. Mijoz ID: ",
+
+    landingHeroBadge: "AI bilan 60 soniyada",
+    landingHeroTitle: "1 ta mavzu kiriting — 60 soniyada Instagram Reels, YouTube Shorts va TikTok uchun 4 tilda tayyor viktorina videosini oling!",
+    landingHeroDesc: "Mavzuni yozing — AI savollarni tuzadi, professional ovoz bilan o'qiydi va tayyor 16:9 uzun yoki 9:16 vertikal videoni yuklab beradi. Montaj ham, studiya ham kerak emas.",
+    landingHeroStartFree: "🎁 1 ta videoni hoziroq BEPUL yaratib koʻring",
+    landingHeroPricingBtn: "Tariflar",
+    landingWhoTitle: "Kimlar uchun?",
+    landingWhoSubtitle: "Har bir soha uchun maxsus moslashtirilgan video generator",
+    landingAudience1Title: "Repetitorlar va Oʻquv markazlari",
+    landingAudience1Desc: "DTM, IELTS, tarix, avto-test va fan savollarini 1 daqiqada obunachilarni jalb qiluvchi Reels formatiga aylantiring.",
+    landingAudience2Title: "YouTube va TikTok (Faceless) kreatorlar",
+    landingAudience2Desc: "Yuzingizni koʻrsatmasdan 4 ta tilda (UZ, RU, EN, TR) kanal yuriting va YouTube monetizatsiyasiga tezroq chiqing.",
+    landingAudience3Title: "SMM-mutaxassislar va Blogerlar",
+    landingAudience3Desc: "Mijozlaringiz sahifasida izohlar va koʻrishlar sonini (Engagement) 3 barobar oshiruvchi interaktiv kontent yarating.",
 
     btnPreview: "Ko'rish (Preview)",
     btnExportVideo: "Video Yuklab Olish",
@@ -370,7 +467,44 @@ const UI_DICTIONARY: Record<UILanguage, UIStrings> = {
     customBgmUpload: "Загрузить свой MP3 трек",
     watermarkLabel: "Водяной знак (@username)",
     watermarkTip: "* На бесплатном тарифе водяной знак обязателен. Удаление доступно в тарифе Premium.",
+    watermarkPaywallAlert: "Установка своего водяного знака доступна только на тарифах Pack10 и Premium",
     bgmRecommendTip: "* Для четкой слышимости диктора рекомендуется громкость 15% - 30%.",
+
+    questionCountLabel: "Количество вопросов",
+    questionCount3: "3 вопроса (Shorts/Reels быстрый — рекомендуется)",
+    questionCount5: "5 вопросов (Стандарт)",
+    hideLastAnswerLabel: "Скрыть ответ на последний вопрос (Сбор комментариев)",
+    hideLastAnswerDesc: "В самом последнем вопросе ответ не показывается, зрителям предлагается написать его в комментариях",
+    outroEnabledLabel: "Добавить финальный призыв (Аутро)",
+    outroEnabledDesc: "В конец видео добавляется 3-секундная карточка с призывом перейти в профиль",
+
+    uploadBgVideoBtn: "🎬 Загрузить фоновое видео (.mp4/.webm)",
+    removeBgVideoBtn: "🗑 Удалить видео / Вернуться к фото",
+    bgVideoActive: "🎬 Живой видеофон включен",
+    autoFactoryTitle: "🚀 Авто-Завод (4 языка) и План на 30 дней",
+    autoFactoryBtn: "🚀 Авто-Завод (4 языка)",
+
+    paywallB2BBadge: "VIP / НА 30 ДНЕЙ",
+    paywallB2BTitle: "VIP / B2B Готовый Пакет (30 видео)",
+    paywallB2BDesc: "Для учебных центров, репетиторов и экспертов: нет времени? Мы сами создадим для вас 30 готовых видео на месяц с вашим логотипом и по вашим темам за 24 часа!",
+    paywallB2BPrice: "$29",
+    paywallB2BPriceUnit: "30 готовых видео",
+    paywallB2BBtn: "✈️ Заказать (Telegram)",
+    paywallB2BTelegramMsg: "Здравствуйте! Я хочу заказать VIP / B2B Готовый Пакет (30 видео). Мой ID: ",
+
+    landingHeroBadge: "ИИ за 60 секунд",
+    landingHeroTitle: "Введите 1 тему — и за 60 секунд получите готовое видео для Reels, Shorts и TikTok на 4 языках!",
+    landingHeroDesc: "Напишите тему — ИИ создаст вопросы, озвучит профессиональным диктором и сгенерирует готовое видео 9:16 или 16:9. Без монтажа и студии.",
+    landingHeroStartFree: "🎁 Создайте 1 видео прямо сейчас БЕСПЛАТНО",
+    landingHeroPricingBtn: "Тарифы",
+    landingWhoTitle: "Для кого этот сервис?",
+    landingWhoSubtitle: "Идеально подходит для авторов контента, педагогов и бизнеса",
+    landingAudience1Title: "Репетиторы и учебные центры",
+    landingAudience1Desc: "Превращайте экзаменационные тесты, историю и языковые темы в вирусный формат Reels за 1 минуту.",
+    landingAudience2Title: "YouTube и TikTok (Faceless) авторы",
+    landingAudience2Desc: "Ведите каналы без показа лица на 4 языках (UZ, RU, EN, TR) и быстрее выходите на монетизацию YouTube.",
+    landingAudience3Title: "SMM-специалисты и блогеры",
+    landingAudience3Desc: "Создавайте интерактивный контент, увеличивающий комментарии и просмотры (Engagement) ваших клиентов в 3 раза.",
 
     btnPreview: "Просмотр (Preview)",
     btnExportVideo: "Скачать видео",
@@ -468,7 +602,44 @@ const UI_DICTIONARY: Record<UILanguage, UIStrings> = {
     customBgmUpload: "Upload Custom MP3 Audio",
     watermarkLabel: "Watermark (@username)",
     watermarkTip: "* Watermark is mandatory on free plan. Upgrade to Premium to remove or customize.",
+    watermarkPaywallAlert: "Custom watermark is available exclusively on Pack10 and Premium plans",
     bgmRecommendTip: "* 15% - 30% volume is recommended for crystal-clear narrator voice.",
+
+    questionCountLabel: "Question Count",
+    questionCount3: "3 questions (Fast Shorts/Reels — recommended)",
+    questionCount5: "5 questions (Standard)",
+    hideLastAnswerLabel: "Hide last answer (Comment booster)",
+    hideLastAnswerDesc: "The answer to the final question won't be shown, asking viewers to comment their guess",
+    outroEnabledLabel: "Add Outro Call-To-Action",
+    outroEnabledDesc: "Adds a 3-second closing card inviting viewers to check your link in bio",
+
+    uploadBgVideoBtn: "🎬 Upload Background Video (.mp4/.webm)",
+    removeBgVideoBtn: "🗑 Remove Video / Back to Images",
+    bgVideoActive: "🎬 Looping video background active",
+    autoFactoryTitle: "🚀 4-Language Auto-Factory & 30-Day Plan",
+    autoFactoryBtn: "🚀 Auto-Factory (4 Langs)",
+
+    paywallB2BBadge: "VIP / 30-DAY PACK",
+    paywallB2BTitle: "VIP / B2B Done-For-You Pack (30 videos)",
+    paywallB2BDesc: "For educators, agencies & creators: short on time? We will create 30 ready-to-post custom quiz videos with your branding and topics within 24 hours!",
+    paywallB2BPrice: "$29",
+    paywallB2BPriceUnit: "30 custom videos",
+    paywallB2BBtn: "✈️ Order on Telegram",
+    paywallB2BTelegramMsg: "Hello! I want to order the VIP / B2B Done-For-You Package (30 videos). Client ID: ",
+
+    landingHeroBadge: "AI in 60 Seconds",
+    landingHeroTitle: "Enter 1 topic — get ready-to-post quiz videos for Instagram Reels, YouTube Shorts & TikTok in 4 languages within 60 seconds!",
+    landingHeroDesc: "Type a topic — AI creates engaging questions, voices them with pro narrators, and renders ready-to-post 9:16 or 16:9 videos. No editing or studio required.",
+    landingHeroStartFree: "🎁 Create 1 video right now for FREE",
+    landingHeroPricingBtn: "Pricing",
+    landingWhoTitle: "Who is this for?",
+    landingWhoSubtitle: "Built for educators, viral creators, and digital agencies",
+    landingAudience1Title: "Tutors & Education Centers",
+    landingAudience1Desc: "Turn exam tests, IELTS, history, quizzes, and lessons into high-engagement Reels in under a minute.",
+    landingAudience2Title: "YouTube & TikTok (Faceless) Creators",
+    landingAudience2Desc: "Run faceless channels in 4 languages (UZ, RU, EN, TR) and reach YouTube monetization significantly faster.",
+    landingAudience3Title: "SMM Experts & Digital Creators",
+    landingAudience3Desc: "Create interactive quiz content that triples comments, shares, and engagement on your client pages.",
 
     btnPreview: "Preview",
     btnExportVideo: "Download Video",
@@ -566,7 +737,44 @@ const UI_DICTIONARY: Record<UILanguage, UIStrings> = {
     customBgmUpload: "Kendi MP3 Müziğinizi Yükleyin",
     watermarkLabel: "Filigran (@username)",
     watermarkTip: "* Ücretsiz pakette filigran zorunludur. Kaldırmak için Premium'a geçin.",
+    watermarkPaywallAlert: "Özel filigran yalnızca Pack10 ve Premium paketlerinde kullanılabilir",
     bgmRecommendTip: "* Spiker sesinin net duyulması için %15 - %30 aralığı önerilir.",
+
+    questionCountLabel: "Soru Sayısı",
+    questionCount3: "3 soru (Hızlı Shorts/Reels — önerilen)",
+    questionCount5: "5 soru (Standart)",
+    hideLastAnswerLabel: "Son sorunun cevabını gizle (Yorum toplama)",
+    hideLastAnswerDesc: "Son soruda doğru cevap gösterilmez, izleyicilerden cevabı yorumlara yazması istenir",
+    outroEnabledLabel: "Bitiş çağrısı (Outro) ekle",
+    outroEnabledDesc: "Videonun sonuna profile davet eden 3 saniyelik kart eklenir",
+
+    uploadBgVideoBtn: "🎬 Arka Plana Video (.mp4/.webm) Yükle",
+    removeBgVideoBtn: "🗑 Videoyu Kaldır / Resim Moduna Dön",
+    bgVideoActive: "🎬 Hareketli video arka plan aktif",
+    autoFactoryTitle: "🚀 4 Dilde Oto-Fabrika ve 30 Günlük Plan",
+    autoFactoryBtn: "🚀 Oto-Fabrika (4 Dil)",
+
+    paywallB2BBadge: "VIP / 30 GÜNLÜK PLAN",
+    paywallB2BTitle: "VIP / B2B Hazır Paket (30 video)",
+    paywallB2BDesc: "Eğitim kurumları, öğretmenler ve içerik üreticileri için: vaktiniz yok mu? Logonuz ve konularınızla 1 aylık (30 adet) hazır videoyu 24 saat içinde biz hazırlayalım!",
+    paywallB2BPrice: "$29",
+    paywallB2BPriceUnit: "30 hazır video",
+    paywallB2BBtn: "✈️ Sipariş Ver (Telegram)",
+    paywallB2BTelegramMsg: "Merhaba! VIP / B2B Hazır Paket (30 video) siparişi vermek istiyorum. Müşteri ID: ",
+
+    landingHeroBadge: "Yapay Zeka ile 60 Saniyede",
+    landingHeroTitle: "1 konu girin — 60 saniyede Instagram Reels, YouTube Shorts ve TikTok için 4 dilde hazır bilgi yarışması videosu alın!",
+    landingHeroDesc: "Konuyu yazın — AI soruları oluştursun, profesyonel sesle okusun ve 9:16 veya 16:9 formatında hazır videoyu indirsin. Montaja gerek yok.",
+    landingHeroStartFree: "🎁 Şimdi 1 videoyu ÜCRETSİZ oluşturun",
+    landingHeroPricingBtn: "Paketler",
+    landingWhoTitle: "Kimler için?",
+    landingWhoSubtitle: "Öğretmenler, içerik üreticileri ve SMM uzmanları için özel olarak geliştirildi",
+    landingAudience1Title: "Öğretmenler ve Eğitim Kurumları",
+    landingAudience1Desc: "Sınav, IELTS, tarih, genel kültür ve ders sorularını 1 dakikada takipçi çeken Reels formatına dönüştürün.",
+    landingAudience2Title: "YouTube ve TikTok (Yüzsüz) İçerik Üreticileri",
+    landingAudience2Desc: "Yüzünüzü göstermeden 4 dilde (UZ, RU, EN, TR) kanal yönetin ve YouTube para kazanma şartlarına hızla ulaşın.",
+    landingAudience3Title: "SMM Uzmanları ve İçerik Üreticileri",
+    landingAudience3Desc: "Müşterilerinizin hesaplarında yorumları ve etkileşimi (Engagement) 3 katına çıkaran interaktif içerikler üretin.",
 
     btnPreview: "Önizleme",
     btnExportVideo: "Videoyu İndir",

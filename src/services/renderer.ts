@@ -62,6 +62,8 @@ export class QuizRenderer {
   onPauseChange?: (isPaused: boolean) => void;
 
   strings: VideoStrings;
+  private bgVideoElements: Map<string, HTMLVideoElement> = new Map();
+  private globalBgVideoElement: HTMLVideoElement | null = null;
 
   constructor(quiz: Quiz) {
     this.quiz = {
@@ -243,6 +245,56 @@ export class QuizRenderer {
     this.bgImages[index] = undefined;
   }
 
+  async loadVideoElement(url: string): Promise<HTMLVideoElement> {
+    if (this.bgVideoElements.has(url)) {
+      return this.bgVideoElements.get(url)!;
+    }
+    const video = document.createElement("video");
+    video.crossOrigin = "anonymous";
+    video.muted = true;
+    video.loop = true;
+    video.playsInline = true;
+    video.autoplay = true;
+    video.src = url;
+
+    await new Promise<void>((resolve) => {
+      let resolved = false;
+      const done = () => {
+        if (!resolved) {
+          resolved = true;
+          resolve();
+        }
+      };
+      video.oncanplay = done;
+      video.onloadeddata = done;
+      video.onerror = done;
+      setTimeout(done, 3500);
+    });
+
+    try {
+      await video.play();
+    } catch (e) {
+      console.warn("Video play warning:", e);
+    }
+
+    this.bgVideoElements.set(url, video);
+    return video;
+  }
+
+  getVideoElementForQuestion(index: number): HTMLVideoElement | null {
+    const q = this.quiz.questions[index];
+    const videoUrl = q?.backgroundVideo || this.quiz.backgroundVideoUrl;
+    if (!videoUrl) return null;
+    const video = this.bgVideoElements.get(videoUrl) || this.globalBgVideoElement;
+    if (video) {
+      if (video.paused) {
+        video.play().catch(() => {});
+      }
+      return video;
+    }
+    return null;
+  }
+
   async requestWakeLock() {
     // Render paytida ekran o'chib qolmasligi uchun (ayniqsa mobil qurilmalarda)
     try {
@@ -282,6 +334,21 @@ export class QuizRenderer {
       }
     });
     await Promise.all(preloadTasks);
+
+    // Background videolarini yuklaymiz (loop video fonlar uchun)
+    try {
+      if (this.quiz.backgroundVideoUrl) {
+        this.globalBgVideoElement = await this.loadVideoElement(this.quiz.backgroundVideoUrl);
+      }
+      for (const q of this.quiz.questions) {
+        if (q.backgroundVideo) {
+          await this.loadVideoElement(q.backgroundVideo);
+        }
+      }
+    } catch (vErr) {
+      console.warn("Video background preload warning:", vErr);
+    }
+
     await this.onBeforeRecording?.();
     
     if (this.quiz.bgmEnabled) {
@@ -311,10 +378,13 @@ export class QuizRenderer {
       await this.runQuestionSequence(this.quiz.questions[i], i);
     }
 
-    if (!this.isCancelled) {
+    if (!this.isCancelled && this.quiz.outroEnabled !== false) {
       this.setPhase('outro');
       playSuccess(this.masterGain);
-      await this.sleep(getOutroDurationMs(this.quiz));
+      if (this.quiz.outroAudioBase64) {
+        playPCMAsync(this.quiz.outroAudioBase64, 24000, this.masterGain);
+      }
+      await this.sleep(3000);
     }
     
     stopProceduralBGM();
@@ -396,17 +466,28 @@ export class QuizRenderer {
     const activeTheme = THEME_COLORS[this.quiz.themeColor || "emerald"];
     const now = performance.now();
     const phaseTime = now - this.phaseStartTime;
-    const bgImg = this.bgImages[this.currentQuestionIndex];
-
-    if (bgImg?.complete && bgImg.naturalWidth > 0) {
-      const kenBurns = 1 + 0.045 * Math.min(1, (now - this.qStartTime) / 24000);
-      const scale = Math.max(w / bgImg.width, h / bgImg.height) * kenBurns;
-      const x = (w - bgImg.width * scale) / 2;
-      const y = (h - bgImg.height * scale) / 2;
-      this.ctx.drawImage(bgImg, x, y, bgImg.width * scale, bgImg.height * scale);
+    const bgVideo = this.getVideoElementForQuestion(this.currentQuestionIndex);
+    if (bgVideo && (bgVideo.readyState >= 2 || bgVideo.videoWidth > 0)) {
+      const vW = bgVideo.videoWidth || 1920;
+      const vH = bgVideo.videoHeight || 1080;
+      const scale = Math.max(w / vW, h / vH);
+      const drawW = vW * scale;
+      const drawH = vH * scale;
+      const drawX = (w - drawW) / 2;
+      const drawY = (h - drawH) / 2;
+      this.ctx.drawImage(bgVideo, drawX, drawY, drawW, drawH);
     } else {
-      this.ctx.fillStyle = "#0b1020";
-      this.ctx.fillRect(0, 0, w, h);
+      const bgImg = this.bgImages[this.currentQuestionIndex];
+      if (bgImg?.complete && bgImg.naturalWidth > 0) {
+        const kenBurns = 1 + 0.045 * Math.min(1, (now - this.qStartTime) / 24000);
+        const scale = Math.max(w / bgImg.width, h / bgImg.height) * kenBurns;
+        const x = (w - bgImg.width * scale) / 2;
+        const y = (h - bgImg.height * scale) / 2;
+        this.ctx.drawImage(bgImg, x, y, bgImg.width * scale, bgImg.height * scale);
+      } else {
+        this.ctx.fillStyle = "#0b1020";
+        this.ctx.fillRect(0, 0, w, h);
+      }
     }
 
     const overlay = this.ctx.createLinearGradient(0, 0, w, h);
@@ -449,28 +530,51 @@ export class QuizRenderer {
     }
 
     if (this.phase === "outro") {
-      this.ctx.fillStyle = "rgba(3,7,18,0.42)";
+      this.ctx.fillStyle = "rgba(3,7,18,0.78)";
       this.ctx.fillRect(0, 0, w, h);
+
+      // Glassmorphism Card
+      this.ctx.save();
+      this.ctx.fillStyle = "rgba(15, 23, 42, 0.88)";
+      this.drawRoundedRect(w / 2 - 650, 160, 1300, 740, 36);
+      this.ctx.fill();
+      this.ctx.strokeStyle = activeTheme.light;
+      this.ctx.lineWidth = 3;
+      this.ctx.stroke();
+
       this.ctx.textAlign = "center";
       this.ctx.textBaseline = "middle";
-      this.ctx.fillStyle = activeTheme.main;
-      this.ctx.beginPath();
-      this.ctx.arc(w / 2, 290, 70, 0, Math.PI * 2);
-      this.ctx.fill();
+
+      // Icon
+      this.ctx.font = '76px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji"';
+      this.ctx.fillText("🤖", w / 2, 270);
+
+      // Title
       this.ctx.fillStyle = "#fff";
-      this.ctx.font = '900 72px system-ui, -apple-system, sans-serif';
-      this.ctx.fillText(this.strings.outroTitle, w / 2, 475);
-      this.ctx.fillStyle = "rgba(255,255,255,0.82)";
-      this.ctx.font = '600 42px system-ui, -apple-system, sans-serif';
-      this.ctx.fillText(this.strings.outroSubtitle, w / 2, 560);
-      if (this.quiz.watermark) {
-        this.ctx.fillStyle = "rgba(255,255,255,0.12)";
-        this.drawRoundedRect(w / 2 - 260, 660, 520, 72, 36);
-        this.ctx.fill();
-        this.ctx.fillStyle = "#fff";
-        this.ctx.font = '700 30px monospace';
-        this.ctx.fillText(this.quiz.watermark, w / 2, 696);
-      }
+      this.ctx.font = '900 62px system-ui, -apple-system, sans-serif';
+      this.ctx.fillText(this.strings.outroTitle, w / 2, 380);
+
+      // Outro CTA Text
+      this.ctx.fillStyle = "rgba(255,255,255,0.95)";
+      this.ctx.font = '600 36px system-ui, -apple-system, sans-serif';
+      const ctaLines = this.getWrappedLines(this.strings.outroCtaText, 1140, 3);
+      ctaLines.forEach((line, index) => {
+        this.ctx.fillText(line, w / 2, 490 + index * 52);
+      });
+
+      // Channel name / Watermark
+      const watermarkText = this.quiz.watermark || (this.quiz.language === "en" ? "@EnglishQuizArena" : "@QuizVideoUz");
+      this.ctx.fillStyle = "rgba(255,255,255,0.12)";
+      this.drawRoundedRect(w / 2 - 300, 720, 600, 76, 38);
+      this.ctx.fill();
+      this.ctx.strokeStyle = "rgba(255,255,255,0.2)";
+      this.ctx.lineWidth = 2;
+      this.ctx.stroke();
+      this.ctx.fillStyle = "#fff";
+      this.ctx.font = '700 32px monospace';
+      this.ctx.fillText(watermarkText, w / 2, 758);
+
+      this.ctx.restore();
       return;
     }
 
@@ -506,10 +610,13 @@ export class QuizRenderer {
     const questionStart = 247 - ((questionLines.length - 1) * 68) / 2;
     questionLines.forEach((line, index) => this.ctx.fillText(line, w / 2, questionStart + index * 68));
 
+    const isLastQuestion = this.currentQuestionIndex === this.quiz.questions.length - 1;
+    const isHidingLast = Boolean(this.quiz.hideLastAnswer && isLastQuestion);
+
     if (this.phase === "options" || this.phase === "timer" || this.phase === "reveal" || this.phase === "end") {
       q.options.forEach((option, index) => {
         const rowY = 390 + index * 132;
-        const isCorrect = index === q.correctOptionIndex;
+        const isCorrect = !isHidingLast && index === q.correctOptionIndex;
         const isReveal = this.phase === "reveal" || this.phase === "end";
         let opacity = 1;
         if (this.phase === "options") {
@@ -544,28 +651,51 @@ export class QuizRenderer {
       });
     }
 
-    if ((this.phase === "reveal" || this.phase === "end") && q.explanation) {
-      this.ctx.fillStyle = "rgba(2,6,23,0.82)";
-      this.drawRoundedRect(290, 790, 1340, 112, 24);
+    if ((this.phase === "reveal" || this.phase === "end") && (q.explanation || isHidingLast)) {
+      const explText = isHidingLast ? this.strings.hideLastAnswerCommentPrompt : (q.explanation || "");
+      const badgeText = isHidingLast ? (this.strings.hideLastAnswerBadge || "IZOHDA YOZING 💬") : (this.strings.explanationBadge || "IZOH");
+      const isLongText = explText.length > 90;
+      const fontSize = isLongText ? 24 : 30;
+      const lineHeight = isLongText ? 32 : 38;
+      this.ctx.font = `600 ${fontSize}px system-ui, -apple-system, sans-serif`;
+      const explanationLines = this.getWrappedLines(explText, 1100, 4);
+      const boxHeight = Math.max(112, 36 + explanationLines.length * lineHeight);
+
+      this.ctx.fillStyle = "rgba(2,6,23,0.88)";
+      this.drawRoundedRect(290, 846 - boxHeight / 2, 1340, boxHeight, 24);
       this.ctx.fill();
-      this.ctx.strokeStyle = activeTheme.main;
-      this.ctx.lineWidth = 2;
+      this.ctx.strokeStyle = isHidingLast ? activeTheme.light : activeTheme.main;
+      this.ctx.lineWidth = isHidingLast ? 3 : 2;
       this.ctx.stroke();
+
       this.ctx.fillStyle = activeTheme.light;
       this.ctx.font = '800 24px system-ui, -apple-system, sans-serif';
       this.ctx.textAlign = "left";
-      this.ctx.fillText("WHY?", 330, 826);
+      this.ctx.textBaseline = "middle";
+      this.ctx.fillText(badgeText, 330, 846);
+
       this.ctx.fillStyle = "#fff";
-      this.ctx.font = '600 30px system-ui, -apple-system, sans-serif';
-      const explanationLines = this.getWrappedLines(q.explanation, 1120, 2);
-      explanationLines.forEach((line, index) => this.ctx.fillText(line, 455, 820 + index * 38));
+      this.ctx.font = `600 ${fontSize}px system-ui, -apple-system, sans-serif`;
+      const badgeW = this.ctx.measureText(badgeText).width;
+      const textStartX = Math.max(455, 330 + badgeW + 24);
+      explanationLines.forEach((line, index) => {
+        this.ctx.fillText(line, textStartX, 846 + (index - (explanationLines.length - 1) / 2) * lineHeight);
+      });
     }
 
     if (this.phase === "timer" || this.phase === "reveal" || this.phase === "end") {
       this.ctx.fillStyle = "rgba(255,255,255,0.88)";
       this.ctx.font = '900 23px system-ui, -apple-system, sans-serif';
       this.ctx.textAlign = "center";
-      this.ctx.fillText(this.phase === "timer" ? this.strings.thinking : this.strings.correctAnswer, w / 2, 958);
+      this.ctx.fillText(
+        this.phase === "timer"
+          ? this.strings.thinking
+          : isHidingLast
+            ? (this.strings.hideLastAnswerBadge || "IZOHDA YOZING")
+            : this.strings.correctAnswer,
+        w / 2,
+        958
+      );
       this.ctx.fillStyle = "rgba(255,255,255,0.14)";
       this.drawRoundedRect(290, 986, 1340, 24, 12);
       this.ctx.fill();
@@ -849,17 +979,29 @@ export class QuizRenderer {
     
     const preset = this.quiz.themePreset || 'default';
 
-    // Background (Ken Burns: savol davomida sekin kattalashadi — statik his yo'qoladi)
-    const bgImg = this.bgImages[this.currentQuestionIndex];
-    if (bgImg && bgImg.complete && bgImg.naturalWidth > 0) {
-      const kenBurns = 1 + 0.15 * Math.min(1, (performance.now() - this.qStartTime) / 22000);
-      const scale = Math.max(w / bgImg.width, h / bgImg.height) * kenBurns;
-      const x = (w / 2) - (bgImg.width / 2) * scale;
-      const y = (h / 2) - (bgImg.height / 2) * scale;
-      this.ctx.drawImage(bgImg, x, y, bgImg.width * scale, bgImg.height * scale);
+    // Background: agar loop video yuklangan bo'lsa, videoni chizamiz; aks holda rasm
+    const bgVideo = this.getVideoElementForQuestion(this.currentQuestionIndex);
+    if (bgVideo && (bgVideo.readyState >= 2 || bgVideo.videoWidth > 0)) {
+      const vW = bgVideo.videoWidth || 1080;
+      const vH = bgVideo.videoHeight || 1920;
+      const scale = Math.max(w / vW, h / vH);
+      const drawW = vW * scale;
+      const drawH = vH * scale;
+      const drawX = (w - drawW) / 2;
+      const drawY = (h - drawH) / 2;
+      this.ctx.drawImage(bgVideo, drawX, drawY, drawW, drawH);
     } else {
-      this.ctx.fillStyle = '#111';
-      this.ctx.fillRect(0, 0, w, h);
+      const bgImg = this.bgImages[this.currentQuestionIndex];
+      if (bgImg && bgImg.complete && bgImg.naturalWidth > 0) {
+        const kenBurns = 1 + 0.15 * Math.min(1, (performance.now() - this.qStartTime) / 22000);
+        const scale = Math.max(w / bgImg.width, h / bgImg.height) * kenBurns;
+        const x = (w / 2) - (bgImg.width / 2) * scale;
+        const y = (h / 2) - (bgImg.height / 2) * scale;
+        this.ctx.drawImage(bgImg, x, y, bgImg.width * scale, bgImg.height * scale);
+      } else {
+        this.ctx.fillStyle = '#111';
+        this.ctx.fillRect(0, 0, w, h);
+      }
     }
 
     // Dark overlay
@@ -910,36 +1052,49 @@ export class QuizRenderer {
     const phaseTime = now - this.phaseStartTime;
 
     if (this.phase === 'outro') {
-      // Outro screen
-      this.ctx.fillStyle = 'rgba(0,0,0,0.7)';
+      // Outro screen (Glassmorphism Card)
+      this.ctx.fillStyle = 'rgba(0,0,0,0.8)';
       this.ctx.fillRect(0, 0, w, h);
-      
-      this.ctx.fillStyle = '#f43f5e';
-      this.ctx.font = '120px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji"';
+
+      this.ctx.save();
+      this.ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+      this.drawRoundedRect(w/2 - 470, h/2 - 430, 940, 860, 40);
+      this.ctx.fill();
+      this.ctx.strokeStyle = activeTheme.light;
+      this.ctx.lineWidth = 3;
+      this.ctx.stroke();
+
       this.ctx.textAlign = 'center';
       this.ctx.textBaseline = 'middle';
-      this.ctx.fillText("♥️", w/2, h/2 - 150);
-      
+
+      this.ctx.font = '110px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji"';
+      this.ctx.fillText("🤖", w/2, h/2 - 280);
+
       this.ctx.fillStyle = '#fff';
-      this.ctx.font = '900 70px system-ui, -apple-system, sans-serif';
-      this.ctx.fillText(this.strings.outroTitle, w/2, h/2 + 20);
-      
-      this.ctx.fillStyle = '#d4d4d8';
-      this.ctx.font = '500 45px system-ui, -apple-system, sans-serif';
-      this.ctx.fillText(this.strings.outroSubtitle, w/2, h/2 + 100);
-      
-      if (this.quiz.watermark) {
-        this.ctx.fillStyle = 'rgba(255,255,255,0.15)';
-        this.drawRoundedRect(w/2 - 300, h/2 + 200, 600, 80, 40);
-        this.ctx.fill();
-        this.ctx.strokeStyle = 'rgba(255,255,255,0.2)';
-        this.ctx.lineWidth = 2;
-        this.ctx.stroke();
-        
-        this.ctx.fillStyle = '#fff';
-        this.ctx.font = 'bold 36px monospace';
-        this.ctx.fillText(this.quiz.watermark, w/2, h/2 + 240);
-      }
+      this.ctx.font = '900 66px system-ui, -apple-system, sans-serif';
+      this.ctx.fillText(this.strings.outroTitle, w/2, h/2 - 160);
+
+      this.ctx.fillStyle = '#e4e4e7';
+      this.ctx.font = '600 38px system-ui, -apple-system, sans-serif';
+      const ctaLines = this.getWrappedLines(this.strings.outroCtaText, 820, 5);
+      const ctaStartY = h/2 - 30 - ((ctaLines.length - 1) * 54) / 2;
+      ctaLines.forEach((line, index) => {
+        this.ctx.fillText(line, w/2, ctaStartY + index * 54);
+      });
+
+      const watermarkText = this.quiz.watermark || (this.quiz.language === "en" ? "@EnglishQuizArena" : "@QuizVideoUz");
+      this.ctx.fillStyle = 'rgba(255,255,255,0.15)';
+      this.drawRoundedRect(w/2 - 320, h/2 + 250, 640, 90, 45);
+      this.ctx.fill();
+      this.ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+      this.ctx.lineWidth = 2;
+      this.ctx.stroke();
+
+      this.ctx.fillStyle = '#fff';
+      this.ctx.font = 'bold 38px monospace';
+      this.ctx.fillText(watermarkText, w/2, h/2 + 295);
+
+      this.ctx.restore();
       return;
     }
 
@@ -1362,7 +1517,11 @@ export class QuizRenderer {
             optRadius = 26;
           }
           
-          if (this.phase === 'reveal') {
+          const isLastQuestion = this.currentQuestionIndex === this.quiz.questions.length - 1;
+          const isHidingLast = Boolean(this.quiz.hideLastAnswer && isLastQuestion);
+          const shouldHighlightCorrect = this.phase === 'reveal' && !isHidingLast;
+
+          if (shouldHighlightCorrect) {
             if (idx === q.correctOptionIndex) {
               if (preset === 'chalk') {
                 bgColor = '#ffffff';
@@ -1420,7 +1579,7 @@ export class QuizRenderer {
           this.ctx.translate(w/2 + optX, startY + idx * 150);
           this.ctx.scale(optScale, optScale);
 
-          if (this.phase === 'reveal' && idx === q.correctOptionIndex) {
+          if (shouldHighlightCorrect && idx === q.correctOptionIndex) {
             this.ctx.shadowColor = preset === 'chalk' ? 'rgba(255,255,255,0.35)' : activeTheme.main;
             this.ctx.shadowBlur = 32;
             this.ctx.shadowOffsetY = 0;
@@ -1479,7 +1638,7 @@ export class QuizRenderer {
           this.ctx.fillText(label, -330, 60);
 
           this.ctx.fillStyle = textColor;
-          const isCorrectReveal = this.phase === 'reveal' && idx === q.correctOptionIndex;
+          const isCorrectReveal = shouldHighlightCorrect && idx === q.correctOptionIndex;
           if (preset === 'chalk') {
             this.ctx.font = isCorrectReveal ? 'bold 45px serif, "Times New Roman"' : '600 42px serif, "Times New Roman"';
           } else if (preset === 'retro' || preset === 'cyberpunk' || preset === 'neon') {
@@ -1497,27 +1656,46 @@ export class QuizRenderer {
     }
 
     // Explanation Box on Reveal
-    if ((this.phase === 'reveal' || this.phase === 'end') && q.explanation) {
+    const isLastQuestion = this.currentQuestionIndex === this.quiz.questions.length - 1;
+    const isHidingLast = Boolean(this.quiz.hideLastAnswer && isLastQuestion);
+
+    if ((this.phase === 'reveal' || this.phase === 'end') && (q.explanation || isHidingLast)) {
       this.ctx.save();
+      const explText = isHidingLast ? this.strings.hideLastAnswerCommentPrompt : (q.explanation || "");
+      const badgeText = isHidingLast ? (this.strings.hideLastAnswerBadge || "IZOHDA YOZING 💬") : (this.strings.explanationBadge || "IZOH");
+      const isLongText = explText.length > 90;
+      const fontSize = isLongText ? 23 : 28;
+      const lineHeight = isLongText ? 29 : 35;
+      this.ctx.font = preset === 'chalk'
+        ? `italic 600 ${fontSize}px serif, "Times New Roman"`
+        : `600 ${fontSize}px system-ui, sans-serif`;
+
+      const explLines = this.getWrappedLines(explText, 670, 4);
+      const boxHeight = Math.max(104, 32 + explLines.length * lineHeight);
+      const halfH = boxHeight / 2;
+
       this.ctx.translate(w / 2, 1370);
-      this.ctx.fillStyle = preset === 'chalk' ? 'rgba(25, 25, 28, 0.85)' : 'rgba(2, 6, 23, 0.82)';
-      this.drawRoundedRect(-420, -50, 840, 100, 20);
+      this.ctx.fillStyle = preset === 'chalk' ? 'rgba(25, 25, 28, 0.88)' : 'rgba(2, 6, 23, 0.85)';
+      this.drawRoundedRect(-420, -halfH, 840, boxHeight, 22);
       this.ctx.fill();
-      this.ctx.strokeStyle = activeTheme.main;
-      this.ctx.lineWidth = 2;
+      this.ctx.strokeStyle = isHidingLast ? activeTheme.light : activeTheme.main;
+      this.ctx.lineWidth = isHidingLast ? 3 : 2;
       this.ctx.stroke();
 
       this.ctx.fillStyle = activeTheme.light;
       this.ctx.font = '900 24px system-ui, -apple-system, sans-serif';
       this.ctx.textAlign = 'left';
       this.ctx.textBaseline = 'middle';
-      this.ctx.fillText('WHY?', -390, 0);
+      this.ctx.fillText(badgeText, -390, 0);
 
       this.ctx.fillStyle = '#ffffff';
-      this.ctx.font = preset === 'chalk' ? 'italic 600 28px serif, "Times New Roman"' : '600 28px system-ui, sans-serif';
-      const explLines = this.getWrappedLines(q.explanation, 670, 2);
+      this.ctx.font = preset === 'chalk'
+        ? `italic 600 ${fontSize}px serif, "Times New Roman"`
+        : `600 ${fontSize}px system-ui, sans-serif`;
+      const badgeW = this.ctx.measureText(badgeText).width;
+      const textStartX = Math.max(-310, -390 + badgeW + 20);
       explLines.forEach((line, index) => {
-        this.ctx.fillText(line, -310, (index - (explLines.length - 1) / 2) * 32);
+        this.ctx.fillText(line, textStartX, (index - (explLines.length - 1) / 2) * lineHeight);
       });
       this.ctx.restore();
     }
@@ -1640,14 +1818,17 @@ export class QuizRenderer {
     }
     if (this.isCancelled) return;
 
+    const isLastQuestion = this.currentQuestionIndex === this.quiz.questions.length - 1;
+    const isHidingLast = Boolean(this.quiz.hideLastAnswer && isLastQuestion);
+
     this.setPhase('reveal');
     playSuccess(this.masterGain);
     let revealAudioPromise = Promise.resolve();
-    if (q.correctAudioBase64) {
+    if (q.correctAudioBase64 && !isHidingLast) {
       revealAudioPromise = playPCMAsync(q.correctAudioBase64, 24000, this.masterGain);
     }
 
-    const revealMinimumMs = this.quiz.videoFormat === "youtube" ? 5200 : 2400;
+    const revealMinimumMs = isHidingLast ? 3000 : (this.quiz.videoFormat === "youtube" ? 5200 : 2400);
     await Promise.all([revealAudioPromise, this.sleep(revealMinimumMs)]);
     if (this.isCancelled) return;
 
@@ -1684,6 +1865,15 @@ export class QuizRenderer {
     this.worker.postMessage('stop');
     this.worker.terminate();
     this.bgImages.forEach((_, index) => this.releaseImage(index));
+    this.bgVideoElements.forEach((video) => {
+      try {
+        video.pause();
+        video.src = "";
+        video.load();
+      } catch {}
+    });
+    this.bgVideoElements.clear();
+    this.globalBgVideoElement = null;
     stopPCM();
     if (this.silenceOscillator) {
       try { this.silenceOscillator.stop(); } catch(e) {}

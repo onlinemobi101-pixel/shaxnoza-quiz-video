@@ -10,14 +10,25 @@ import {
   Wand2,
   ListChecks,
   Download,
+  GraduationCap,
+  Coins,
+  TrendingUp,
+  Briefcase,
+  Send,
 } from "lucide-react";
+import { getUIStrings, UILanguage } from "../services/i18n";
+import { safeGetItem } from "../services/storage";
 
 interface LandingProps {
   onStart: () => void;
   onShowPricing: () => void;
+  uiLang?: UILanguage;
 }
 
-export function Landing({ onStart, onShowPricing }: LandingProps) {
+export function Landing({ onStart, onShowPricing, uiLang }: LandingProps) {
+  const lang: UILanguage = uiLang || (safeGetItem("qv_ui_lang") as UILanguage) || "uz";
+  const ui = getUIStrings(lang);
+
   return (
     <div className="max-w-6xl mx-auto px-6 py-12 md:py-20">
       {/* HERO */}
@@ -29,25 +40,22 @@ export function Landing({ onStart, onShowPricing }: LandingProps) {
         >
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold uppercase tracking-widest mb-5">
             <Sparkles size={12} />
-            AI bilan 2 daqiqada
+            {ui.landingHeroBadge}
           </div>
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-display font-black tracking-tight leading-[1.05] mb-5">
+          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-display font-black tracking-tight leading-[1.15] mb-5">
             <span className="bg-clip-text text-transparent bg-gradient-to-br from-emerald-400 via-emerald-200 to-cyan-400">
-              Quiz videolar
+              {ui.landingHeroTitle}
             </span>
-            <br />
-            YouTube, Shorts va Reels uchun
           </h1>
-          <p className="text-slate-400 text-lg leading-relaxed mb-8 max-w-md">
-            Mavzuni yozing — AI savollarni tuzadi, professional ovoz bilan o'qiydi va tayyor
-            16:9 uzun yoki 9:16 vertikal videoni yuklab beradi. Montaj ham, studiya ham kerak emas.
+          <p className="text-slate-300 text-base sm:text-lg leading-relaxed mb-8 max-w-lg">
+            {ui.landingHeroDesc}
           </p>
           <div className="flex flex-col sm:flex-row gap-3">
             <button
               onClick={onStart}
-              className="flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 hover:scale-[1.02] active:scale-[0.98] text-white px-7 py-4 rounded-2xl font-display font-bold text-base transition-all shadow-xl shadow-emerald-900/30 border border-white/10 border-t-white/20 cursor-pointer"
+              className="flex items-center justify-center gap-2.5 bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 hover:scale-[1.03] active:scale-[0.98] text-slate-950 px-7 py-4 rounded-2xl font-display font-black text-sm sm:text-base transition-all shadow-xl shadow-emerald-500/25 border border-white/20 cursor-pointer"
             >
-              Bepul boshlash
+              <span>{ui.landingHeroStartFree}</span>
               <ArrowRight size={19} />
             </button>
             <a
@@ -65,7 +73,7 @@ export function Landing({ onStart, onShowPricing }: LandingProps) {
               onClick={onShowPricing}
               className="flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white px-6 py-4 rounded-2xl font-semibold text-base transition-all cursor-pointer"
             >
-              Narxlar
+              {ui.landingHeroPricingBtn}
             </button>
           </div>
           <p className="text-xs text-slate-500 mt-4">
@@ -128,6 +136,87 @@ export function Landing({ onStart, onShowPricing }: LandingProps) {
             </div>
           </div>
         </motion.div>
+      </div>
+
+      {/* KIMLAR UCHUN? */}
+      <div className="mb-24">
+        <div className="text-center max-w-2xl mx-auto mb-12">
+          <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-xs font-bold uppercase tracking-widest mb-3">
+            <Sparkles size={12} />
+            {ui.landingWhoTitle}
+          </div>
+          <h2 className="text-3xl sm:text-4xl font-display font-black tracking-tight text-white mb-3">
+            {ui.landingWhoTitle}
+          </h2>
+          <p className="text-slate-400 text-sm sm:text-base">
+            {ui.landingWhoSubtitle}
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* Card 1: Repetitorlar va O'quv markazlari */}
+          <div className="relative p-6 sm:p-7 rounded-3xl bg-slate-900/40 border border-emerald-500/20 hover:border-emerald-500/40 transition-all hover:scale-[1.02] flex flex-col justify-between group shadow-lg">
+            <div className="mb-4">
+              <div className="w-12 h-12 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 mb-4 group-hover:scale-110 transition-transform">
+                <GraduationCap size={26} />
+              </div>
+              <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-2.5 py-0.5 rounded-full font-extrabold uppercase tracking-wider mb-2 inline-block">
+                🎓 Ta'lim & Testlar
+              </span>
+              <h3 className="font-display font-bold text-lg text-white mb-2">
+                {ui.landingAudience1Title}
+              </h3>
+              <p className="text-sm text-slate-300 leading-relaxed">
+                {ui.landingAudience1Desc}
+              </p>
+            </div>
+            <div className="pt-4 border-t border-slate-800/80 flex items-center text-xs font-bold text-emerald-400">
+              <span>+300% Obunachilar jalb qilish</span>
+            </div>
+          </div>
+
+          {/* Card 2: YouTube va TikTok Faceless */}
+          <div className="relative p-6 sm:p-7 rounded-3xl bg-slate-900/40 border border-cyan-500/20 hover:border-cyan-500/40 transition-all hover:scale-[1.02] flex flex-col justify-between group shadow-lg">
+            <div className="mb-4">
+              <div className="w-12 h-12 rounded-2xl bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-400 mb-4 group-hover:scale-110 transition-transform">
+                <Coins size={26} />
+              </div>
+              <span className="text-[10px] bg-cyan-500/20 text-cyan-300 px-2.5 py-0.5 rounded-full font-extrabold uppercase tracking-wider mb-2 inline-block">
+                💰 Faceless Kanallar
+              </span>
+              <h3 className="font-display font-bold text-lg text-white mb-2">
+                {ui.landingAudience2Title}
+              </h3>
+              <p className="text-sm text-slate-300 leading-relaxed">
+                {ui.landingAudience2Desc}
+              </p>
+            </div>
+            <div className="pt-4 border-t border-slate-800/80 flex items-center text-xs font-bold text-cyan-400">
+              <span>4 Tilda YouTube Monetizatsiyasi</span>
+            </div>
+          </div>
+
+          {/* Card 3: SMM va Blogerlar */}
+          <div className="relative p-6 sm:p-7 rounded-3xl bg-slate-900/40 border border-fuchsia-500/20 hover:border-fuchsia-500/40 transition-all hover:scale-[1.02] flex flex-col justify-between group shadow-lg">
+            <div className="mb-4">
+              <div className="w-12 h-12 rounded-2xl bg-fuchsia-500/15 border border-fuchsia-500/30 flex items-center justify-center text-fuchsia-400 mb-4 group-hover:scale-110 transition-transform">
+                <TrendingUp size={26} />
+              </div>
+              <span className="text-[10px] bg-fuchsia-500/20 text-fuchsia-300 px-2.5 py-0.5 rounded-full font-extrabold uppercase tracking-wider mb-2 inline-block">
+                📱 3x Engagement
+              </span>
+              <h3 className="font-display font-bold text-lg text-white mb-2">
+                {ui.landingAudience3Title}
+              </h3>
+              <p className="text-sm text-slate-300 leading-relaxed">
+                {ui.landingAudience3Desc}
+              </p>
+            </div>
+            <div className="pt-4 border-t border-slate-800/80 flex items-center text-xs font-bold text-fuchsia-400">
+              <span>Izohlar va saqlashlar sonini oshirish</span>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* QANDAY ISHLAYDI */}
@@ -204,59 +293,99 @@ export function Landing({ onStart, onShowPricing }: LandingProps) {
       </div>
 
       {/* NARXLAR */}
-      <div className="mb-16">
-        <h2 className="text-2xl sm:text-3xl font-display font-black text-center mb-3">Narxlar</h2>
-        <p className="text-slate-400 text-sm text-center mb-10">Sinash bepul — yoqsa, o'zingizga mosini tanlang</p>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 max-w-4xl mx-auto">
+      <div className="mb-20">
+        <h2 className="text-2xl sm:text-3xl font-display font-black text-center mb-3">
+          {ui.landingHeroPricingBtn}
+        </h2>
+        <p className="text-slate-400 text-sm text-center mb-10">
+          Sinash bepul — o'zingizga yoki biznesingizga mos tarifni tanlang
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 max-w-6xl mx-auto">
           {/* Bepul */}
-          <div className="bg-white/5 border border-white/10 rounded-3xl p-6 flex flex-col">
-            <h3 className="font-display font-bold text-lg mb-1">Bepul</h3>
-            <p className="text-3xl font-black font-display mb-4">0 <span className="text-sm font-semibold text-slate-400">so'm</span></p>
-            <ul className="space-y-2.5 text-sm text-slate-300 mb-6 flex-1">
-              <li className="flex items-start gap-2"><CheckCircle2 size={16} className="text-emerald-400 mt-0.5 shrink-0" />1 ta to'liq video</li>
-              <li className="flex items-start gap-2"><CheckCircle2 size={16} className="text-emerald-400 mt-0.5 shrink-0" />AI savollar va ovoz</li>
-              <li className="flex items-start gap-2"><CheckCircle2 size={16} className="text-slate-600 mt-0.5 shrink-0" /><span className="text-slate-500">Suv belgisi bilan</span></li>
-            </ul>
+          <div className="bg-white/5 border border-white/10 rounded-3xl p-5 flex flex-col justify-between">
+            <div>
+              <h3 className="font-display font-bold text-base mb-1">Bepul</h3>
+              <p className="text-2xl font-black font-display mb-3">0 <span className="text-xs font-semibold text-slate-400">so'm</span></p>
+              <ul className="space-y-2 text-xs text-slate-300 mb-6">
+                <li className="flex items-start gap-2"><CheckCircle2 size={14} className="text-emerald-400 mt-0.5 shrink-0" />1 ta to'liq video</li>
+                <li className="flex items-start gap-2"><CheckCircle2 size={14} className="text-emerald-400 mt-0.5 shrink-0" />AI savollar va ovoz</li>
+                <li className="flex items-start gap-2"><CheckCircle2 size={14} className="text-slate-600 mt-0.5 shrink-0" /><span className="text-slate-500">Suv belgisi bilan</span></li>
+              </ul>
+            </div>
             <button
               onClick={onStart}
-              className="w-full py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white font-semibold text-sm transition-all cursor-pointer"
+              className="w-full py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white font-semibold text-xs transition-all cursor-pointer"
             >
               Boshlash
             </button>
           </div>
 
           {/* Paket */}
-          <div className="bg-white/5 border border-cyan-500/30 rounded-3xl p-6 flex flex-col relative">
-            <span className="absolute -top-2.5 left-6 bg-cyan-500 text-slate-950 text-[9px] font-black uppercase px-2 py-0.5 rounded-full tracking-wider">Ommabop</span>
-            <h3 className="font-display font-bold text-lg mb-1 flex items-center gap-2"><ShoppingBag size={16} className="text-cyan-400" />Paket</h3>
-            <p className="text-3xl font-black font-display mb-4 text-cyan-400">20,000 <span className="text-sm font-semibold text-slate-400">so'm</span></p>
-            <ul className="space-y-2.5 text-sm text-slate-300 mb-6 flex-1">
-              <li className="flex items-start gap-2"><CheckCircle2 size={16} className="text-cyan-400 mt-0.5 shrink-0" />10 ta to'liq video</li>
-              <li className="flex items-start gap-2"><CheckCircle2 size={16} className="text-cyan-400 mt-0.5 shrink-0" />Barcha AI imkoniyatlar</li>
-              <li className="flex items-start gap-2"><CheckCircle2 size={16} className="text-cyan-400 mt-0.5 shrink-0" />Muddatsiz amal qiladi</li>
-            </ul>
+          <div className="bg-white/5 border border-cyan-500/30 rounded-3xl p-5 flex flex-col justify-between relative">
+            <span className="absolute -top-2.5 left-5 bg-cyan-500 text-slate-950 text-[8px] font-black uppercase px-2 py-0.5 rounded-full tracking-wider">Ommabop</span>
+            <div>
+              <h3 className="font-display font-bold text-base mb-1 flex items-center gap-1.5"><ShoppingBag size={15} className="text-cyan-400" />Paket</h3>
+              <p className="text-2xl font-black font-display mb-3 text-cyan-400">{lang === "uz" ? "20,000" : "$3"} <span className="text-xs font-semibold text-slate-400">{lang === "uz" ? "so'm" : ""}</span></p>
+              <ul className="space-y-2 text-xs text-slate-300 mb-6">
+                <li className="flex items-start gap-2"><CheckCircle2 size={14} className="text-cyan-400 mt-0.5 shrink-0" />10 ta to'liq video</li>
+                <li className="flex items-start gap-2"><CheckCircle2 size={14} className="text-cyan-400 mt-0.5 shrink-0" />Barcha AI imkoniyatlar</li>
+                <li className="flex items-start gap-2"><CheckCircle2 size={14} className="text-cyan-400 mt-0.5 shrink-0" />Muddatsiz amal qiladi</li>
+              </ul>
+            </div>
             <button
               onClick={onShowPricing}
-              className="w-full py-3 rounded-xl bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/30 text-cyan-300 font-bold text-sm transition-all cursor-pointer"
+              className="w-full py-2.5 rounded-xl bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/30 text-cyan-300 font-bold text-xs transition-all cursor-pointer"
             >
               Sotib olish
             </button>
           </div>
 
           {/* Premium */}
-          <div className="bg-gradient-to-b from-amber-500/10 to-transparent border border-amber-500/30 rounded-3xl p-6 flex flex-col">
-            <h3 className="font-display font-bold text-lg mb-1 flex items-center gap-2"><Crown size={16} className="text-amber-400 fill-current" />Premium</h3>
-            <p className="text-3xl font-black font-display mb-4 text-amber-400">99,000 <span className="text-sm font-semibold text-slate-400">so'm/oy</span></p>
-            <ul className="space-y-2.5 text-sm text-slate-300 mb-6 flex-1">
-              <li className="flex items-start gap-2"><CheckCircle2 size={16} className="text-amber-400 mt-0.5 shrink-0" />Oyiga 100 ta video</li>
-              <li className="flex items-start gap-2"><CheckCircle2 size={16} className="text-amber-400 mt-0.5 shrink-0" />Suv belgisiz eksport</li>
-              <li className="flex items-start gap-2"><CheckCircle2 size={16} className="text-amber-400 mt-0.5 shrink-0" />Premium ovozlar va dizaynlar</li>
-            </ul>
+          <div className="bg-gradient-to-b from-fuchsia-500/10 to-transparent border border-fuchsia-500/30 rounded-3xl p-5 flex flex-col justify-between">
+            <div>
+              <h3 className="font-display font-bold text-base mb-1 flex items-center gap-1.5"><Crown size={15} className="text-fuchsia-400 fill-current" />Premium</h3>
+              <p className="text-2xl font-black font-display mb-3 text-fuchsia-400">{lang === "uz" ? "99,000" : "$9"} <span className="text-xs font-semibold text-slate-400">{lang === "uz" ? "so'm/oy" : "/mo"}</span></p>
+              <ul className="space-y-2 text-xs text-slate-300 mb-6">
+                <li className="flex items-start gap-2"><CheckCircle2 size={14} className="text-fuchsia-400 mt-0.5 shrink-0" />Oyiga 100 ta video</li>
+                <li className="flex items-start gap-2"><CheckCircle2 size={14} className="text-fuchsia-400 mt-0.5 shrink-0" />Suv belgisiz eksport</li>
+                <li className="flex items-start gap-2"><CheckCircle2 size={14} className="text-fuchsia-400 mt-0.5 shrink-0" />Premium ovozlar va mavzular</li>
+              </ul>
+            </div>
             <button
               onClick={onShowPricing}
-              className="w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-sm transition-all cursor-pointer"
+              className="w-full py-2.5 rounded-xl bg-fuchsia-500 hover:bg-fuchsia-400 text-slate-950 font-bold text-xs transition-all cursor-pointer shadow-md"
             >
               Premium olish
+            </button>
+          </div>
+
+          {/* VIP / B2B */}
+          <div className="bg-gradient-to-b from-amber-500/15 via-orange-500/5 to-transparent border border-amber-500/40 rounded-3xl p-5 flex flex-col justify-between relative shadow-xl shadow-amber-950/20">
+            <span className="absolute -top-2.5 left-5 bg-gradient-to-r from-amber-400 to-orange-500 text-slate-950 text-[8px] font-black uppercase px-2 py-0.5 rounded-full tracking-wider">
+              {ui.paywallB2BBadge}
+            </span>
+            <div>
+              <h3 className="font-display font-bold text-base mb-1 flex items-center gap-1.5 text-amber-300">
+                <Briefcase size={15} className="text-amber-400" />
+                {ui.paywallB2BTitle}
+              </h3>
+              <p className="text-2xl font-black font-display text-amber-400">
+                {ui.paywallB2BPrice}
+              </p>
+              <p className="text-[11px] text-amber-300/80 mb-3">{ui.paywallB2BPriceUnit}</p>
+              <p className="text-[11px] text-slate-300 mb-5 leading-relaxed">
+                {ui.paywallB2BDesc}
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                const b2bMsg = `${ui.paywallB2BTelegramMsg}LANDING_DIRECT`;
+                window.open(`https://t.me/Akramjon1984?text=${encodeURIComponent(b2bMsg)}`, "_blank");
+              }}
+              className="w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-black text-xs transition-all shadow-md cursor-pointer flex items-center justify-center gap-1.5"
+            >
+              <Send size={13} />
+              {ui.paywallB2BBtn}
             </button>
           </div>
         </div>
@@ -266,9 +395,9 @@ export function Landing({ onStart, onShowPricing }: LandingProps) {
       <div className="text-center pb-8">
         <button
           onClick={onStart}
-          className="inline-flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 hover:scale-[1.02] active:scale-[0.98] text-white px-10 py-4 rounded-2xl font-display font-bold text-base transition-all shadow-xl shadow-emerald-900/30 border border-white/10 border-t-white/20 cursor-pointer"
+          className="inline-flex items-center gap-2.5 bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 hover:scale-[1.03] active:scale-[0.98] text-slate-950 px-9 py-4 rounded-2xl font-display font-black text-sm sm:text-base transition-all shadow-xl shadow-emerald-500/25 border border-white/20 cursor-pointer"
         >
-          Birinchi videoni hoziroq yarating
+          <span>{ui.landingHeroStartFree}</span>
           <ArrowRight size={19} />
         </button>
       </div>

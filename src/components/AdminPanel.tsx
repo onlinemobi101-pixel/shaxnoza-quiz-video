@@ -21,7 +21,9 @@ import {
   AlertCircle,
   Send,
   Radio,
+  Sparkles,
 } from "lucide-react";
+import { AutoFactoryModal } from "./AutoFactoryModal";
 
 interface AdminPanelProps {
   onBack: () => void;
@@ -35,6 +37,7 @@ export function AdminPanel({ onBack, currentUserId }: AdminPanelProps) {
   const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [usageSummary, setUsageSummary] = useState<AdminUsageSummary | null>(null);
+  const [isAutoFactoryOpen, setIsAutoFactoryOpen] = useState(false);
 
   // Temporary edit states per user ID
   const [editStates, setEditStates] = useState<{
@@ -290,13 +293,23 @@ export function AdminPanel({ onBack, currentUserId }: AdminPanelProps) {
             </p>
           </div>
         </div>
-        <button
-          onClick={fetchUsers}
-          disabled={isLoading}
-          className="w-full sm:w-auto bg-white/5 hover:bg-white/10 border border-white/10 text-white px-5 py-3 rounded-2xl font-semibold transition-all hover:scale-102 cursor-pointer shadow-sm text-sm animate-pulse"
-        >
-          Yangilash
-        </button>
+        <div className="flex items-center gap-2.5 w-full sm:w-auto">
+          <button
+            type="button"
+            onClick={() => setIsAutoFactoryOpen(true)}
+            className="flex-1 sm:flex-none bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-400 hover:to-orange-500 text-black font-extrabold px-5 py-3 rounded-2xl transition-all shadow-md shadow-orange-950/40 flex items-center justify-center gap-2 cursor-pointer text-sm active:scale-95"
+          >
+            <Sparkles size={16} />
+            <span>🚀 4 Tilda Avto-Zavod</span>
+          </button>
+          <button
+            onClick={fetchUsers}
+            disabled={isLoading}
+            className="w-auto bg-white/5 hover:bg-white/10 border border-white/10 text-white px-5 py-3 rounded-2xl font-semibold transition-all hover:scale-102 cursor-pointer shadow-sm text-sm"
+          >
+            Yangilash
+          </button>
+        </div>
       </div>
 
       {/* Status Alert Notification */}
@@ -606,6 +619,11 @@ export function AdminPanel({ onBack, currentUserId }: AdminPanelProps) {
           </div>
         )}
       </div>
+
+      <AutoFactoryModal
+        isOpen={isAutoFactoryOpen}
+        onClose={() => setIsAutoFactoryOpen(false)}
+      />
     </div>
   );
 }

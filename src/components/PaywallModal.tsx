@@ -1,17 +1,35 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Crown, CheckCircle2, X, Sparkles, Zap, AlertCircle, ShoppingBag, Copy, Check, ExternalLink, Send, ArrowLeft } from "lucide-react";
+import {
+  Crown,
+  CheckCircle2,
+  X,
+  Sparkles,
+  Zap,
+  AlertCircle,
+  ShoppingBag,
+  Briefcase,
+  Copy,
+  Check,
+  ExternalLink,
+  Send,
+  ArrowLeft,
+} from "lucide-react";
 import { safeGetItem, safeSetItem } from "../services/storage";
+import { getUIStrings, UILanguage } from "../services/i18n";
 
 interface PaywallModalProps {
   isOpen: boolean;
   onClose: () => void;
   userId: string | null;
+  uiLang?: UILanguage;
 }
 
-type PlanId = "pack10" | "premium";
+type PlanId = "pack10" | "premium" | "b2b30";
 
-export function PaywallModal({ isOpen, onClose, userId }: PaywallModalProps) {
+export function PaywallModal({ isOpen, onClose, userId, uiLang }: PaywallModalProps) {
+  const lang: UILanguage = uiLang || (safeGetItem("qv_ui_lang") as UILanguage) || "uz";
+  const ui = getUIStrings(lang);
   const [selectedPlan, setSelectedPlan] = useState<PlanId>("premium");
   const [step, setStep] = useState<1 | 2>(1);
   const [copied, setCopied] = useState(false);
@@ -93,7 +111,7 @@ export function PaywallModal({ isOpen, onClose, userId }: PaywallModalProps) {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.92, y: 20 }}
             transition={{ type: "spring", stiffness: 300, damping: 25 }}
-            className="relative w-full max-w-xl overflow-hidden rounded-[32px] bg-slate-950 border border-indigo-500/30 shadow-[0_0_60px_rgba(99,102,241,0.2)] text-white"
+            className="relative w-full max-w-3xl overflow-hidden rounded-[32px] bg-slate-950 border border-indigo-500/30 shadow-[0_0_60px_rgba(99,102,241,0.2)] text-white"
           >
             {/* Cyberpunk Neon Glow Lines */}
             <div className="absolute top-0 left-0 w-full h-[4px] bg-gradient-to-r from-cyan-400 via-indigo-500 to-fuchsia-500 shadow-[0_2px_15px_rgba(99,102,241,0.5)]" />
@@ -122,7 +140,7 @@ export function PaywallModal({ isOpen, onClose, userId }: PaywallModalProps) {
             </button>
 
             {/* Modal Body */}
-            <div className="p-8 md:p-10 flex flex-col items-center">
+            <div className="p-6 md:p-8 flex flex-col items-center">
               {step === 1 ? (
                 /* Step 1: Selection & Checkout Initiation */
                 <motion.div
@@ -138,22 +156,22 @@ export function PaywallModal({ isOpen, onClose, userId }: PaywallModalProps) {
                     Premiumga o'tish
                   </div>
 
-                  <h2 className="text-3xl md:text-4xl font-display font-black text-center tracking-tight leading-none mb-3 bg-gradient-to-r from-white via-slate-100 to-slate-400 bg-clip-text text-transparent">
+                  <h2 className="text-2xl md:text-3xl font-display font-black text-center tracking-tight leading-none mb-3 bg-gradient-to-r from-white via-slate-100 to-slate-400 bg-clip-text text-transparent">
                     Ijodiy Chegaralarni <br />
                     <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-indigo-400 to-fuchsia-400">
                       Butkul Buzib O'ting!
                     </span>
                   </h2>
-                  <p className="text-slate-400 text-sm text-center max-w-md mb-6">
+                  <p className="text-slate-400 text-xs text-center max-w-md mb-5">
                     Siz bepul limitingizdan foydalanib bo'ldingiz. Ilovani faollashtiring va Reels, TikTok, Shorts uchun trenddagi videolarni tayyorlang.
                   </p>
 
                   {/* Timer */}
-                  <div className="w-full flex items-center justify-center gap-3 mb-6 bg-red-500/10 border border-red-500/30 py-3 rounded-2xl text-red-400">
+                  <div className="w-full flex items-center justify-center gap-3 mb-5 bg-red-500/10 border border-red-500/30 py-2.5 rounded-2xl text-red-400">
                     <div className="flex items-center gap-1.5 font-bold uppercase tracking-wider text-[11px]">
                       <Zap size={14} className="animate-pulse" /> 50% Aksiya tugashiga:
                     </div>
-                    <div className="flex gap-1.5 font-mono text-sm font-black bg-red-500/20 px-3 py-1 rounded-lg">
+                    <div className="flex gap-1.5 font-mono text-sm font-black bg-red-500/20 px-3 py-0.5 rounded-lg">
                       <span>{String(timeLeft.hours).padStart(2, '0')}</span>
                       <span className="opacity-50">:</span>
                       <span>{String(timeLeft.minutes).padStart(2, '0')}</span>
@@ -162,38 +180,33 @@ export function PaywallModal({ isOpen, onClose, userId }: PaywallModalProps) {
                     </div>
                   </div>
 
-                  {/* 2 Plans Selection */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full mb-8">
+                  {/* 3 Plans Selection */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 w-full mb-6">
                     {/* Plan 1: 10 Videos */}
                     <div
                       onClick={() => setSelectedPlan("pack10")}
-                      className={`relative p-5 rounded-2xl border transition-all duration-300 cursor-pointer flex flex-col justify-between ${
+                      className={`relative p-4 rounded-2xl border transition-all duration-300 cursor-pointer flex flex-col justify-between ${
                         selectedPlan === "pack10"
-                          ? "bg-slate-900/80 border-cyan-500 shadow-[0_0_20px_rgba(6,182,212,0.15)]"
+                          ? "bg-slate-900/80 border-cyan-500 shadow-[0_0_20px_rgba(6,182,212,0.15)] ring-2 ring-cyan-500/30"
                           : "bg-slate-900/30 border-slate-800/80 hover:border-slate-700 hover:bg-slate-900/40"
                       }`}
                     >
-                      {selectedPlan === "pack10" && (
-                        <span className="absolute -top-2.5 right-4 bg-cyan-500 text-slate-950 text-[9px] font-black uppercase px-2 py-0.5 rounded-full tracking-wider">
-                          Ommabop
-                        </span>
-                      )}
-                      <div>
+                      <div className="mb-3">
                         <div className="flex items-center gap-2 mb-2">
                           <div className={`p-1.5 rounded-lg border ${selectedPlan === "pack10" ? "bg-cyan-500/10 border-cyan-500/30 text-cyan-400" : "bg-white/5 border-white/5 text-slate-400"}`}>
-                            <ShoppingBag size={16} />
+                            <ShoppingBag size={15} />
                           </div>
-                          <h4 className="text-sm font-bold text-slate-100">1 Martalik Paket</h4>
+                          <h4 className="text-xs font-bold text-slate-100">1 Martalik Paket</h4>
                         </div>
-                        <p className="text-xs text-slate-400 leading-relaxed mb-4">
+                        <p className="text-[11px] text-slate-400 leading-relaxed">
                           Loyiha doirasida 10 ta to'liq video yaratish huquqi.
                         </p>
                       </div>
                       <div className="flex items-center justify-between pt-2 border-t border-slate-800/60 mt-auto">
-                        <span className="text-xs text-slate-400">10 Ta Video</span>
+                        <span className="text-[11px] text-slate-400">10 Ta Video</span>
                         <div className="flex flex-col items-end">
-                          <span className="text-[10px] text-slate-500 line-through decoration-red-500/70 -mb-1">40,000 so'm</span>
-                          <span className="text-lg font-black text-cyan-400">20,000 so'm</span>
+                          <span className="text-[9px] text-slate-500 line-through decoration-red-500/70 -mb-0.5">{lang === "uz" ? "40,000 so'm" : "$6"}</span>
+                          <span className="text-sm font-black text-cyan-400">{lang === "uz" ? "20,000 so'm" : "$3"}</span>
                         </div>
                       </div>
                     </div>
@@ -201,71 +214,120 @@ export function PaywallModal({ isOpen, onClose, userId }: PaywallModalProps) {
                     {/* Plan 2: 100 monthly exports */}
                     <div
                       onClick={() => setSelectedPlan("premium")}
-                      className={`relative p-5 rounded-2xl border transition-all duration-300 cursor-pointer flex flex-col justify-between ${
+                      className={`relative p-4 rounded-2xl border transition-all duration-300 cursor-pointer flex flex-col justify-between ${
                         selectedPlan === "premium"
-                          ? "bg-slate-900/80 border-fuchsia-500 shadow-[0_0_20px_rgba(217,70,239,0.15)]"
+                          ? "bg-slate-900/80 border-fuchsia-500 shadow-[0_0_20px_rgba(217,70,239,0.15)] ring-2 ring-fuchsia-500/30"
                           : "bg-slate-900/30 border-slate-800/80 hover:border-slate-700 hover:bg-slate-900/40"
                       }`}
                     >
-                      {selectedPlan === "premium" && (
-                        <span className="absolute -top-2.5 right-4 bg-fuchsia-500 text-slate-950 text-[9px] font-black uppercase px-2 py-0.5 rounded-full tracking-wider">
-                          100 Video Pro
-                        </span>
-                      )}
-                      <div>
+                      <span className="absolute -top-2.5 right-3 bg-fuchsia-500 text-slate-950 text-[8px] font-black uppercase px-2 py-0.5 rounded-full tracking-wider">
+                        Ommabop
+                      </span>
+                      <div className="mb-3">
                         <div className="flex items-center gap-2 mb-2">
                           <div className={`p-1.5 rounded-lg border ${selectedPlan === "premium" ? "bg-fuchsia-500/10 border-fuchsia-500/30 text-fuchsia-400" : "bg-white/5 border-white/5 text-slate-400"}`}>
-                            <Crown size={16} />
+                            <Crown size={15} />
                           </div>
-                          <h4 className="text-sm font-bold text-slate-100">Oylik Premium (Pro)</h4>
+                          <h4 className="text-xs font-bold text-slate-100">Oylik Premium</h4>
                         </div>
-                        <p className="text-xs text-slate-400 leading-relaxed mb-4">
-                          Oyiga 100 ta video, barcha premium ovozlar va premium dizayn mavzulari.
+                        <p className="text-[11px] text-slate-400 leading-relaxed">
+                          Oyiga 100 ta video, barcha AI ovozlar va mavzular.
                         </p>
                       </div>
                       <div className="flex items-center justify-between pt-2 border-t border-slate-800/60 mt-auto">
-                        <span className="text-xs text-slate-400">Oyiga 100 Video</span>
+                        <span className="text-[11px] text-slate-400">Oyiga 100 Video</span>
                         <div className="flex flex-col items-end">
-                          <span className="text-[10px] text-slate-500 line-through decoration-red-500/70 -mb-1">199,000 so'm</span>
-                          <span className="text-lg font-black text-fuchsia-400">99,000 so'm</span>
+                          <span className="text-[9px] text-slate-500 line-through decoration-red-500/70 -mb-0.5">{lang === "uz" ? "199,000 so'm" : "$19"}</span>
+                          <span className="text-sm font-black text-fuchsia-400">{lang === "uz" ? "99,000 so'm" : "$9"}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Plan 3: VIP / B2B Tayyor Paket (30 videos) */}
+                    <div
+                      onClick={() => setSelectedPlan("b2b30")}
+                      className={`relative p-4 rounded-2xl border transition-all duration-300 cursor-pointer flex flex-col justify-between ${
+                        selectedPlan === "b2b30"
+                          ? "bg-slate-900/80 border-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.2)] ring-2 ring-amber-500/30"
+                          : "bg-slate-900/30 border-slate-800/80 hover:border-slate-700 hover:bg-slate-900/40"
+                      }`}
+                    >
+                      <span className="absolute -top-2.5 right-3 bg-gradient-to-r from-amber-400 to-orange-500 text-slate-950 text-[8px] font-black uppercase px-2 py-0.5 rounded-full tracking-wider">
+                        {ui.paywallB2BBadge}
+                      </span>
+                      <div className="mb-3">
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className={`p-1.5 rounded-lg border ${selectedPlan === "b2b30" ? "bg-amber-500/10 border-amber-500/30 text-amber-400" : "bg-white/5 border-white/5 text-slate-400"}`}>
+                            <Briefcase size={15} />
+                          </div>
+                          <h4 className="text-xs font-bold text-amber-300 leading-tight">
+                            {ui.paywallB2BTitle}
+                          </h4>
+                        </div>
+                        <p className="text-[10px] text-slate-300 leading-relaxed line-clamp-3">
+                          {ui.paywallB2BDesc}
+                        </p>
+                      </div>
+                      <div className="flex items-center justify-between pt-2 border-t border-slate-800/60 mt-auto">
+                        <span className="text-[10px] text-amber-400 font-semibold">{ui.paywallB2BPriceUnit}</span>
+                        <div className="flex flex-col items-end">
+                          <span className="text-sm font-black text-amber-400">{ui.paywallB2BPrice}</span>
                         </div>
                       </div>
                     </div>
                   </div>
 
                   {/* Perks Grid */}
-                  <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-3.5 bg-slate-900/40 border border-slate-900 rounded-2xl p-5 mb-8 text-left text-xs">
+                  <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-900/40 border border-slate-900 rounded-2xl p-4 mb-6 text-left text-xs">
                     <div className="flex items-start gap-2.5">
-                      <CheckCircle2 size={16} className="text-indigo-400 mt-0.5 shrink-0" />
+                      <CheckCircle2 size={15} className="text-indigo-400 mt-0.5 shrink-0" />
                       <span className="text-slate-300">Suv belgisiz (No Watermark) eksport</span>
                     </div>
                     <div className="flex items-start gap-2.5">
-                      <CheckCircle2 size={16} className="text-indigo-400 mt-0.5 shrink-0" />
+                      <CheckCircle2 size={15} className="text-indigo-400 mt-0.5 shrink-0" />
                       <span className="text-slate-300">Cyberpunk, Retro va Chalk Board dizaynlari</span>
                     </div>
                     <div className="flex items-start gap-2.5">
-                      <CheckCircle2 size={16} className="text-indigo-400 mt-0.5 shrink-0" />
+                      <CheckCircle2 size={15} className="text-indigo-400 mt-0.5 shrink-0" />
                       <span className="text-slate-300">4 ta qo'shimcha premium AI ovozlari</span>
                     </div>
                     <div className="flex items-start gap-2.5">
-                      <CheckCircle2 size={16} className="text-indigo-400 mt-0.5 shrink-0" />
-                      <span className="text-slate-300">Tezkor render va barqaror yuklab olish</span>
+                      <CheckCircle2 size={15} className="text-indigo-400 mt-0.5 shrink-0" />
+                      <span className="text-slate-300">VIP Paketda barcha 30 ta videoni 24 soatda o'zimiz tayyorlab beramiz</span>
                     </div>
                   </div>
 
                   {/* Checkout Action */}
-                  <button
-                    id="paywall-upgrade-submit"
-                    onClick={handlePaynetCheckout}
-                    className="w-full py-4 rounded-2xl bg-gradient-to-r from-cyan-400 via-indigo-500 to-fuchsia-500 hover:brightness-110 active:scale-98 text-slate-950 font-display font-black text-sm shadow-xl shadow-indigo-500/15 transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer"
-                  >
-                    <Zap size={18} className="fill-current" />
-                    Sotib Olish — 50% Chegirmada
-                  </button>
+                  {selectedPlan === "b2b30" ? (
+                    <button
+                      id="paywall-b2b-submit"
+                      onClick={() => {
+                        const b2bMsg = `${ui.paywallB2BTelegramMsg}${displayId}`;
+                        window.open(`https://t.me/Akramjon1984?text=${encodeURIComponent(b2bMsg)}`, "_blank");
+                      }}
+                      className="w-full py-4 rounded-2xl bg-gradient-to-r from-amber-500 via-orange-500 to-amber-400 hover:brightness-110 active:scale-98 text-slate-950 font-display font-black text-sm shadow-xl shadow-amber-500/20 transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <Send size={18} className="fill-current" />
+                      {ui.paywallB2BBtn}
+                    </button>
+                  ) : (
+                    <button
+                      id="paywall-upgrade-submit"
+                      onClick={handlePaynetCheckout}
+                      className="w-full py-4 rounded-2xl bg-gradient-to-r from-cyan-400 via-indigo-500 to-fuchsia-500 hover:brightness-110 active:scale-98 text-slate-950 font-display font-black text-sm shadow-xl shadow-indigo-500/15 transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <Zap size={18} className="fill-current" />
+                      {lang === "uz" ? "Sotib Olish — 50% Chegirmada" : lang === "ru" ? "Купить со скидкой 50%" : lang === "tr" ? "%50 İndirimle Satın Al" : "Upgrade with 50% Discount"}
+                    </button>
+                  )}
 
                   <div className="mt-4 flex items-center gap-1.5 text-[10px] text-slate-500">
                     <AlertCircle size={12} />
-                    <span>Paynet tizimi orqali xavfsiz va tezkor to'lov amalga oshiriladi.</span>
+                    <span>
+                      {selectedPlan === "b2b30"
+                        ? "Telegram orqali to'g'ridan-to'g'ri administrator bilan bog'lanasiz va 24 soatda videolarni olasiz."
+                        : "Paynet tizimi orqali xavfsiz va tezkor to'lov amalga oshiriladi."}
+                    </span>
                   </div>
                 </motion.div>
               ) : (

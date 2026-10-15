@@ -6,6 +6,34 @@ export const PLAN_EXPORT_LIMITS: Record<Exclude<UserProfile["role"], "admin">, n
   premium: 100,
 };
 
+export interface PlanPackageInfo {
+  id: "pack10" | "premium" | "b2b30";
+  priceUz: string;
+  priceGlobal: string;
+  videoCount: number;
+}
+
+export const PLAN_PACKAGES: Record<"pack10" | "premium" | "b2b30", PlanPackageInfo> = {
+  pack10: {
+    id: "pack10",
+    priceUz: "20,000 so'm",
+    priceGlobal: "$3",
+    videoCount: 10,
+  },
+  premium: {
+    id: "premium",
+    priceUz: "99,000 so'm",
+    priceGlobal: "$9",
+    videoCount: 100,
+  },
+  b2b30: {
+    id: "b2b30",
+    priceUz: "350 000 so'm",
+    priceGlobal: "$29",
+    videoCount: 30,
+  },
+};
+
 export function getPlanCycle(role: UserProfile["role"]): string {
   if (role === "free") return "free:lifetime";
   if (role === "premium") return `premium:${new Date().toISOString().slice(0, 7)}`;

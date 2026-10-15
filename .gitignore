@@ -9,3 +9,6 @@ coverage/
 
 .vercel
 gen-lang-client-*.json
+public/backgrounds/
+*.mp4
+*.webm

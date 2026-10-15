@@ -22,6 +22,7 @@ import {
   Mic,
   MicOff,
   Music,
+  Video,
 } from "lucide-react";
 import { generateTTS, generateTTSBatch, playPCM, stopPCM } from "../services/tts";
 import { getVideoStrings, getUIStrings, UILanguage } from "../services/i18n";
@@ -39,6 +40,7 @@ import {
 import { hasReachedExportLimit } from "../services/plans";
 import { isTelegramWebApp, telegramHaptic, sendVideoToTelegramChat } from "../services/telegram";
 import { SocialCopyCard } from "./SocialCopyCard";
+import { AutoFactoryModal } from "./AutoFactoryModal";
 import type { User } from "firebase/auth";
 import { UserProfile } from "../types";
 
@@ -84,8 +86,12 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, uiLang, onUiL
   const [selectedLanguage, setSelectedLanguage] = useState<"uz" | "en" | "ru" | "tr">(
     quiz.language || "uz"
   );
+  const [aiQuestionCount, setAiQuestionCount] = useState<3 | 5>(3);
   const [showSettings, setShowSettings] = useState(false);
+  const [isAutoFactoryOpen, setIsAutoFactoryOpen] = useState(false);
   const hasPremiumAccess = userProfile?.role === "premium" || userProfile?.role === "admin";
+  const canCustomWatermark = userProfile?.role === "pack10" || userProfile?.role === "premium" || userProfile?.role === "admin";
+  const defaultWatermark = (quiz.language === "en" ? "@EnglishQuizArena" : "@QuizVideoUz");
   const isAdmin = userProfile?.role === "admin";
   const isYouTubeFormat = quiz.videoFormat === "youtube";
   const longVideoPreset = getLongVideoPreset(quiz.targetDuration);
@@ -243,6 +249,54 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, uiLang, onUiL
       alert("Musiqa faylini o'qishda xatolik yuz berdi.");
     };
     reader.readAsDataURL(file);
+  };
+
+  const handleBackgroundVideoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    e.target.value = "";
+    if (!files || files.length === 0) return;
+
+    const urls: string[] = [];
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      if (file.size > 150 * 1024 * 1024) {
+        alert(`${file.name} hajmi 150 MB dan katta.`);
+        continue;
+      }
+      urls.push(URL.createObjectURL(file));
+    }
+
+    if (urls.length === 0) return;
+
+    // Har bir savolga navbatma-navbat video belgilaymiz va global video o'rnatamiz
+    const updatedQuestions = quiz.questions.map((q, idx) => ({
+      ...q,
+      backgroundVideo: urls[idx % urls.length],
+    }));
+
+    setQuiz({
+      ...quiz,
+      backgroundVideoUrl: urls[0],
+      backgroundVideos: urls,
+      questions: updatedQuestions,
+    });
+    telegramHaptic("success");
+  };
+
+  const handleRemoveBackgroundVideo = () => {
+    const updatedQuestions = quiz.questions.map((q) => {
+      const copy = { ...q };
+      delete copy.backgroundVideo;
+      return copy;
+    });
+
+    setQuiz({
+      ...quiz,
+      backgroundVideoUrl: undefined,
+      backgroundVideos: undefined,
+      questions: updatedQuestions,
+    });
+    telegramHaptic("light");
   };
 
   // TTS xatolarini bitta joyda tushunarli xabarga aylantiramiz
@@ -421,7 +475,7 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, uiLang, onUiL
     setIsGeneratingAI(true);
     
     try {
-      const questionCount = (isYouTubeFormat && isAdmin) ? longVideoPreset.questionCount : 5;
+      const questionCount = (isYouTubeFormat && isAdmin) ? longVideoPreset.questionCount : aiQuestionCount;
       const newQuestions = await generateQuizAI(topicToUse, selectedLanguage, questionCount);
       if (newQuestions && newQuestions.length > 0) {
         const generatedQuiz: Quiz = {
@@ -434,23 +488,28 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, uiLang, onUiL
         // Avval savollarni ekranga chiqaramiz
         setQuiz(generatedQuiz);
         
-        // Keyin barcha savollar uchun ovozlarni bitta batch so'rovda yaratamiz
+        // Keyin barcha savollar (va outro) uchun ovozlarni bitta batch so'rovda yaratamiz
         setGeneratingAudioId("batch");
         try {
           const letters = ['A', 'B', 'C', 'D'];
           // Faqat savol o'qiladi — variantlar ekranda; video sur'ati tez qoladi
           const vs = getVideoStrings(selectedLanguage);
-          const items = newQuestions.flatMap((q) => [
+          const outroText = (quiz.outroEnabled !== false) ? vs.outroCtaText : null;
+          const items: { text: string }[] = newQuestions.flatMap((q) => [
             { text: q.text },
             { text: vs.ttsCorrect(letters[q.correctOptionIndex], q.options[q.correctOptionIndex], q.explanation) },
           ]);
+          if (outroText) {
+            items.push({ text: outroText });
+          }
           const audios = await generateTTSBatch(items, quiz.voiceName || "Kore");
           const withAudio = newQuestions.map((q, i) => ({
             ...q,
             audioBase64: audios[2 * i] || undefined,
             correctAudioBase64: audios[2 * i + 1] || undefined,
           }));
-          setQuiz({ ...generatedQuiz, questions: withAudio });
+          const outroAudio = outroText ? (audios[newQuestions.length * 2] || undefined) : undefined;
+          setQuiz({ ...generatedQuiz, questions: withAudio, ...(outroAudio ? { outroAudioBase64: outroAudio } : {}) });
 
           // Server vaqt/hajm chegarasiga yetganda qisman natija qaytarishi mumkin —
           // buni jimgina o'tkazib yubormaymiz, aks holda video ovozsiz qismlar bilan chiqadi.
@@ -539,8 +598,8 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, uiLang, onUiL
     // Faqat YETISHMAYOTGAN kliplarni so'raymiz. Shu tufayli tugmani qayta bosish
     // arzon "qayta urinish" bo'lib xizmat qiladi — tayyor ovozlar uchun AI byudjeti
     // ikkinchi marta sarflanmaydi.
-    const missingSlots = quiz.questions.flatMap((q, questionIndex) => {
-      const slots: { questionIndex: number; kind: "question" | "correct"; text: string }[] = [];
+    const missingSlots: { questionIndex: number; kind: "question" | "correct" | "outro"; text: string }[] = quiz.questions.flatMap((q, questionIndex) => {
+      const slots: { questionIndex: number; kind: "question" | "correct" | "outro"; text: string }[] = [];
       if (!q.audioBase64) {
         slots.push({ questionIndex, kind: "question", text: q.text });
       }
@@ -553,6 +612,14 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, uiLang, onUiL
       }
       return slots;
     });
+
+    if (quiz.outroEnabled !== false && !quiz.outroAudioBase64) {
+      missingSlots.push({
+        questionIndex: -1,
+        kind: "outro",
+        text: vs.outroCtaText,
+      });
+    }
 
     if (missingSlots.length === 0) {
       alert("Barcha savollar uchun ovozlar allaqachon tayyor.");
@@ -569,17 +636,20 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, uiLang, onUiL
 
       const updatedQuestions = quiz.questions.map((q) => ({ ...q }));
       let createdCount = 0;
+      let outroAudio: string | undefined = quiz.outroAudioBase64;
       missingSlots.forEach((slot, index) => {
         const audio = audios[index];
         if (!audio) return;
         createdCount++;
         if (slot.kind === "question") {
           updatedQuestions[slot.questionIndex].audioBase64 = audio;
-        } else {
+        } else if (slot.kind === "correct") {
           updatedQuestions[slot.questionIndex].correctAudioBase64 = audio;
+        } else if (slot.kind === "outro") {
+          outroAudio = audio;
         }
       });
-      setQuiz({ ...quiz, questions: updatedQuestions });
+      setQuiz({ ...quiz, questions: updatedQuestions, ...(outroAudio ? { outroAudioBase64: outroAudio } : {}) });
 
       const stillMissing = missingSlots.length - createdCount;
       if (stillMissing > 0) {
@@ -660,7 +730,7 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, uiLang, onUiL
     try {
       const quizToRender = {
         ...quiz,
-        watermark: hasPremiumAccess ? quiz.watermark : "@QuizVideo",
+        watermark: canCustomWatermark ? (quiz.watermark || defaultWatermark) : defaultWatermark,
       };
       const renderer = new QuizRenderer(quizToRender);
       setExportResolution(`${renderer.outputWidth}×${renderer.outputHeight}`);
@@ -1073,11 +1143,23 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, uiLang, onUiL
       {/* QADAM 1: AI bilan savollar tayyorlash */}
       <div className="bg-gradient-to-br from-indigo-500/10 to-purple-500/10 backdrop-blur-2xl border border-indigo-500/20 rounded-3xl p-6 shadow-2xl relative overflow-hidden mb-5">
         <div className="absolute top-0 right-0 -mt-4 -mr-4 w-32 h-32 bg-indigo-500/20 blur-3xl rounded-full" />
-        <div className="flex items-center gap-3 mb-2 relative z-10">
-          <div className="w-8 h-8 shrink-0 rounded-full bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center text-indigo-300 font-display font-black text-sm">
-            1
+        <div className="flex items-center justify-between mb-2 relative z-10 flex-wrap gap-2">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 shrink-0 rounded-full bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center text-indigo-300 font-display font-black text-sm">
+              1
+            </div>
+            <h2 className="text-xl font-display font-bold text-indigo-100 tracking-tight">{ui.step1Title}</h2>
           </div>
-          <h2 className="text-xl font-display font-bold text-indigo-100 tracking-tight">{ui.step1Title}</h2>
+          {isAdmin && (
+            <button
+              type="button"
+              onClick={() => setIsAutoFactoryOpen(true)}
+              className="bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-400 hover:to-orange-500 text-black font-extrabold text-xs px-3.5 py-1.5 rounded-xl transition-all shadow-md shadow-orange-950/40 flex items-center gap-1.5 cursor-pointer active:scale-95"
+            >
+              <Sparkles size={14} />
+              <span>🚀 Avto-Zavod (4 til)</span>
+            </button>
+          )}
         </div>
         <p className="text-sm text-indigo-200/60 mb-5 relative z-10 leading-relaxed">
           {ui.step1Subtitle}
@@ -1144,8 +1226,37 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, uiLang, onUiL
           </button>
         </div>
 
+        {/* Savollar soni tanlash (3 ta Viral Shorts vs 5 ta Standart) */}
+        <div className="flex flex-wrap items-center gap-2.5 mt-3 pt-3 border-t border-indigo-500/20 relative z-10">
+          <span className="text-xs font-bold text-indigo-200/90 flex items-center gap-1.5 mr-1">
+            ⚡ {ui.questionCountLabel}:
+          </span>
+          <button
+            type="button"
+            onClick={() => setAiQuestionCount(3)}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+              aiQuestionCount === 3
+                ? "bg-indigo-600 text-white shadow-md shadow-indigo-900/40 border border-indigo-400/50 scale-[1.02]"
+                : "bg-black/30 text-indigo-200/70 hover:text-white border border-indigo-500/20 hover:border-indigo-400/40"
+            }`}
+          >
+            <span>🔥 {ui.questionCount3}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setAiQuestionCount(5)}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+              aiQuestionCount === 5
+                ? "bg-indigo-600 text-white shadow-md shadow-indigo-900/40 border border-indigo-400/50 scale-[1.02]"
+                : "bg-black/30 text-indigo-200/70 hover:text-white border border-indigo-500/20 hover:border-indigo-400/40"
+            }`}
+          >
+            <span>{ui.questionCount5}</span>
+          </button>
+        </div>
+
         {/* Trending Topics Quick-Select */}
-        <div className="mt-4 pt-3 border-t border-indigo-500/20 relative z-10">
+        <div className="mt-3 pt-3 border-t border-indigo-500/20 relative z-10">
           <p className="text-xs font-bold text-indigo-200/80 mb-2 uppercase tracking-wider">
             {ui.trendingTitle}
           </p>
@@ -1511,42 +1622,128 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, uiLang, onUiL
               </select>
             </div>
 
+            {/* Fon videosi (.mp4 / .webm) yuklash */}
+            <div className="pt-4 border-t border-white/10 space-y-2">
+              <label className="block text-sm font-medium text-neutral-300 flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <Video size={16} className="text-emerald-400" />
+                  <span>{ui.uploadBgVideoBtn}</span>
+                </span>
+                {quiz.backgroundVideoUrl && (
+                  <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-500/30 font-bold uppercase tracking-wider flex items-center gap-1">
+                    ✓ {ui.bgVideoActive} {quiz.backgroundVideos && quiz.backgroundVideos.length > 1 ? `(${quiz.backgroundVideos.length} ta)` : ''}
+                  </span>
+                )}
+              </label>
+
+              <div className="flex gap-2 items-center">
+                <label className="flex-1 flex items-center justify-center gap-2 bg-black/40 hover:bg-black/60 border border-white/10 hover:border-emerald-500/40 text-neutral-200 hover:text-white px-4 py-3 rounded-xl font-medium text-xs transition-all cursor-pointer">
+                  <Video size={15} className="text-emerald-400" />
+                  <span>{quiz.backgroundVideoUrl ? "Boshqa video(lar) tanlash" : ui.uploadBgVideoBtn}</span>
+                  <input
+                    type="file"
+                    accept="video/mp4,video/webm"
+                    multiple
+                    className="hidden"
+                    onChange={handleBackgroundVideoUpload}
+                  />
+                </label>
+                {quiz.backgroundVideoUrl && (
+                  <button
+                    type="button"
+                    onClick={handleRemoveBackgroundVideo}
+                    className="px-3 py-3 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 hover:text-red-300 text-xs font-semibold transition-all cursor-pointer"
+                    title={ui.removeBgVideoBtn}
+                  >
+                    ✕ {ui.removeBgVideoBtn}
+                  </button>
+                )}
+              </div>
+              <p className="text-[11px] text-neutral-400 leading-relaxed">
+                Kompyuteringizdan 1 ta yoki bir nechta harakatlanuvchi .mp4/.webm fon videolarini yuklang. Ular avtomatik ravishda to'xtovsiz aylanib (loop) turadi.
+              </p>
+            </div>
+
             <div>
               <label className="block text-sm font-medium text-neutral-300 mb-2 flex items-center justify-between">
                 <span>{ui.watermarkLabel}</span>
-                {!hasPremiumAccess && (
+                {!canCustomWatermark && (
                   <span className="text-[10px] bg-amber-500/10 text-amber-400 px-2 py-0.5 rounded-full border border-amber-500/20 flex items-center gap-1 font-bold uppercase tracking-wider">
-                    🔒 Premium
+                    🔒 Pack10 / Premium
                   </span>
                 )}
               </label>
               <input
                 type="text"
                 placeholder="@username"
-                readOnly={!hasPremiumAccess}
+                readOnly={!canCustomWatermark}
                 onClick={() => {
-                  if (!hasPremiumAccess) {
+                  if (!canCustomWatermark) {
+                    alert(ui.watermarkPaywallAlert || "Shaxsiy kanal nomini qo'yish faqat Pack10 va Premium tariflarida mavjud");
                     onOpenPaywall();
                   }
                 }}
-                value={hasPremiumAccess ? (quiz.watermark || "") : "@QuizVideo"}
+                value={canCustomWatermark ? (quiz.watermark || "") : defaultWatermark}
                 onChange={(e) => {
-                  if (!hasPremiumAccess) {
+                  if (!canCustomWatermark) {
+                    alert(ui.watermarkPaywallAlert || "Shaxsiy kanal nomini qo'yish faqat Pack10 va Premium tariflarida mavjud");
                     onOpenPaywall();
                     return;
                   }
                   setQuiz({ ...quiz, watermark: e.target.value });
                 }}
                 className={`w-full bg-black/40 backdrop-blur-md border border-white/10 rounded-xl px-4 py-3.5 text-white focus:outline-none focus:border-emerald-500/50 focus:ring-2 focus:ring-emerald-500/20 transition-all ${
-                  !hasPremiumAccess ? "opacity-50 cursor-pointer select-none bg-slate-950/50" : ""
+                  !canCustomWatermark ? "opacity-60 cursor-pointer select-none bg-slate-950/60" : ""
                 }`}
               />
-              {!hasPremiumAccess && (
+              {!canCustomWatermark && (
                 <p className="text-[10px] text-amber-400/80 mt-1.5 font-medium leading-relaxed">
                   {ui.watermarkTip}
                 </p>
               )}
             </div>
+
+            {/* Oxirgi savol javobini yashirish (Komment yig'ish rejimi) */}
+            <label className="flex items-start sm:items-center gap-3 p-4 rounded-xl border border-amber-500/30 bg-amber-500/5 cursor-pointer hover:bg-amber-500/10 transition-colors">
+              <input
+                type="checkbox"
+                checked={quiz.hideLastAnswer || false}
+                onChange={(e) => setQuiz({ ...quiz, hideLastAnswer: e.target.checked })}
+                className="w-5 h-5 mt-0.5 sm:mt-0 rounded border-amber-500/40 bg-black/50 text-amber-500 focus:ring-amber-500/50 focus:ring-offset-0"
+              />
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-bold text-amber-200">{ui.hideLastAnswerLabel}</span>
+                  <span className="text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full font-extrabold uppercase">
+                    🔥 Viral Shorts
+                  </span>
+                </div>
+                <p className="text-xs text-neutral-400 mt-0.5 leading-relaxed">
+                  {ui.hideLastAnswerDesc}
+                </p>
+              </div>
+            </label>
+
+            {/* Yakuniy sotuv chorlovi (Outro) qo'shish */}
+            <label className="flex items-start sm:items-center gap-3 p-4 rounded-xl border border-indigo-500/30 bg-indigo-500/5 cursor-pointer hover:bg-indigo-500/10 transition-colors">
+              <input
+                type="checkbox"
+                checked={quiz.outroEnabled !== false}
+                onChange={(e) => setQuiz({ ...quiz, outroEnabled: e.target.checked })}
+                className="w-5 h-5 mt-0.5 sm:mt-0 rounded border-indigo-500/40 bg-black/50 text-indigo-500 focus:ring-indigo-500/50 focus:ring-offset-0"
+              />
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-bold text-indigo-200">{ui.outroEnabledLabel}</span>
+                  <span className="text-[10px] bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-full font-extrabold uppercase">
+                    ⚡ 3 soniya
+                  </span>
+                </div>
+                <p className="text-xs text-neutral-400 mt-0.5 leading-relaxed">
+                  {ui.outroEnabledDesc}
+                </p>
+              </div>
+            </label>
 
             <label className="flex items-center gap-3 p-4 rounded-xl border border-white/10 bg-white/5 cursor-pointer hover:bg-white/10 transition-colors">
               <input
@@ -2204,6 +2401,14 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, uiLang, onUiL
           </div>
         </div>
       </div>
+
+      {/* 🚀 4 Tilda Avto-Zavod Modali (Admin) */}
+      {isAdmin && (
+        <AutoFactoryModal
+          isOpen={isAutoFactoryOpen}
+          onClose={() => setIsAutoFactoryOpen(false)}
+        />
+      )}
     </div>
   );
 }

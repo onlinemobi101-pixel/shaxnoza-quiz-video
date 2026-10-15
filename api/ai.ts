@@ -336,13 +336,20 @@ async function generateQuizChunk(
 
   const promptDetails = langPromptMap[language] || langPromptMap.uz;
 
+  const difficultyGuide = count === 3 ? `
+VIRAL 3-QUESTION STRUCTURE (MANDATORY):
+- Question 1 (Savol 1): Juda oson va ommabop (tomoshabinni videoda birinchi soniyalardanoq ushlab qolish uchun).
+- Question 2 (Savol 2): O'rtacha qiyinlikda va qiziqarli fakt bilan boyitilgan.
+- Question 3 (Savol 3): Qiyin, qiziqarli va bahsli savol (tomoshabinlarni izoh yozishga majbur qiluvchi).` : "";
+
   const startedAt = Date.now();
   const response = await ai.models.generateContent({
     model: "gemini-3.7-flash",
     contents: `Topic: ${topic}.
 Target Language: ${targetLanguageName} (code: ${language}).
 
-TASK: Create exactly ${count} engaging, varied quiz questions about this topic.
+TASK: Create exactly ${count} engaging, varied quiz questions about this topic.${difficultyGuide}
+
 LANGUAGE MANDATE:
 - Regardless of what language the topic ("${topic}") is written in, ${promptDetails}
 - STRICT RULE: Do NOT mix languages. Do NOT leave any option or question in English or Uzbek if Russian/Turkish was selected. Every single word in the output must be in ${targetLanguageName}.
@@ -351,7 +358,7 @@ CRITICAL CORRECTNESS RULES:
 1. FIRST decide the correct answer, THEN place it at a RANDOM position (0, 1, or 2) among the 3 options.
 2. The correctOptionIndex MUST exactly match the 0-based position of the correct answer in the options array.
 3. DOUBLE-CHECK: After generating each question, verify that options[correctOptionIndex] is truly the correct answer. If not, fix the index.
-4. The explanation must clearly explain why the answer at correctOptionIndex is correct (8–18 words in ${targetLanguageName}).
+4. EXPLANATION MANDATE: The explanation (izoh) must clearly explain why the answer at correctOptionIndex is correct. It MUST be a complete, meaningful sentence (tugallangan ma'noli gap) and its total length MUST STRICTLY NOT EXCEED 110 characters (uzunligi qat'iy ravishda 110 ta belgidan oshmasin).
 5. All facts must be 100% accurate and up-to-date. Do not invent fake facts.
 6. Each question must have exactly 3 distinct, plausible options. No duplicate or near-identical options.
 Avoid outdated facts, duplicate questions, near-identical wording, trick questions, and ambiguous answers.
@@ -368,7 +375,7 @@ history, space, science, nature, math, geography, art, music, sport, tech, liter
             text: { type: Type.STRING, description: "Savol matni / Question text" },
             options: { type: Type.ARRAY, items: { type: Type.STRING }, description: "3 ta variant / 3 options" },
             correctOptionIndex: { type: Type.INTEGER, description: "To'g'ri javob indeksi (0, 1 yoki 2) / Correct answer index (0, 1 or 2)" },
-            explanation: { type: Type.STRING, description: "8–18 so'zli qisqa tushuntirish / Concise 8–18 word explanation" },
+            explanation: { type: Type.STRING, description: "Tugallangan ma'noli gap, maksimal 110 belgi / Complete sentence, max 110 chars" },
             imageKeyword: { type: Type.STRING, description: "Mavzuga doir bitta inglizcha so'z / One English word for the topic" }
           },
           required: ["text", "options", "correctOptionIndex", "explanation", "imageKeyword"]
@@ -449,6 +456,56 @@ Javobni quyidagi JSON formatida qaytaring:
   });
 
   return JSON.parse(response.text || "[]");
+}
+
+async function generate30DayViralTopics(
+  user?: AuthenticatedUser,
+): Promise<string[]> {
+  const ai = getAI();
+  const startedAt = Date.now();
+  const response = await ai.models.generateContent({
+    model: "gemini-3.7-flash",
+    contents: `TASK: Generate a list of exactly 60 viral, highly engaging, trending quiz topics specifically optimized for YouTube Shorts, Instagram Reels, and TikTok (a complete 30-day content plan with 2 videos per day).
+
+CATEGORIES TO COVER BALANCED ACROSS THE 60 TOPICS:
+- Tarix & Buyuk Shaxslar (Amir Temur, Rim imperiyasi, Chingizxon, Qadimgi Misr, Ikkinchi jahon urushi...)
+- Dunyo Kinosi & Seriallar (Garri Potter, Marvel olami, Qasoskorlar, Titanik, O'zbek kinosi durdonalari...)
+- Jahon Futboli & Sport (Ronaldo, Messi, Chempionlar Ligasi, Oltin To'p, Real Madrid vs Barselona...)
+- Dunyo Geografiyasi & Mo'jizalar (Dunyodagi eng sirli joylar, Xavfli davlatlar, Poytaxtlar, Dunyo mo'jizalari...)
+- Mantiqiy Savollar & Zukkolik (Qiziqarli mantiqiy jumboqlar, Topishmoqlar, Detektivlik testi, IQ savollari...)
+- Ilm-fan & Kosmos (Qora tuynuklar, Marsga parvoz, Sun'iy intellekt, Koinotning eng qo'rqinchli sirlari...)
+- Hayvonot Olami (Eng zaharli jonivorlar, Yirtqichlar jangi, Okean tubidagi maxluqlar...)
+
+RULES:
+1. Write each topic title in engaging, clean Uzbek language.
+2. Each topic must be concise (3-8 words), punchy, and instantly spark curiosity for Shorts/Reels viewers.
+3. Return exactly 60 distinct topic items in a JSON array of strings. No duplicates.`,
+    config: {
+      temperature: 0.8,
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.ARRAY,
+        items: {
+          type: Type.STRING,
+        },
+      },
+    },
+  });
+
+  const parsed = JSON.parse(response.text || "[]");
+  if (user) {
+    await recordModelUsage(user, {
+      action: "generate30DayTopics",
+      model: "gemini-3.7-flash",
+      kind: "text",
+      usage: response.usageMetadata,
+      durationMs: Date.now() - startedAt,
+    });
+  }
+  if (Array.isArray(parsed) && parsed.length > 0) {
+    return parsed.slice(0, 60);
+  }
+  return [];
 }
 
 let activeTTSModel =
@@ -700,7 +757,7 @@ export default async function handler(req: IncomingMessage & { body?: any }, res
         if (!topic || typeof topic !== "string" || topic.trim().length > 200) throw new ApiError(400, "INVALID_TOPIC");
         const isAdmin = isAdminEmail(user.email);
         const requestedCount = Number(count ?? 5);
-        if (!Number.isInteger(requestedCount) || requestedCount < 5 || requestedCount > 30) {
+        if (!Number.isInteger(requestedCount) || requestedCount < 3 || requestedCount > 30) {
           throw new ApiError(400, "INVALID_QUESTION_COUNT");
         }
         if (!isAdmin && requestedCount > 5) {
@@ -840,6 +897,12 @@ export default async function handler(req: IncomingMessage & { body?: any }, res
       case "getAdminUsageSummary": {
         const result = await getAdminUsageSummary(user, body?.month);
         sendJSON(res, 200, result);
+        return;
+      }
+      case "generate30DayTopics": {
+        await requirePlanAccess(user);
+        const topics = await generate30DayViralTopics(user);
+        sendJSON(res, 200, { topics });
         return;
       }
       default:

@@ -54,3 +54,8 @@ export async function analyzeQuestionsForImages(questions: { text: string }[]): 
   });
   return data.keywords || null;
 }
+
+export async function generate30DayViralTopics(): Promise<string[]> {
+  const data = await callAPI({ action: "generate30DayTopics" });
+  return data.topics || [];
+}

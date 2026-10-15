@@ -5,6 +5,7 @@ export interface Question {
   correctOptionIndex: number;
   explanation?: string;
   backgroundImage: string;
+  backgroundVideo?: string;
   audioBase64?: string;
   correctAudioBase64?: string;
 }
@@ -27,6 +28,11 @@ export interface Quiz {
   language?: 'uz' | 'en' | 'ru' | 'tr';
   videoFormat?: 'vertical' | 'youtube';
   targetDuration?: 2 | 3 | 5 | 8 | 10 | 12;
+  hideLastAnswer?: boolean;
+  outroEnabled?: boolean;
+  outroAudioBase64?: string;
+  backgroundVideoUrl?: string;
+  backgroundVideos?: string[];
 }
 
 export interface UserProfile {

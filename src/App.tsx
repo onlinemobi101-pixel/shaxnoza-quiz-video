@@ -96,6 +96,7 @@ export default function App() {
   const [isPaywallOpen, setIsPaywallOpen] = useState(false);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const hasPremiumAccess = userProfile?.role === "premium" || userProfile?.role === "admin";
+  const canCustomWatermark = userProfile?.role === "pack10" || userProfile?.role === "premium" || userProfile?.role === "admin";
 
   useEffect(() => {
     if (userProfile?.role !== "premium" || !userProfile.premiumUntil) return;
@@ -447,6 +448,7 @@ export default function App() {
           <Landing
             onStart={startEditor}
             onShowPricing={() => setIsPaywallOpen(true)}
+            uiLang={uiLang}
           />
         ) : mode === "admin" ? (
           <Suspense fallback={<div className="flex h-full items-center justify-center"><Loader2 className="animate-spin text-emerald-400" size={32} /></div>}>
@@ -483,7 +485,7 @@ export default function App() {
           <Player
             quiz={{
               ...quiz,
-              watermark: hasPremiumAccess ? quiz.watermark : "@QuizVideo",
+              watermark: canCustomWatermark ? (quiz.watermark || (quiz.language === "en" ? "@EnglishQuizArena" : "@QuizVideoUz")) : (quiz.language === "en" ? "@EnglishQuizArena" : "@QuizVideoUz"),
             }}
             onExit={() => setMode("editor")}
           />
@@ -503,6 +505,7 @@ export default function App() {
           isOpen={isPaywallOpen}
           onClose={() => setIsPaywallOpen(false)}
           userId={user?.uid || "guest"}
+          uiLang={uiLang}
         />
       </Suspense>
 

@@ -69,15 +69,20 @@ export function telegramHaptic(type: HapticType = "light"): void {
 export async function sendVideoToTelegramChat(
   videoBlob: Blob,
   fileName: string = "quiz_video.mp4",
-  caption?: string
+  caption?: string,
+  targetChatId?: string | number
 ): Promise<{ success: boolean; error?: string }> {
   const initData = getTelegramInitData();
   const user = getTelegramUser();
+  const effectiveChatId = targetChatId || user?.id;
 
   const formData = new FormData();
   formData.append("video", videoBlob, fileName);
   if (initData) formData.append("initData", initData);
-  if (user?.id) formData.append("chatId", String(user.id));
+  if (effectiveChatId) {
+    formData.append("chatId", String(effectiveChatId));
+    formData.append("chat_id", String(effectiveChatId));
+  }
   if (caption) formData.append("caption", caption);
 
   try {
