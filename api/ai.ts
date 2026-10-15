@@ -643,9 +643,14 @@ async function generateTTSWithRetry(
     } catch (error: any) {
       const message = error?.message || String(error);
       const is429 = error?.status === 429 || message.includes("429");
-      const backoffMs = (attempt + 1) * 2000;
+      const isNetworkError =
+        message.includes("fetch failed") ||
+        message.includes("ECONNRESET") ||
+        message.includes("ETIMEDOUT") ||
+        message.includes("socket hang up");
+      const backoffMs = (attempt + 1) * 1500;
       if (
-        is429 && !message.includes("quota") && attempt < retries &&
+        (is429 || isNetworkError) && !message.includes("quota") && attempt < retries &&
         Date.now() + backoffMs < deadlineAt
       ) {
         await new Promise((r) => setTimeout(r, backoffMs));
