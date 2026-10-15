@@ -1,6 +1,25 @@
 import { applicationDefault, cert, getApps, initializeApp } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
+import { OAuth2Client } from "google-auth-library";
+
+// Node 24 va google-auth-library v10 moslashuvi:
+// google-auth-library v10 da getRequestHeaders() Web Headers obyektini qaytaradi,
+// biroq @grpc/grpc-js uni oddiy JavaScript obyekti (Object.keys) deb kutadi.
+// Natijada Authorization sarlavhasi bo'sh qolib "7 PERMISSION_DENIED" xatosi kelib chiqadi.
+// Ushbu patch Headers obyektini oddiy obyektga aylantirib beradi.
+const origGetRequestHeaders = OAuth2Client.prototype.getRequestHeaders;
+OAuth2Client.prototype.getRequestHeaders = async function (...args: any[]) {
+  const headers = await origGetRequestHeaders.apply(this, args);
+  if (headers && typeof (headers as any).get === "function") {
+    const plain: Record<string, string> = {};
+    (headers as any).forEach((val: string, key: string) => {
+      plain[key] = val;
+    });
+    return plain as any;
+  }
+  return headers;
+};
 
 // Standart qiymatlar hozirgi ishlab turgan sozlamani saqlaydi; boshqa Firebase
 // loyihasiga ko'chirilganda env orqali almashtiriladi.

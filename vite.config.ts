@@ -10,9 +10,9 @@ function apiDevServer(env: Record<string, string>): Plugin {
   return {
     name: 'api-dev-server',
     configureServer(server) {
-      for (const key of ['GCP_SERVICE_ACCOUNT_JSON', 'FIREBASE_SERVICE_ACCOUNT_JSON']) {
-        if (env[key] && !process.env[key]) {
-          process.env[key] = env[key];
+      for (const [key, val] of Object.entries(env)) {
+        if (val && !process.env[key]) {
+          process.env[key] = val;
         }
       }
       server.middlewares.use('/api/ai', (req, res) => {
@@ -31,6 +31,11 @@ function apiDevServer(env: Record<string, string>): Plugin {
 
 export default defineConfig(({mode}) => {
   const env = loadEnv(mode, '.', '');
+  for (const [key, val] of Object.entries(env)) {
+    if (val && !process.env[key]) {
+      process.env[key] = val;
+    }
+  }
   return {
     plugins: [react(), tailwindcss(), apiDevServer(env)],
     resolve: {
