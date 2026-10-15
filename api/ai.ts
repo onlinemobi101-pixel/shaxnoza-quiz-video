@@ -92,7 +92,8 @@ type ApiAction =
   | "reserveVideoExport"
   | "completeVideoExport"
   | "failVideoExport"
-  | "getAdminUsageSummary";
+  | "getAdminUsageSummary"
+  | "generate30DayTopics";
 
 class ApiError extends Error {
   constructor(public status: number, message: string) {
@@ -122,6 +123,7 @@ const RATE_LIMITS: Record<ApiAction, { max: number; windowMs: number }> = {
   completeVideoExport: { max: 20, windowMs: 60 * 1000 },
   failVideoExport: { max: 20, windowMs: 60 * 1000 },
   getAdminUsageSummary: { max: 30, windowMs: 60 * 1000 },
+  generate30DayTopics: { max: 10, windowMs: 60 * 1000 },
 };
 
 function getBearerToken(req: IncomingMessage): string {
