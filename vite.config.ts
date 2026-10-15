@@ -12,7 +12,11 @@ function apiDevServer(env: Record<string, string>): Plugin {
     configureServer(server) {
       for (const [key, val] of Object.entries(env)) {
         if (val && !process.env[key]) {
-          process.env[key] = val;
+          let cleanVal = val.trim();
+          if ((cleanVal.startsWith("'") && cleanVal.endsWith("'")) || (cleanVal.startsWith('"') && cleanVal.endsWith('"'))) {
+            cleanVal = cleanVal.slice(1, -1);
+          }
+          process.env[key] = cleanVal;
         }
       }
       server.middlewares.use('/api/ai', (req, res) => {
@@ -33,7 +37,11 @@ export default defineConfig(({mode}) => {
   const env = loadEnv(mode, '.', '');
   for (const [key, val] of Object.entries(env)) {
     if (val && !process.env[key]) {
-      process.env[key] = val;
+      let cleanVal = val.trim();
+      if ((cleanVal.startsWith("'") && cleanVal.endsWith("'")) || (cleanVal.startsWith('"') && cleanVal.endsWith('"'))) {
+        cleanVal = cleanVal.slice(1, -1);
+      }
+      process.env[key] = cleanVal;
     }
   }
   return {

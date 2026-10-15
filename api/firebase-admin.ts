@@ -1,3 +1,5 @@
+import * as fs from "fs";
+import * as path from "path";
 import { applicationDefault, cert, getApps, initializeApp } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
@@ -21,6 +23,29 @@ OAuth2Client.prototype.getRequestHeaders = async function (...args: any[]) {
   return headers;
 };
 
+// Lokal dev muhitida .env.local faylini import vaqtida o'qib olish (Vite yuklashidan oldin)
+function ensureEnvLoaded() {
+  if (!process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
+    try {
+      const envPath = path.resolve(process.cwd(), ".env.local");
+      if (fs.existsSync(envPath)) {
+        const content = fs.readFileSync(envPath, "utf-8");
+        for (const line of content.split("\n")) {
+          const match = line.match(/^([A-Za-z0-9_]+)=(.*)$/);
+          if (match && !process.env[match[1]]) {
+            let v = match[2].trim();
+            if ((v.startsWith("'") && v.endsWith("'")) || (v.startsWith('"') && v.endsWith('"'))) {
+              v = v.slice(1, -1);
+            }
+            process.env[match[1]] = v;
+          }
+        }
+      }
+    } catch {}
+  }
+}
+ensureEnvLoaded();
+
 // Standart qiymatlar hozirgi ishlab turgan sozlamani saqlaydi; boshqa Firebase
 // loyihasiga ko'chirilganda env orqali almashtiriladi.
 // Klient tomondagi mos qiymatlar: src/services/firebase.ts
@@ -29,24 +54,50 @@ const DATABASE_ID = process.env.FIRESTORE_DATABASE_ID ||
   "ai-studio-quizvideogenerat-b76222ad-cbef-4099-98d0-287a876f919d";
 
 function getAdminApp() {
+  ensureEnvLoaded();
   if (getApps().length > 0) return getApps()[0];
 
-  const rawServiceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+  let rawServiceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_JSON?.trim();
   if (rawServiceAccount) {
+    if ((rawServiceAccount.startsWith("'") && rawServiceAccount.endsWith("'")) ||
+        (rawServiceAccount.startsWith('"') && rawServiceAccount.endsWith('"'))) {
+      rawServiceAccount = rawServiceAccount.slice(1, -1);
+    }
     const serviceAccount = JSON.parse(rawServiceAccount);
     if (typeof serviceAccount.private_key === "string") {
       serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, "\n");
     }
-    return initializeApp({ credential: cert(serviceAccount), projectId: PROJECT_ID });
+    return initializeApp({ credential: cert(serviceAccount), projectId: process.env.FIREBASE_PROJECT_ID || PROJECT_ID });
   }
 
   // Google Cloud muhitida Application Default Credentials ishlaydi. Vercel'da esa
   // FIREBASE_SERVICE_ACCOUNT_JSON secretini sozlash kerak.
-  return initializeApp({ credential: applicationDefault(), projectId: PROJECT_ID });
+  return initializeApp({ credential: applicationDefault(), projectId: process.env.FIREBASE_PROJECT_ID || PROJECT_ID });
 }
 
-const adminApp = getAdminApp();
+let _adminApp: any = null;
+let _adminAuth: any = null;
+let _adminDb: any = null;
 
-export const adminAuth = getAuth(adminApp);
-export const adminDb = getFirestore(adminApp, DATABASE_ID);
+export const adminAuth = new Proxy({} as any, {
+  get(_, prop) {
+    if (!_adminAuth) {
+      if (!_adminApp) _adminApp = getAdminApp();
+      _adminAuth = getAuth(_adminApp);
+    }
+    const val = (_adminAuth as any)[prop];
+    return typeof val === "function" ? val.bind(_adminAuth) : val;
+  },
+});
+
+export const adminDb = new Proxy({} as any, {
+  get(_, prop) {
+    if (!_adminDb) {
+      if (!_adminApp) _adminApp = getAdminApp();
+      _adminDb = getFirestore(_adminApp, DATABASE_ID);
+    }
+    const val = (_adminDb as any)[prop];
+    return typeof val === "function" ? val.bind(_adminDb) : val;
+  },
+});
 

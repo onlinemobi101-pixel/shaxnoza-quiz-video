@@ -179,9 +179,12 @@ async function enforceRateLimit(user: AuthenticatedUser, action: ApiAction, cost
 const VERTEX_PROJECT = process.env.VERTEX_PROJECT || "gen-lang-client-0819871674";
 
 function getVertexCredentials() {
-  const raw = process.env.GCP_SERVICE_ACCOUNT_JSON;
+  let raw = process.env.GCP_SERVICE_ACCOUNT_JSON?.trim();
   if (!raw) {
     throw new Error("GCP_SERVICE_ACCOUNT_JSON sozlanmagan. Host'ning Environment Variables bo'limiga Vertex service account JSON qo'shing.");
+  }
+  if ((raw.startsWith("'") && raw.endsWith("'")) || (raw.startsWith('"') && raw.endsWith('"'))) {
+    raw = raw.slice(1, -1);
   }
   const sa = JSON.parse(raw);
   if (typeof sa.private_key === "string") {
