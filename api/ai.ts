@@ -101,10 +101,9 @@ class ApiError extends Error {
   }
 }
 
-// vercel.json dagi maxDuration = 60s. Vercel funksiyani o'ldirib 504 qaytarishidan oldin
-// o'zimiz qaytishimiz kerak — aks holda javob ham, byudjet refund'i ham bajarilmay qoladi.
-// Render/Vercel Pro'da chegara kattaroq, shuning uchun env orqali ko'tarish mumkin.
-const TTS_BATCH_BUDGET_MS = Math.max(5_000, Number(process.env.TTS_BATCH_BUDGET_MS) || 50_000);
+// vercel.json dagi maxDuration = 60s (Pro uchun), lekin Hobby rejada 15s da o'ldiriladi.
+// Vercel funksiyani o'ldirib 504 qaytarishidan oldin o'zimiz qaytishimiz kerak.
+const TTS_BATCH_BUDGET_MS = Math.max(5_000, Number(process.env.TTS_BATCH_BUDGET_MS) || (process.env.VERCEL ? 10_000 : 50_000));
 // Vercel javob tanasi ~4.5MB. Base64 audio JSON ichida shuncha belgi egallaydi.
 const MAX_TTS_RESPONSE_CHARS = 3_500_000;
 // Yangi klip boshlashdan oldin uning hajmini oldindan bilmaymiz, shuning uchun ehtiyotkor
@@ -198,17 +197,19 @@ let cachedTTSAI: GoogleGenAI | null = null;
 
 function getAI(): GoogleGenAI {
   if (!cachedAI) {
-    if (process.env.GEMINI_API_KEY) {
+    if (process.env.GCP_SERVICE_ACCOUNT_JSON) {
+      cachedAI = new GoogleGenAI({
+        vertexai: true,
+        project: process.env.VERTEX_PROJECT || VERTEX_PROJECT,
+        location: "global",
+        googleAuthOptions: { credentials: getVertexCredentials(), scopes: ["https://www.googleapis.com/auth/cloud-platform"] },
+      });
+    } else if (process.env.GEMINI_API_KEY) {
       cachedAI = new GoogleGenAI({
         apiKey: process.env.GEMINI_API_KEY,
       });
     } else {
-      cachedAI = new GoogleGenAI({
-        vertexai: true,
-        project: VERTEX_PROJECT,
-        location: "global",
-        googleAuthOptions: { credentials: getVertexCredentials(), scopes: ["https://www.googleapis.com/auth/cloud-platform"] },
-      });
+      throw new Error("No Google AI credentials provided");
     }
   }
   return cachedAI;
@@ -216,17 +217,19 @@ function getAI(): GoogleGenAI {
 
 function getTTSAI(): GoogleGenAI {
   if (!cachedTTSAI) {
-    if (process.env.GEMINI_API_KEY) {
+    if (process.env.GCP_SERVICE_ACCOUNT_JSON) {
+      cachedTTSAI = new GoogleGenAI({
+        vertexai: true,
+        project: process.env.VERTEX_PROJECT || VERTEX_PROJECT,
+        location: process.env.VERTEX_TTS_LOCATION || "global",
+        googleAuthOptions: { credentials: getVertexCredentials(), scopes: ["https://www.googleapis.com/auth/cloud-platform"] },
+      });
+    } else if (process.env.GEMINI_API_KEY) {
       cachedTTSAI = new GoogleGenAI({
         apiKey: process.env.GEMINI_API_KEY,
       });
     } else {
-      cachedTTSAI = new GoogleGenAI({
-        vertexai: true,
-        project: VERTEX_PROJECT,
-        location: process.env.VERTEX_TTS_LOCATION || "global",
-        googleAuthOptions: { credentials: getVertexCredentials(), scopes: ["https://www.googleapis.com/auth/cloud-platform"] },
-      });
+      throw new Error("No TTS credentials provided");
     }
   }
   return cachedTTSAI;
@@ -545,9 +548,7 @@ RULES:
   return [];
 }
 
-let activeTTSModel =
-  process.env.GEMINI_TTS_MODEL ||
-  (process.env.GEMINI_API_KEY ? "gemini-3.8-flash-tts" : "gemini-3.1-flash-tts-preview");
+let activeTTSModel = process.env.GEMINI_TTS_MODEL || "gemini-3.1-flash-tts-preview";
 
 async function generateTTS(
   text: string,
