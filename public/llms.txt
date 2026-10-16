@@ -1,0 +1,40 @@
+# Quiz Video Generator AI
+
+> 1 daqiqada Instagram Reels, YouTube Shorts va TikTok uchun 4 tilda (UZ, RU, EN, TR) ovozli viktorina va test videolarini avtomatik yaratuvchi professional AI platformasi.
+
+## Loyiha Haqida (Overview)
+Quiz Video Generator AI — bu kontent yaratuvchilar, o'quv markazlari, repetitorlar, SMM mutaxassislari va faceless (yuzsiz) YouTube/TikTok kanallar egalari uchun mo'ljallangan sun'iy intellektga asoslangan video generator. Foydalanuvchi faqat mavzuni (masalan, "O'zbekiston tarixi", "Dunyo mo'jizalari", "English Grammar") kiritadi. Qolgan barcha jarayonlarni:
+1. Qiziqarli savollar va variantlarni tuzish (Gemini 2.5 AI)
+2. Tabiiy inson ovozidagi diktor nutqi (Gemini TTS)
+3. Rangli vizual sahnalar, taymer animatsiyasi va to'g'ri javobni ochish (HTML5 Canvas 30 FPS)
+4. SMM uchun tayyor sarlavha, tavsif, izoh va trend xeshteglar
+tizim tomonidan 60 soniya ichida to'liq avtomatik ravishda tayyorlab beriladi.
+
+## Asosiy Imkoniyatlar (Core Features)
+- **4 Tilda Bir Vaqtda Ishlash (Avto-Zavod):** Bitta mavzu bo'yicha bir bosishda O'zbek (`uz`), Rus (`ru`), Ingliz (`en`) va Turk (`tr`) tillarida 4 ta tayyor video chiqarish.
+- **Ko'p Formatli Eksport:**
+  - `9:16` vertikal (Shorts, Reels, TikTok — 60 soniya)
+  - `16:9` gorizontal (YouTube — 2, 3, 5, 8, 10, 12 daqiqalik darslar va viktorinalar)
+- **Yuqori Sifatli Diktor Ovozlari (TTS):** Erkak va ayol AI ovozlari, ravon talaffuz, savol va to'g'ri javoblarni tushuntirish.
+- **Fon Videolari Hovuzi (Background Video Pool):** O'zingizning `.mp4` videolaringizni fon sifatida yuklash yoki avtomatik yuqori sifatli AI rasmlardan foydalanish.
+- **Telegram Bot Integratsiyasi:** Tayyor videolarni to'g'ridan-to'g'ri Telegram bot orqali mobil telefonga bir soniyada yuklab olish.
+- **30 Kunlik Kontent-Reja:** AI orqali bir zumda 60 ta trend virusli mavzular ro'yxatini shakllantirish.
+- **Izohda Yozing (Hide Last Answer):** Tomoshabinlar faolligini (engagement) 300% oshirish uchun oxirgi savol javobini videoda yashirib, izohlarda yozishga undash.
+
+## Kimlar Uchun Mo'ljallangan? (Target Audience)
+1. **O'quv markazlari va Repetitorlar:** Til o'rgatish (ingliz, rus, turk), tarix, matematika, biologiya va boshqa fanlardan qiziqarli testlar orqali yangi o'quvchilarni jalb qilish.
+2. **Faceless YouTube & TikTok Kanallari:** Yuzni ko'rsatmasdan millionlab ko'rishlar (views) va passiv daromad oluvchi avtomatlashtirilgan kanallar.
+3. **SMM Mutaxassislari va Agentliklar:** Mijozlarning sahifalarini har kuni yangi, sifatli va virusli kontent bilan to'ldirish.
+4. **Blogerlar va Ta'lim Loyihalari:** Obunachilar bilan interaktiv aloqa o'rnatish.
+
+## Tariflar va Narxlar (Pricing)
+- **Free (Sinov):** 0 UZS — 1 ta to'liq bepul video, suv belgisi bilan sinab ko'rish.
+- **Pack 10 (Boshlang'ich paket):** 20 000 UZS / $3 — 10 ta video eksporti, shaxsiy logotip (watermark), barcha tillar.
+- **Premium (Oylik Obuna):** 99 000 UZS / $9 — 100 ta video eksporti, YouTube 16:9 uzoq formatlar, fon videolari, ustuvor AI navbati.
+- **VIP B2B Tayyor Paket:** 350 000 UZS / $29 — Biznesingiz uchun 30 ta to'liq tayyorlangan video, shaxsiy brending, 24 soat ichida topshiriladi.
+
+## Havolalar (Links)
+- [Bosh Sahifa (Web App)](https://quiz-video-generator-yangi.vercel.app/): Asosiy video generator interfeysi
+- [Sitemap](https://quiz-video-generator-yangi.vercel.app/sitemap.xml): XML sayt xaritasi
+- [Robots](https://quiz-video-generator-yangi.vercel.app/robots.txt): Qidiruv botlari qoidalari
+- [To'liq Hujjat (llms-full.txt)](https://quiz-video-generator-yangi.vercel.app/llms-full.txt): AI agentlar uchun kengaytirilgan ma'lumot

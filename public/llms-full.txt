@@ -1,0 +1,37 @@
+# Quiz Video Generator AI — To'liq Qo'llanma va Texnik Spetsifikatsiya
+
+## 1. Platforma Haqida (Executive Summary)
+Quiz Video Generator AI — sun'iy intellekt (Gemini 2.5 Flash, Gemini Audio TTS) va brauzer texnologiyalariga (HTML5 Canvas, Web Audio API, MediaStream Recording API) asoslangan zamonaviy media ishlab chiqarish platformasi.
+Sayt manzili: https://quiz-video-generator-yangi.vercel.app/
+
+Platformaning maqsadi — qisqa (Shorts, Reels, TikTok) va uzun (YouTube) viktorina/test videolarini yaratish jarayonidagi inson mehnatini (savol o'ylab topish, rasm qidirish, diktor yollash, video montaj qilish, subtitr qo'yish, eksport qilish) to'liq avtomatlashtirishdan iborat.
+
+## 2. Ishlash Bosqichlari (How It Works)
+1. **Mavzu tanlash:** Foydalanuvchi ixtiyoriy mavzuni kiritadi yoki 30 kunlik kontent-rejadan tanlaydi.
+2. **AI Savollar Generatsiyasi:** Gemini 2.5 Flash modeli mavzuga mos 3-30 tagacha qiziqarli savol, 4 ta variant (A, B, C, D) va to'g'ri javob tushuntirishini yaratadi.
+3. **Tabiiy Ovoz (TTS):** Savol, javoblar va tushuntirishlar Kore / Fenrir / Aoede kabi tabiiy diktor ovozlarida 24kHz chastotada sintezlanadi.
+4. **Vizual Renderlash:** Brauzer ichidagi Canvas rendering motori 30 FPS silliqlikda animatsiyalar, taymer, fon rasmlari/videolari va rangli dizaynni chizadi.
+5. **Eksport:** MediaRecorder orqali `.mp4` formatidagi tayyor video fayl kompyuterga saqlanadi yoki to'g'ridan-to'g'ri Telegram botga yuboriladi.
+
+## 3. Mavjud Formatlar va Tillar
+- **Tillar:**
+  - O'zbek tili (`uz`) — O'zbekiston auditoriyasi uchun to'liq moslashtirilgan.
+  - Rus tili (`ru`) — MDH va global rusiyzabon auditoriya uchun.
+  - Ingliz tili (`en`) — Global bozor, AQSh, Yevropa va Osiyo uchun.
+  - Turk tili (`tr`) — Turkiya va turkiy tillar auditoriyasi uchun.
+- **Formatlar:**
+  - `9:16` Vertikal (1080x1920) — Shorts, Reels, TikTok uchun 60 soniyali tezkor format.
+  - `16:9` Gorizontal (1920x1080) — YouTube asosiy videolari uchun 2, 3, 5, 8, 10, 12 daqiqalik uzoq video formati.
+
+## 4. Narxlar va Tariflar (Pricing)
+- **Free Sinov:** 0 so'm / $0 — 1 ta video yaratish imkoniyati.
+- **Pack 10:** 20 000 so'm / $3 — 10 ta video eksporti, suv belgisini o'zgartirish.
+- **Premium (Oylik):** 99 000 so'm / $9 — 100 ta video, barcha uzoq YouTube formatlari, cheksiz fon videolari.
+- **VIP B2B Tayyor Paket:** 350 000 so'm / $29 — 30 ta tayyor virusli video, professional SMM post matnlari, 24 soatda adminga topshirish.
+
+## 5. Dasturchilar va AI Agentlar Uchun
+- Standart: SPA (Single Page Application)
+- Frontend: React 18, Vite, TypeScript, Tailwind CSS, Framer Motion
+- Backend / Serverless: Vercel Serverless Functions (`/api/ai`, `/api/telegram`, `/api/usage`)
+- Ma'lumotlar bazasi va Auth: Firebase Auth, Google Cloud Firestore, Firebase Admin SDK
+- Sun'iy intellekt: Google Gemini API (Gemini 2.5 Flash, Multimodal Audio)

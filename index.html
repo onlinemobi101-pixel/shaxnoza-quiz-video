@@ -1,38 +1,302 @@
 <!doctype html>
-<html lang="en">
+<html lang="uz">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     
     <!-- Primary Meta Tags -->
-    <title>Quiz Video AI — 1 daqiqada tayyor Reels, Shorts va TikTok videolar</title>
-    <meta name="title" content="Quiz Video AI — 1 daqiqada tayyor Reels, Shorts va TikTok videolar" />
-    <meta name="description" content="Mavzu kiriting va sunʼiy intellekt yordamida 4 tilda (UZ, RU, EN, TR) ovozli savol-javob videolarini yarating." />
-    <meta name="keywords" content="quiz video, shorts generator, reels generator, tiktok quiz, ai video, sun'iy intellekt video, faceless youtube" />
+    <title>Quiz Video Generator AI — 1 daqiqada tayyor Reels, Shorts va TikTok videolar</title>
+    <meta name="title" content="Quiz Video Generator AI — 1 daqiqada tayyor Reels, Shorts va TikTok videolar" />
+    <meta name="description" content="Mavzu kiriting va sunʼiy intellekt (Gemini 2.5) yordamida 4 tilda (UZ, RU, EN, TR) tabiiy ovozli (TTS) viktorina va test videolarini 60 soniyada yarating. Instagram Reels, YouTube Shorts va TikTok uchun 30 FPS tayyor videolar." />
+    <meta name="keywords" content="quiz video generator, reels generator, shorts generator, tiktok quiz, ai video generator, viktorina video yasash, sun'iy intellekt video, faceless youtube, repetitorlar uchun video, smm video, quiz video ai" />
+    <meta name="author" content="Quiz Video AI" />
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+
+    <!-- Canonical & Language Alternates -->
+    <link rel="canonical" href="https://quiz-video-generator-yangi.vercel.app/" />
+    <link rel="alternate" hreflang="uz" href="https://quiz-video-generator-yangi.vercel.app/?lang=uz" />
+    <link rel="alternate" hreflang="ru" href="https://quiz-video-generator-yangi.vercel.app/?lang=ru" />
+    <link rel="alternate" hreflang="en" href="https://quiz-video-generator-yangi.vercel.app/?lang=en" />
+    <link rel="alternate" hreflang="tr" href="https://quiz-video-generator-yangi.vercel.app/?lang=tr" />
+    <link rel="alternate" hreflang="x-default" href="https://quiz-video-generator-yangi.vercel.app/" />
     
     <!-- Open Graph / Facebook / Instagram / Telegram -->
     <meta property="og:type" content="website" />
-    <meta property="og:site_name" content="Quiz Video AI" />
-    <meta property="og:url" content="https://quiz-video-generator-yangi-phi.vercel.app/" />
-    <meta property="og:title" content="Quiz Video AI — 1 daqiqada tayyor Reels, Shorts va TikTok videolar" />
-    <meta property="og:description" content="Mavzu kiriting va sunʼiy intellekt yordamida 4 tilda (UZ, RU, EN, TR) ovozli savol-javob videolarini yarating." />
-    <meta property="og:image" content="https://quiz-video-generator-yangi-phi.vercel.app/og-image.jpg" />
+    <meta property="og:site_name" content="Quiz Video Generator AI" />
+    <meta property="og:url" content="https://quiz-video-generator-yangi.vercel.app/" />
+    <meta property="og:title" content="Quiz Video Generator AI — 1 daqiqada Reels, Shorts va TikTok videolar" />
+    <meta property="og:description" content="Mavzu kiriting va sunʼiy intellekt yordamida 4 tilda (UZ, RU, EN, TR) ovozli savol-javob videolarini 1 daqiqada yarating. Telegram bot va Avto-Zavod integratsiyasi." />
+    <meta property="og:image" content="https://quiz-video-generator-yangi.vercel.app/og-image.jpg" />
+    <meta property="og:locale" content="uz_UZ" />
+    <meta property="og:locale:alternate" content="ru_RU" />
+    <meta property="og:locale:alternate" content="en_US" />
+    <meta property="og:locale:alternate" content="tr_TR" />
     
     <!-- Twitter -->
     <meta property="twitter:card" content="summary_large_image" />
-    <meta property="twitter:url" content="https://quiz-video-generator-yangi-phi.vercel.app/" />
-    <meta property="twitter:title" content="Quiz Video AI — 1 daqiqada tayyor Reels, Shorts va TikTok videolar" />
-    <meta property="twitter:description" content="Mavzu kiriting va sunʼiy intellekt yordamida 4 tilda (UZ, RU, EN, TR) ovozli savol-javob videolarini yarating." />
-    <meta property="twitter:image" content="https://quiz-video-generator-yangi-phi.vercel.app/og-image.jpg" />
+    <meta property="twitter:url" content="https://quiz-video-generator-yangi.vercel.app/" />
+    <meta property="twitter:title" content="Quiz Video Generator AI — 1 daqiqada Reels, Shorts va TikTok videolar" />
+    <meta property="twitter:description" content="Mavzu kiriting va sunʼiy intellekt yordamida 4 tilda (UZ, RU, EN, TR) ovozli savol-javob videolarini 1 daqiqada yarating." />
+    <meta property="twitter:image" content="https://quiz-video-generator-yangi.vercel.app/og-image.jpg" />
     
     <!-- Theme Color -->
     <meta name="theme-color" content="#020617" />
+
+    <!-- Structured Data (JSON-LD) for Search Engines & AI Bots (Google, Perplexity, ChatGPT, Gemini) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "SoftwareApplication",
+          "@id": "https://quiz-video-generator-yangi.vercel.app/#software",
+          "name": "Quiz Video Generator AI",
+          "alternateName": [
+            "Quiz Video AI",
+            "AI Viktorina Video Generator",
+            "Shorts & Reels Quiz Maker",
+            "Генератор Квиз Видео ИИ"
+          ],
+          "url": "https://quiz-video-generator-yangi.vercel.app/",
+          "applicationCategory": "MultimediaApplication",
+          "applicationSubCategory": "VideoCreationApplication",
+          "operatingSystem": "All (Web Browser, iOS, Android, Desktop, Telegram WebApp)",
+          "inLanguage": ["uz", "ru", "en", "tr"],
+          "description": "60 soniyada Instagram Reels, YouTube Shorts va TikTok uchun 9:16 va 16:9 formatda tabiiy ovozli (TTS) viktorina va test videolarini avtomatik yaratuvchi professional AI platformasi.",
+          "featureList": [
+            "Gemini 2.5 AI yordamida har qanday mavzuda test savollarini tuzish",
+            "Tabiiy inson ovozida (AI TTS) savol va tushuntirishlarni o'qish",
+            "4 tilda bir vaqtda video ishlab chiqarish: O'zbek (uz), Rus (ru), Ingliz (en), Turk (tr)",
+            "Instagram Reels, YouTube Shorts va TikTok uchun 9:16 vertikal format (30 FPS)",
+            "YouTube uchun 16:9 gorizontal uzoq format (2 dan 12 daqiqagacha)",
+            "O'zingizning MP4 fon videolaringizni yuklash imkoniyati (Background Video Pool)",
+            "Tomoshabinlar faolligini oshiruvchi 'Izohda yozing' rejimi (Hide Last Answer)",
+            "30 kunlik virusli mavzular rejasi (60 ta trend mavzu)",
+            "Telegram bot orqali tayyor videolarni 1 soniyada to'g'ridan-to'g'ri telefonga yuklash",
+            "SMM uchun tayyor sarlavha, tavsif va virusli xeshteglar"
+          ],
+          "offers": [
+            {
+              "@type": "Offer",
+              "name": "Free Sinov",
+              "price": "0",
+              "priceCurrency": "UZS",
+              "description": "1 ta bepul to'liq video eksporti, 3 ta savol, 9:16 Shorts/Reels formati"
+            },
+            {
+              "@type": "Offer",
+              "name": "Pack 10",
+              "price": "20000",
+              "priceCurrency": "UZS",
+              "description": "10 ta video eksporti, shaxsiy logotip (watermark), barcha tillar"
+            },
+            {
+              "@type": "Offer",
+              "name": "Premium Oylik Obuna",
+              "price": "99000",
+              "priceCurrency": "UZS",
+              "description": "100 ta video, barcha 16:9 YouTube formatlar, fon videolari, ustuvor AI navbati"
+            },
+            {
+              "@type": "Offer",
+              "name": "VIP B2B Tayyor Paket",
+              "price": "350000",
+              "priceCurrency": "UZS",
+              "description": "Biznesingiz uchun 30 ta to'liq tayyorlangan video, shaxsiy logotip, 24 soatda topshiriladi"
+            }
+          ]
+        },
+        {
+          "@type": "FAQPage",
+          "@id": "https://quiz-video-generator-yangi.vercel.app/#faq",
+          "mainEntity": [
+            {
+              "@type": "Question",
+              "name": "Quiz Video Generator AI nima va u qanday ishlaydi?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Quiz Video Generator AI — bu Instagram Reels, YouTube Shorts, TikTok va YouTube kanallari uchun sun'iy intellekt yordamida 1 daqiqada ovozli test va viktorina videolarini yasab beruvchi avtomatlashtirilgan veb-platforma. Siz faqat mavzuni kiritasiz, AI esa savollar, javoblar, diktor ovozi (TTS) va fon animatsiyalarini o'zi tayyorlab, 30 FPS sifatli video qilib beradi."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Qaysi tillarda video yaratish mumkin?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Platforma 4 ta tilda bir vaqtda video generatsiya qilish imkoniyatiga ega: O'zbekcha (uz), Ruscha (ru), Inglizcha (en) va Turkcha (tr). 'Avto-Zavod' funksiyasi bitta mavzudan bir bosishda 4 ta tildagi videolarni tayyorlab beradi."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Videolar qaysi formatlarda eksport qilinadi?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Ikkita asosiy format qo'llab-quvvatlanadi: 9:16 vertikal format (Instagram Reels, YouTube Shorts, TikTok uchun 1080x1920) va 16:9 gorizontal format (YouTube uchun 2, 3, 5, 8, 10 va 12 daqiqalik uzoq videodarslar)."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Bepul sinab ko'rish imkoniyati bormi?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Ha! Har bir yangi ro'yxatdan o'tgan foydalanuvchiga 1 ta to'liq video bepul taqdim etiladi. Shuningdek, referal dasturi orqali do'stlaringizni taklif qilib, har bir do'stingiz uchun qo'shimcha bepul video olishingiz mumkin."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Kimlar uchun bu platforma eng ko'p foyda keltiradi?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "1) Repetitorlar va o'quv markazlari (yangi o'quvchilarni jalb qilish uchun); 2) Faceless YouTube va TikTok kanallari (yuzni ko'rsatmasdan passiv daromad topish uchun); 3) SMM mutaxassislari (har kuni tez va sifatli virusli kontent chiqarish uchun); 4) Til o'rganuvchilar va blogerlar."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Telegram bot orqali foydalanish mumkinmi?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Ha, platforma to'liq Telegram WebApp (Mini App) sifatida ishlaydi. Kompyuterda tayyorlangan videolarni 1 soniyada to'g'ridan-to'g'ri Telegram botingizga yuborishingiz va telefoningizga yuklab olishingiz mumkin."
+              }
+            }
+          ]
+        },
+        {
+          "@type": "Organization",
+          "@id": "https://quiz-video-generator-yangi.vercel.app/#organization",
+          "name": "Quiz Video Generator AI",
+          "url": "https://quiz-video-generator-yangi.vercel.app/",
+          "logo": "https://quiz-video-generator-yangi.vercel.app/og-image.jpg",
+          "sameAs": [
+            "https://t.me/Akramjon1984"
+          ]
+        }
+      ]
+    }
+    </script>
   </head>
-  <body>
-    <div id="root"></div>
+  <body class="bg-slate-950 text-white antialiased">
+    <!-- React SPA Mount Point containing Prerendered Semantic SEO Content for Search Crawlers & AI Bots -->
+    <div id="root">
+      <main style="max-width: 900px; margin: 0 auto; padding: 40px 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #e2e8f0;">
+        <header style="text-align: center; margin-bottom: 36px;">
+          <h1 style="font-size: 2.2rem; font-weight: 900; color: #ffffff; margin-bottom: 12px; letter-spacing: -0.02em;">
+            🎬 Quiz Video Generator AI — 1 Daqiqada Reels, Shorts va TikTok Videolar
+          </h1>
+          <p style="font-size: 1.15rem; color: #38bdf8; font-weight: 600; margin: 0 0 16px 0;">
+            Mavzu kiriting va sunʼiy intellekt (Gemini 2.5) yordamida 4 tilda (UZ, RU, EN, TR) tabiiy ovozli savol-javob videolarini 60 soniyada yarating.
+          </p>
+          <p style="font-size: 0.95rem; color: #94a3b8; max-width: 680px; margin: 0 auto;">
+            Instagram Reels, YouTube Shorts va TikTok uchun 30 FPS sifatli, animatsiyali, taymerli va professional diktor ovozli (TTS) viktorina videolari generatori.
+          </p>
+        </header>
+
+        <!-- Asosiy Imkoniyatlar -->
+        <section style="margin-bottom: 32px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; padding: 24px;">
+          <h2 style="font-size: 1.4rem; color: #fbbf24; margin-top: 0; margin-bottom: 16px;">
+            ✨ Platformaning Asosiy Imkoniyatlari
+          </h2>
+          <ul style="padding-left: 20px; margin: 0; space-y: 8px;">
+            <li style="margin-bottom: 8px;"><strong>4 Tilda Avto-Zavod:</strong> Bitta mavzu bo'yicha bir bosishda O'zbek, Rus, Ingliz va Turk tillarida 4 ta tayyor video.</li>
+            <li style="margin-bottom: 8px;"><strong>Tabiiy Inson Ovozidagi Diktor (TTS):</strong> Savol va to'g'ri javoblarni ravon, tushunarli o'qib beruvchi sun'iy intellekt ovozi.</li>
+            <li style="margin-bottom: 8px;"><strong>Ikki Xil Video Formati:</strong> 9:16 vertikal (Shorts, Reels, TikTok — 60 soniya) va 16:9 gorizontal (YouTube — 2 dan 12 daqiqagacha uzoq videolar).</li>
+            <li style="margin-bottom: 8px;"><strong>Fon Videolari Hovuzi (Background Video Pool):</strong> O'zingizning fon videolaringizni yuklash yoki AI rasmlardan foydalanish.</li>
+            <li style="margin-bottom: 8px;"><strong>Telegram Bot Integratsiyasi:</strong> Tayyorlangan videolarni 1 soniyada to'g'ridan-to'g'ri Telegramingizga yuborish va telefoningizga yuklash.</li>
+            <li style="margin-bottom: 8px;"><strong>30 Kunlik Kontent-Reja:</strong> AI orqali bir zumda 60 ta trend virusli mavzular ro'yxatini shakllantirish.</li>
+            <li style="margin-bottom: 8px;"><strong>Faollikni Oshiruvchi Izoh Rejimi (Hide Last Answer):</strong> Oxirgi savol javobini yashirib, tomoshabinlarni izohlarda faol bo'lishga undash.</li>
+          </ul>
+        </section>
+
+        <!-- Kimlar Uchun Mo'ljallangan -->
+        <section style="margin-bottom: 32px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; padding: 24px;">
+          <h2 style="font-size: 1.4rem; color: #34d399; margin-top: 0; margin-bottom: 16px;">
+            🎯 Kimlar Uchun Mo'ljallangan?
+          </h2>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
+            <div style="background: rgba(0,0,0,0.3); padding: 14px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);">
+              <h3 style="font-size: 1.05rem; color: #fff; margin: 0 0 6px 0;">📚 O'quv Markazlari & Repetitorlar</h3>
+              <p style="font-size: 0.88rem; color: #94a3b8; margin: 0;">Til o'rgatish (ingliz, rus, turk), tarix va fanlardan qiziqarli testlar orqali yangi o'quvchilarni jalb qiling.</p>
+            </div>
+            <div style="background: rgba(0,0,0,0.3); padding: 14px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);">
+              <h3 style="font-size: 1.05rem; color: #fff; margin: 0 0 6px 0;">🚀 Faceless YouTube & TikTok</h3>
+              <p style="font-size: 0.88rem; color: #94a3b8; margin: 0;">Yuzni ko'rsatmasdan millionlab ko'rishlar yig'ing va monetizatsiya orqali passiv daromad oling.</p>
+            </div>
+            <div style="background: rgba(0,0,0,0.3); padding: 14px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);">
+              <h3 style="font-size: 1.05rem; color: #fff; margin: 0 0 6px 0;">📱 SMM Mutaxassislari</h3>
+              <p style="font-size: 0.88rem; color: #94a3b8; margin: 0;">Mijozlaringiz sahifalarini har kuni yangi, virusli va qiziqarli viktorinalar bilan oson to'ldiring.</p>
+            </div>
+            <div style="background: rgba(0,0,0,0.3); padding: 14px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);">
+              <h3 style="font-size: 1.05rem; color: #fff; margin: 0 0 6px 0;">💼 B2B Bizneslar & Brendlar</h3>
+              <p style="font-size: 0.88rem; color: #94a3b8; margin: 0;">O'z logotipingiz bilan 30 ta tayyor paketli videolarga buyurtma bering va 24 soatda qabul qiling.</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- Tariflar va Narxlar -->
+        <section style="margin-bottom: 32px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; padding: 24px;">
+          <h2 style="font-size: 1.4rem; color: #818cf8; margin-top: 0; margin-bottom: 16px;">
+            💰 Qulay Tariflar va Paketlar
+          </h2>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px;">
+            <div style="background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 16px; text-align: center;">
+              <h3 style="font-size: 1.1rem; color: #fff; margin: 0 0 4px 0;">Free Sinov</h3>
+              <p style="font-size: 1.3rem; font-weight: 800; color: #34d399; margin: 4px 0;">0 UZS</p>
+              <p style="font-size: 0.85rem; color: #94a3b8; margin: 0;">1 ta bepul video • 3 ta savol • Barcha funksiyalarni sinash</p>
+            </div>
+            <div style="background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 16px; text-align: center;">
+              <h3 style="font-size: 1.1rem; color: #fff; margin: 0 0 4px 0;">Pack 10</h3>
+              <p style="font-size: 1.3rem; font-weight: 800; color: #38bdf8; margin: 4px 0;">20 000 UZS <span style="font-size: 0.9rem; color: #94a3b8;">/ $3</span></p>
+              <p style="font-size: 0.85rem; color: #94a3b8; margin: 0;">10 ta video eksporti • Shaxsiy logotip (watermark) • 4 ta til</p>
+            </div>
+            <div style="background: rgba(0,0,0,0.4); border: 1px solid #818cf8; border-radius: 12px; padding: 16px; text-align: center;">
+              <h3 style="font-size: 1.1rem; color: #fff; margin: 0 0 4px 0;">Premium Oylik</h3>
+              <p style="font-size: 1.3rem; font-weight: 800; color: #a78bfa; margin: 4px 0;">99 000 UZS <span style="font-size: 0.9rem; color: #94a3b8;">/ $9</span></p>
+              <p style="font-size: 0.85rem; color: #94a3b8; margin: 0;">100 ta video • YouTube 16:9 formatlar • Fon videolari • AI tezkor navbat</p>
+            </div>
+            <div style="background: rgba(0,0,0,0.4); border: 1px solid #f59e0b; border-radius: 12px; padding: 16px; text-align: center;">
+              <h3 style="font-size: 1.1rem; color: #fff; margin: 0 0 4px 0;">VIP B2B Paket</h3>
+              <p style="font-size: 1.3rem; font-weight: 800; color: #fbbf24; margin: 4px 0;">350 000 UZS <span style="font-size: 0.9rem; color: #94a3b8;">/ $29</span></p>
+              <p style="font-size: 0.85rem; color: #94a3b8; margin: 0;">30 ta to'liq tayyor video • Shaxsiy brending • 24 soatda adminga topshirish</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- Ko'p Beriladigan Savollar (FAQ) -->
+        <section style="margin-bottom: 32px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; padding: 24px;">
+          <h2 style="font-size: 1.4rem; color: #ffffff; margin-top: 0; margin-bottom: 16px;">
+            ❓ Ko'p Beriladigan Savollar (FAQ)
+          </h2>
+          <article style="margin-bottom: 16px;">
+            <h3 style="font-size: 1.05rem; color: #38bdf8; margin: 0 0 4px 0;">1. Video yasash uchun qancha vaqt ketadi?</h3>
+            <p style="font-size: 0.9rem; color: #cbd5e1; margin: 0;">Mavzuni kiritganingizdan so'ng AI savollarni tuzish, ovozni sintezlash va videoni renderlash uchun o'rtacha 40–60 soniya kifoya qiladi.</p>
+          </article>
+          <article style="margin-bottom: 16px;">
+            <h3 style="font-size: 1.05rem; color: #38bdf8; margin: 0 0 4px 0;">2. Videolar YouTube va Instagramda monetizatsiya bo'ladimi?</h3>
+            <p style="font-size: 0.9rem; color: #cbd5e1; margin: 0;">Ha! Generator toza, litsenziyalangan audio va original AI savollaridan foydalanadi. O'z logotipingiz va o'ziga xos mavzularingiz bilan monetizatsiyadan muammosiz o'tishingiz mumkin.</p>
+          </article>
+          <article style="margin-bottom: 16px;">
+            <h3 style="font-size: 1.05rem; color: #38bdf8; margin: 0 0 4px 0;">3. Telefonda ham ishlatsa bo'ladimi?</h3>
+            <p style="font-size: 0.9rem; color: #cbd5e1; margin: 0;">Ha, platforma har qanday smartfon brauzerida hamda rasmiy Telegram bot orqali Mini App ko'rinishida qulay ishlaydi.</p>
+          </article>
+        </section>
+
+        <!-- Multilingual Summary for International AI & Search Engines -->
+        <footer style="font-size: 0.85rem; color: #64748b; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 20px;">
+          <p><strong>Русский:</strong> Quiz Video Generator AI — онлайн платформа для автоматического создания викторин и тестов для YouTube Shorts, Instagram Reels и TikTok с озвучкой за 60 секунд на 4 языках.</p>
+          <p><strong>English:</strong> Quiz Video Generator AI — automated AI tool to generate engaging quiz & trivia videos with human-like AI voiceovers for Instagram Reels, YouTube Shorts, and TikTok in 4 languages.</p>
+          <p><strong>Türkçe:</strong> Quiz Video Generator AI — Instagram Reels, YouTube Shorts ve TikTok için 4 dilde sesli soru-cevap test videoları oluşturan yapay zeka platformu.</p>
+        </footer>
+      </main>
+    </div>
+
+    <!-- Fallback for JavaScript Disabled Browsers -->
+    <noscript>
+      <div style="background: #020617; color: #f8fafc; padding: 20px; text-align: center; font-family: sans-serif;">
+        <p>Ilovadan to'liq foydalanish uchun brauzeringizda JavaScript-ni yoqing yoki Telegram botimizdan foydalaning: <a href="https://t.me/Akramjon1984" style="color: #38bdf8;">@Akramjon1984</a></p>
+      </div>
+    </noscript>
+
     <!-- Telegram Mini App SDK -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
-
