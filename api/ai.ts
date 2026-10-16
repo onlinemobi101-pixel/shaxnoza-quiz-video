@@ -238,6 +238,39 @@ function base64ByteLength(value: string | null | undefined): number {
   return Math.max(0, Math.floor((value.length * 3) / 4) - padding);
 }
 
+async function generateContentWithFallback(
+  ai: GoogleGenAI,
+  params: any,
+  models: string[] = ["gemini-3.7-flash", "gemini-2.5-flash"],
+): Promise<{ response: any; modelUsed: string }> {
+  let lastError: any = null;
+  for (const model of models) {
+    try {
+      const response = await ai.models.generateContent({
+        ...params,
+        model,
+      });
+      return { response, modelUsed: model };
+    } catch (err: any) {
+      lastError = err;
+      const msg = String(err?.message || "");
+      const isUnavailable =
+        err?.status === 503 ||
+        msg.includes("503") ||
+        msg.includes("UNAVAILABLE") ||
+        msg.includes("high demand") ||
+        err?.status === 429 ||
+        msg.includes("429");
+      if (isUnavailable && model !== models[models.length - 1]) {
+        console.warn(`[AI] ${model} vaqtincha band (503/429), zaxira modelga o'tilmoqda...`);
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw lastError;
+}
+
 async function getUnsplashImageForKeyword(
   keyword: string,
   user?: AuthenticatedUser,
@@ -349,8 +382,7 @@ VIRAL 3-QUESTION STRUCTURE (MANDATORY):
 - Question 3 (Savol 3): Qiyin, qiziqarli va bahsli savol (tomoshabinlarni izoh yozishga majbur qiluvchi).` : "";
 
   const startedAt = Date.now();
-  const response = await ai.models.generateContent({
-    model: "gemini-3.7-flash",
+  const { response, modelUsed } = await generateContentWithFallback(ai, {
     contents: `Topic: ${topic}.
 Target Language: ${targetLanguageName} (code: ${language}).
 
@@ -393,7 +425,7 @@ history, space, science, nature, math, geography, art, music, sport, tech, liter
   const generatedCount = Array.isArray(data) ? data.length : 0;
   await recordModelUsage(user, {
     action: "generateQuiz",
-    model: "gemini-3.7-flash",
+    model: modelUsed,
     kind: "text",
     usage: response.usageMetadata,
     imageLookups: generatedCount,
@@ -469,8 +501,7 @@ async function generate30DayViralTopics(
 ): Promise<string[]> {
   const ai = getAI();
   const startedAt = Date.now();
-  const response = await ai.models.generateContent({
-    model: "gemini-3.7-flash",
+  const { response, modelUsed } = await generateContentWithFallback(ai, {
     contents: `TASK: Generate a list of exactly 60 viral, highly engaging, trending quiz topics specifically optimized for YouTube Shorts, Instagram Reels, and TikTok (a complete 30-day content plan with 2 videos per day).
 
 CATEGORIES TO COVER BALANCED ACROSS THE 60 TOPICS:
@@ -502,7 +533,7 @@ RULES:
   if (user) {
     await recordModelUsage(user, {
       action: "generate30DayTopics",
-      model: "gemini-3.7-flash",
+      model: modelUsed,
       kind: "text",
       usage: response.usageMetadata,
       durationMs: Date.now() - startedAt,
