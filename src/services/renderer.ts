@@ -44,6 +44,7 @@ export class QuizRenderer {
   // Assets
   bgImages: Array<HTMLImageElement | undefined> = [];
   audioBuffers: Array<AudioBuffer | null> = [];
+  outroAudioBuffer: AudioBuffer | null = null;
   overlayCanvas: HTMLCanvasElement | null = null;
   cachedLines: { [key: number]: string[] } = {};
   silenceOscillator?: OscillatorNode;
@@ -333,6 +334,13 @@ export class QuizRenderer {
         this.audioBuffers[idx] = decodePCMToAudioBuffer(q.audioBase64, 24000, this.audioCtx);
       }
     });
+    if (this.quiz.outroAudioBase64) {
+      try {
+        this.outroAudioBuffer = decodePCMToAudioBuffer(this.quiz.outroAudioBase64, 24000, this.audioCtx);
+      } catch (err) {
+        console.warn("Outro audio decode warning:", err);
+      }
+    }
     await Promise.all(preloadTasks);
 
     // Background videolarini yuklaymiz (loop video fonlar uchun)
@@ -381,10 +389,20 @@ export class QuizRenderer {
     if (!this.isCancelled && this.quiz.outroEnabled !== false) {
       this.setPhase('outro');
       playSuccess(this.masterGain);
-      if (this.quiz.outroAudioBase64) {
-        playPCMAsync(this.quiz.outroAudioBase64, 24000, this.masterGain);
+
+      let outroAudioPromise = Promise.resolve();
+      let outroAudioDurationMs = 0;
+      if (this.outroAudioBuffer) {
+        outroAudioDurationMs = Math.ceil(this.outroAudioBuffer.duration * 1000);
+        outroAudioPromise = playAudioBufferAsync(this.outroAudioBuffer, this.masterGain);
+      } else if (this.quiz.outroAudioBase64) {
+        outroAudioPromise = playPCMAsync(this.quiz.outroAudioBase64, 24000, this.masterGain);
       }
-      await this.sleep(3000);
+
+      // Outro kartochkasi va uning TTS audiosi oxirigacha + qo'shimcha 1 soniya davomida to'liq chizilsin
+      const outroMinimumMs = Math.max(4500, outroAudioDurationMs + 1000);
+      await Promise.all([outroAudioPromise, this.sleep(outroMinimumMs)]);
+      await this.sleep(1000);
     }
     
     stopProceduralBGM();
@@ -575,6 +593,7 @@ export class QuizRenderer {
       this.ctx.fillText(watermarkText, w / 2, 758);
 
       this.ctx.restore();
+      this.outputCtx.drawImage(this.canvas, 0, 0, this.outputWidth, this.outputHeight);
       return;
     }
 
@@ -642,24 +661,47 @@ export class QuizRenderer {
         this.ctx.font = '800 32px system-ui, -apple-system, sans-serif';
         this.ctx.textAlign = "center";
         this.ctx.fillText(["A", "B", "C", "D"][index], 355, rowY + 54);
-        this.ctx.font = isReveal && isCorrect
-          ? '800 38px system-ui, -apple-system, sans-serif'
-          : '600 36px system-ui, -apple-system, sans-serif';
-        this.ctx.textAlign = "left";
-        this.ctx.fillText(option, 425, rowY + 54);
+        let optFontSize = isReveal && isCorrect ? 38 : 36;
+        if (option.length > 38) {
+          optFontSize = isReveal && isCorrect ? 28 : 26;
+        } else if (option.length > 28) {
+          optFontSize = isReveal && isCorrect ? 32 : 30;
+        }
+        this.ctx.font = `${isReveal && isCorrect ? '800' : '600'} ${optFontSize}px system-ui, -apple-system, sans-serif`;
+        const maxOptWidth = 1170;
+        let optW = this.ctx.measureText(option).width;
+        if (optW > maxOptWidth) {
+          const optLines = this.getWrappedLines(option, maxOptWidth, 2);
+          if (optLines.length > 1) {
+            const lineH = 32;
+            optLines.forEach((line, lIdx) => {
+              this.ctx.fillText(line, 425, rowY + 54 + (lIdx - (optLines.length - 1) / 2) * lineH);
+            });
+          } else {
+            this.ctx.fillText(option, 425, rowY + 54);
+          }
+        } else {
+          this.ctx.fillText(option, 425, rowY + 54);
+        }
         this.ctx.restore();
       });
     }
 
     if ((this.phase === "reveal" || this.phase === "end") && (q.explanation || isHidingLast)) {
       const explText = isHidingLast ? this.strings.hideLastAnswerCommentPrompt : (q.explanation || "");
-      const badgeText = isHidingLast ? (this.strings.hideLastAnswerBadge || "IZOHDA YOZING 💬") : (this.strings.explanationBadge || "IZOH");
-      const isLongText = explText.length > 90;
-      const fontSize = isLongText ? 24 : 30;
-      const lineHeight = isLongText ? 32 : 38;
+      const badgeText = isHidingLast ? (this.strings.hideLastAnswerBadge || "IZOHDA 💬") : (this.strings.explanationBadge || "IZOH");
+      const badgeFontSize = isHidingLast ? 22 : 24;
+      this.ctx.font = `800 ${badgeFontSize}px system-ui, -apple-system, sans-serif`;
+      const badgeW = this.ctx.measureText(badgeText).width;
+      const textStartX = Math.max(455, 330 + badgeW + 20);
+      const maxTextWidth = Math.max(500, 1590 - textStartX);
+
+      const isLongText = explText.length > 60 || isHidingLast;
+      const fontSize = isLongText ? 22 : 28;
+      const lineHeight = isLongText ? 28 : 36;
       this.ctx.font = `600 ${fontSize}px system-ui, -apple-system, sans-serif`;
-      const explanationLines = this.getWrappedLines(explText, 1100, 4);
-      const boxHeight = Math.max(112, 36 + explanationLines.length * lineHeight);
+      const explanationLines = this.getWrappedLines(explText, maxTextWidth, 3);
+      const boxHeight = Math.max(112, 32 + explanationLines.length * lineHeight);
 
       this.ctx.fillStyle = "rgba(2,6,23,0.88)";
       this.drawRoundedRect(290, 846 - boxHeight / 2, 1340, boxHeight, 24);
@@ -669,15 +711,13 @@ export class QuizRenderer {
       this.ctx.stroke();
 
       this.ctx.fillStyle = activeTheme.light;
-      this.ctx.font = '800 24px system-ui, -apple-system, sans-serif';
+      this.ctx.font = `800 ${badgeFontSize}px system-ui, -apple-system, sans-serif`;
       this.ctx.textAlign = "left";
       this.ctx.textBaseline = "middle";
       this.ctx.fillText(badgeText, 330, 846);
 
       this.ctx.fillStyle = "#fff";
       this.ctx.font = `600 ${fontSize}px system-ui, -apple-system, sans-serif`;
-      const badgeW = this.ctx.measureText(badgeText).width;
-      const textStartX = Math.max(455, 330 + badgeW + 24);
       explanationLines.forEach((line, index) => {
         this.ctx.fillText(line, textStartX, 846 + (index - (explanationLines.length - 1) / 2) * lineHeight);
       });
@@ -719,6 +759,7 @@ export class QuizRenderer {
       this.ctx.textAlign = "right";
       this.ctx.fillText(this.quiz.watermark, w - 82, 84);
     }
+    this.outputCtx.drawImage(this.canvas, 0, 0, this.outputWidth, this.outputHeight);
   }
 
   initOverlayCanvas() {
@@ -1095,6 +1136,7 @@ export class QuizRenderer {
       this.ctx.fillText(watermarkText, w/2, h/2 + 295);
 
       this.ctx.restore();
+      this.outputCtx.drawImage(this.canvas, 0, 0, this.outputWidth, this.outputHeight);
       return;
     }
 
@@ -1639,16 +1681,52 @@ export class QuizRenderer {
 
           this.ctx.fillStyle = textColor;
           const isCorrectReveal = shouldHighlightCorrect && idx === q.correctOptionIndex;
-          if (preset === 'chalk') {
-            this.ctx.font = isCorrectReveal ? 'bold 45px serif, "Times New Roman"' : '600 42px serif, "Times New Roman"';
-          } else if (preset === 'retro' || preset === 'cyberpunk' || preset === 'neon') {
-            this.ctx.font = isCorrectReveal ? '900 44px "Courier New", monospace' : '700 40px "Courier New", monospace';
-          } else {
-            this.ctx.font = isCorrectReveal ? 'bold 45px system-ui, -apple-system, sans-serif' : '500 42px system-ui, -apple-system, sans-serif';
+          const maxOptWidth = 630;
+
+          const getOptFont = (sz: number) => {
+            if (preset === 'chalk') {
+              return `${isCorrectReveal ? 'bold' : '600'} ${sz}px serif, "Times New Roman"`;
+            } else if (preset === 'retro' || preset === 'cyberpunk' || preset === 'neon') {
+              return `${isCorrectReveal ? '900' : '700'} ${sz}px "Courier New", monospace`;
+            } else {
+              return `${isCorrectReveal ? 'bold' : '500'} ${sz}px system-ui, -apple-system, sans-serif`;
+            }
+          };
+
+          let optFontSize = isCorrectReveal ? 42 : 38;
+          if (opt.length > 32) {
+            optFontSize = isCorrectReveal ? 30 : 28;
+          } else if (opt.length > 24) {
+            optFontSize = isCorrectReveal ? 36 : 33;
           }
 
+          this.ctx.font = getOptFont(optFontSize);
+          let textW = this.ctx.measureText(opt).width;
+
           this.ctx.textAlign = 'left';
-          this.ctx.fillText(opt, -250, 60);
+          this.ctx.textBaseline = 'middle';
+
+          if (textW > maxOptWidth || opt.length > 30) {
+            const optLines = this.getWrappedLines(opt, maxOptWidth, 2);
+            if (optLines.length > 1) {
+              const lineFontSize = Math.min(optFontSize, 28);
+              const optLineH = 34;
+              this.ctx.font = getOptFont(lineFontSize);
+              optLines.forEach((line, lIdx) => {
+                const lineY = 60 + (lIdx - (optLines.length - 1) / 2) * optLineH;
+                this.ctx.fillText(line, -250, lineY);
+              });
+            } else {
+              while (textW > maxOptWidth && optFontSize > 22) {
+                optFontSize -= 2;
+                this.ctx.font = getOptFont(optFontSize);
+                textW = this.ctx.measureText(opt).width;
+              }
+              this.ctx.fillText(opt, -250, 60);
+            }
+          } else {
+            this.ctx.fillText(opt, -250, 60);
+          }
           
           this.ctx.restore();
         }
@@ -1662,16 +1740,24 @@ export class QuizRenderer {
     if ((this.phase === 'reveal' || this.phase === 'end') && (q.explanation || isHidingLast)) {
       this.ctx.save();
       const explText = isHidingLast ? this.strings.hideLastAnswerCommentPrompt : (q.explanation || "");
-      const badgeText = isHidingLast ? (this.strings.hideLastAnswerBadge || "IZOHDA YOZING 💬") : (this.strings.explanationBadge || "IZOH");
-      const isLongText = explText.length > 90;
-      const fontSize = isLongText ? 23 : 28;
-      const lineHeight = isLongText ? 29 : 35;
+      const badgeText = isHidingLast ? (this.strings.hideLastAnswerBadge || "IZOHDA 💬") : (this.strings.explanationBadge || "IZOH");
+
+      const badgeFontSize = isHidingLast ? 22 : 24;
+      this.ctx.font = `900 ${badgeFontSize}px system-ui, -apple-system, sans-serif`;
+      const badgeW = this.ctx.measureText(badgeText).width;
+
+      const textStartX = -390 + badgeW + 20;
+      const maxTextWidth = Math.max(300, 390 - textStartX);
+
+      const isLongText = explText.length > 60 || isHidingLast;
+      const fontSize = isLongText ? 21 : 26;
+      const lineHeight = isLongText ? 27 : 33;
       this.ctx.font = preset === 'chalk'
         ? `italic 600 ${fontSize}px serif, "Times New Roman"`
         : `600 ${fontSize}px system-ui, sans-serif`;
 
-      const explLines = this.getWrappedLines(explText, 670, 4);
-      const boxHeight = Math.max(104, 32 + explLines.length * lineHeight);
+      const explLines = this.getWrappedLines(explText, maxTextWidth, 3);
+      const boxHeight = Math.max(104, 28 + explLines.length * lineHeight);
       const halfH = boxHeight / 2;
 
       this.ctx.translate(w / 2, 1370);
@@ -1683,7 +1769,7 @@ export class QuizRenderer {
       this.ctx.stroke();
 
       this.ctx.fillStyle = activeTheme.light;
-      this.ctx.font = '900 24px system-ui, -apple-system, sans-serif';
+      this.ctx.font = `900 ${badgeFontSize}px system-ui, -apple-system, sans-serif`;
       this.ctx.textAlign = 'left';
       this.ctx.textBaseline = 'middle';
       this.ctx.fillText(badgeText, -390, 0);
@@ -1692,8 +1778,6 @@ export class QuizRenderer {
       this.ctx.font = preset === 'chalk'
         ? `italic 600 ${fontSize}px serif, "Times New Roman"`
         : `600 ${fontSize}px system-ui, sans-serif`;
-      const badgeW = this.ctx.measureText(badgeText).width;
-      const textStartX = Math.max(-310, -390 + badgeW + 20);
       explLines.forEach((line, index) => {
         this.ctx.fillText(line, textStartX, (index - (explLines.length - 1) / 2) * lineHeight);
       });
@@ -1828,7 +1912,7 @@ export class QuizRenderer {
       revealAudioPromise = playPCMAsync(q.correctAudioBase64, 24000, this.masterGain);
     }
 
-    const revealMinimumMs = isHidingLast ? 3000 : (this.quiz.videoFormat === "youtube" ? 5200 : 2400);
+    const revealMinimumMs = isHidingLast ? 3500 : (this.quiz.videoFormat === "youtube" ? 5200 : 2400);
     await Promise.all([revealAudioPromise, this.sleep(revealMinimumMs)]);
     if (this.isCancelled) return;
 

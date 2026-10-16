@@ -107,7 +107,7 @@ export function Player({ quiz, onExit }: PlayerProps) {
         revealAudioPromise = playPCMAsync(question.correctAudioBase64);
       }
       
-      const revealMinimumMs = isHidingLast ? 3000 : (isYouTubeFormat ? 5200 : 3000);
+      const revealMinimumMs = isHidingLast ? 3500 : (isYouTubeFormat ? 5200 : 3000);
       await Promise.all([revealAudioPromise, sleep(revealMinimumMs)]);
       if (isCancelled) return;
 
@@ -128,10 +128,12 @@ export function Player({ quiz, onExit }: PlayerProps) {
         if (quiz.outroEnabled !== false) {
           setPhase("outro");
           playSuccess(); // Small chime for outro
+          let outroPromise = Promise.resolve();
           if (quiz.outroAudioBase64) {
-            playPCMAsync(quiz.outroAudioBase64);
+            outroPromise = playPCMAsync(quiz.outroAudioBase64);
           }
-          await sleep(3000);
+          await Promise.all([outroPromise, sleep(4500)]);
+          await sleep(1000);
           if (isCancelled) return;
         }
         
@@ -535,7 +537,7 @@ export function Player({ quiz, onExit }: PlayerProps) {
                               <div className={`w-8 h-8 sm:w-10 sm:h-10 shrink-0 flex items-center justify-center rounded-full text-sm sm:text-base font-bold shadow-inner mr-3 ${activePreset.letter}`}>
                                 {['A', 'B', 'C', 'D'][idx]}
                               </div>
-                              <div className="flex-1 text-left text-balance">
+                              <div className={`flex-1 text-left text-balance break-words ${opt.length > 32 ? "text-sm sm:text-base leading-snug" : ""}`}>
                                 {opt}
                               </div>
                             </div>
@@ -554,15 +556,15 @@ export function Player({ quiz, onExit }: PlayerProps) {
                         ? "border-amber-400/40 bg-amber-950/70 shadow-[0_0_25px_rgba(245,158,11,0.25)] text-amber-100"
                         : "border-white/15 bg-black/60 backdrop-blur-xl text-white"
                     } ${
-                      isYouTubeFormat ? "px-5 py-2.5 text-xs sm:text-sm" : "px-4 py-3.5 text-sm sm:text-base"
+                      isYouTubeFormat ? "px-5 py-2.5 text-xs sm:text-sm" : "px-4 py-3 text-sm sm:text-base"
                     } break-words leading-relaxed`}
                   >
                     {isHidingLast ? (
                       <div className="flex items-center gap-2.5">
-                        <span className="shrink-0 px-2 py-0.5 rounded-full bg-amber-500 text-black font-black text-xs tracking-wider uppercase">
+                        <span className="shrink-0 px-2.5 py-1 rounded-full bg-amber-500 text-black font-black text-xs tracking-wider uppercase">
                           {vs.hideLastAnswerBadge}
                         </span>
-                        <span className="font-bold text-white text-xs sm:text-sm">
+                        <span className="font-bold text-white text-xs sm:text-sm leading-snug break-words">
                           {vs.hideLastAnswerCommentPrompt}
                         </span>
                       </div>
