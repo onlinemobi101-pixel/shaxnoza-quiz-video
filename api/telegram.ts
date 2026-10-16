@@ -2,6 +2,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { FieldValue } from "firebase-admin/firestore";
 import { adminDb } from "./firebase-admin.js";
 import { transcribeAudio } from "./ai.js";
+import { isAdminEmail } from "../shared/admins.js";
 
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "";
 const WEBAPP_URL = process.env.TELEGRAM_WEBAPP_URL || "https://quiz-video-generator-yangi-phi.vercel.app";
@@ -321,6 +322,45 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
 
   const url = new URL(req.url || "/", "http://localhost");
   const action = url.searchParams.get("action");
+
+  if (action === "getTelegramConfig") {
+    const authHeader = req.headers["authorization"] || "";
+    const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+    if (!token) {
+      sendJSON(res, 401, { error: "AUTH_REQUIRED" });
+      return;
+    }
+
+    let decoded;
+    try {
+      const { adminAuth } = await import("./firebase-admin.js");
+      decoded = await adminAuth.verifyIdToken(token);
+    } catch {
+      sendJSON(res, 401, { error: "INVALID_AUTH_TOKEN" });
+      return;
+    }
+
+    let isAuthorizedAdmin = isAdminEmail(decoded.email);
+    if (!isAuthorizedAdmin) {
+      const userDoc = await adminDb.collection("users").doc(decoded.uid).get();
+      if (userDoc.data()?.role === "admin") {
+        isAuthorizedAdmin = true;
+      }
+    }
+
+    if (!isAuthorizedAdmin) {
+      sendJSON(res, 403, { error: "ADMIN_ONLY" });
+      return;
+    }
+
+    const defaultChatId = process.env.TELEGRAM_CHAT_ID || process.env.ADMIN_TELEGRAM_CHAT_ID || "";
+    sendJSON(res, 200, {
+      ok: true,
+      botToken: TELEGRAM_BOT_TOKEN,
+      defaultChatId,
+    });
+    return;
+  }
 
   if (req.method === "GET") {
     if (action === "checkSubscription") {

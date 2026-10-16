@@ -392,6 +392,14 @@ export class QuizRenderer {
 
       let outroAudioPromise = Promise.resolve();
       let outroAudioDurationMs = 0;
+      if (!this.outroAudioBuffer && this.quiz.outroAudioBase64) {
+        try {
+          this.outroAudioBuffer = decodePCMToAudioBuffer(this.quiz.outroAudioBase64, 24000, this.audioCtx);
+        } catch (e) {
+          console.warn("Outro audio decode error:", e);
+        }
+      }
+
       if (this.outroAudioBuffer) {
         outroAudioDurationMs = Math.ceil(this.outroAudioBuffer.duration * 1000);
         outroAudioPromise = playAudioBufferAsync(this.outroAudioBuffer, this.masterGain);
@@ -399,10 +407,10 @@ export class QuizRenderer {
         outroAudioPromise = playPCMAsync(this.quiz.outroAudioBase64, 24000, this.masterGain);
       }
 
-      // Outro kartochkasi va uning TTS audiosi oxirigacha + qo'shimcha 1 soniya davomida to'liq chizilsin
-      const outroMinimumMs = Math.max(4500, outroAudioDurationMs + 1000);
+      // Outro kartochkasi va uning TTS audiosi oxirigacha + qo'shimcha 1.5 soniya davomida to'liq chizilsin
+      const outroMinimumMs = Math.max(5000, outroAudioDurationMs + 1500);
       await Promise.all([outroAudioPromise, this.sleep(outroMinimumMs)]);
-      await this.sleep(1000);
+      await this.sleep(1500);
     }
     
     stopProceduralBGM();
@@ -1747,17 +1755,25 @@ export class QuizRenderer {
       const badgeW = this.ctx.measureText(badgeText).width;
 
       const textStartX = -390 + badgeW + 20;
-      const maxTextWidth = Math.max(300, 390 - textStartX);
+      const maxTextWidth = Math.max(280, 390 - textStartX);
 
-      const isLongText = explText.length > 60 || isHidingLast;
-      const fontSize = isLongText ? 21 : 26;
-      const lineHeight = isLongText ? 27 : 33;
+      let fontSize = isHidingLast ? 21 : (explText.length > 60 ? 21 : 26);
+      let lineHeight = isHidingLast ? 27 : 33;
       this.ctx.font = preset === 'chalk'
         ? `italic 600 ${fontSize}px serif, "Times New Roman"`
         : `600 ${fontSize}px system-ui, sans-serif`;
 
-      const explLines = this.getWrappedLines(explText, maxTextWidth, 3);
-      const boxHeight = Math.max(104, 28 + explLines.length * lineHeight);
+      let explLines = this.getWrappedLines(explText, maxTextWidth, 3);
+      if (explLines.length > 2 || explText.length > 65) {
+        fontSize = 19;
+        lineHeight = 25;
+        this.ctx.font = preset === 'chalk'
+          ? `italic 600 ${fontSize}px serif, "Times New Roman"`
+          : `600 ${fontSize}px system-ui, sans-serif`;
+        explLines = this.getWrappedLines(explText, maxTextWidth, 3);
+      }
+
+      const boxHeight = Math.max(104, 30 + explLines.length * lineHeight);
       const halfH = boxHeight / 2;
 
       this.ctx.translate(w / 2, 1370);

@@ -132,8 +132,8 @@ export function Player({ quiz, onExit }: PlayerProps) {
           if (quiz.outroAudioBase64) {
             outroPromise = playPCMAsync(quiz.outroAudioBase64);
           }
-          await Promise.all([outroPromise, sleep(4500)]);
-          await sleep(1000);
+          await Promise.all([outroPromise, sleep(5000)]);
+          await sleep(1500);
           if (isCancelled) return;
         }
         
@@ -537,7 +537,7 @@ export function Player({ quiz, onExit }: PlayerProps) {
                               <div className={`w-8 h-8 sm:w-10 sm:h-10 shrink-0 flex items-center justify-center rounded-full text-sm sm:text-base font-bold shadow-inner mr-3 ${activePreset.letter}`}>
                                 {['A', 'B', 'C', 'D'][idx]}
                               </div>
-                              <div className={`flex-1 text-left text-balance break-words ${opt.length > 32 ? "text-sm sm:text-base leading-snug" : ""}`}>
+                              <div className={`flex-1 text-left text-balance break-words ${opt.length > 30 ? "text-sm sm:text-base leading-snug" : ""}`}>
                                 {opt}
                               </div>
                             </div>
@@ -561,7 +561,7 @@ export function Player({ quiz, onExit }: PlayerProps) {
                   >
                     {isHidingLast ? (
                       <div className="flex items-center gap-2.5">
-                        <span className="shrink-0 px-2.5 py-1 rounded-full bg-amber-500 text-black font-black text-xs tracking-wider uppercase">
+                        <span className="shrink-0 px-2.5 py-1 rounded-full bg-amber-500 text-black font-black text-xs tracking-wider uppercase whitespace-nowrap">
                           {vs.hideLastAnswerBadge}
                         </span>
                         <span className="font-bold text-white text-xs sm:text-sm leading-snug break-words">

@@ -17,6 +17,7 @@ import {
   RefreshCw,
   Video,
   Languages,
+  Search,
 } from "lucide-react";
 import { Quiz, Question } from "../types";
 import { generateQuizAI, generate30DayViralTopics } from "../services/ai";
@@ -24,7 +25,14 @@ import { generateTTSBatch } from "../services/tts";
 import { getVideoStrings } from "../services/i18n";
 import { QuizRenderer } from "../services/renderer";
 import { generateViralSocialCopy } from "../services/socialCopy";
-import { sendVideoToTelegramChat, telegramHaptic } from "../services/telegram";
+import {
+  sendVideoToTelegramChat,
+  sendVideoDirectToTelegram,
+  fetchTelegramConfig,
+  getLatestTelegramChatId,
+  sendTestTelegramMessage,
+  telegramHaptic,
+} from "../services/telegram";
 
 interface AutoFactoryModalProps {
   isOpen: boolean;
@@ -153,11 +161,96 @@ export function AutoFactoryModal({ isOpen, onClose }: AutoFactoryModalProps) {
     }
   });
 
+  const [botToken, setBotToken] = useState<string>("");
+  const [isFindingId, setIsFindingId] = useState<boolean>(false);
+  const [isSendingTest, setIsSendingTest] = useState<boolean>(false);
+  const [telegramStatuses, setTelegramStatuses] = useState<
+    Record<string, { status: "sending" | "sent" | "error"; error?: string }>
+  >({});
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchTelegramConfig().then((cfg) => {
+        if (cfg?.botToken) {
+          setBotToken(cfg.botToken);
+          if (!adminChatId && cfg.defaultChatId) {
+            setAdminChatId(cfg.defaultChatId);
+            localStorage.setItem("qz_admin_telegram_chat_id", cfg.defaultChatId);
+          }
+        }
+      });
+    }
+  }, [isOpen]);
+
   const handleSaveTelegramSettings = (id: string, auto: boolean) => {
     setAdminChatId(id);
     setAutoSendTelegram(auto);
     localStorage.setItem("qz_admin_telegram_chat_id", id);
     localStorage.setItem("qz_auto_send_telegram", auto ? "1" : "0");
+  };
+
+  const handleFindTelegramId = async () => {
+    let token = botToken;
+    if (!token) {
+      const cfg = await fetchTelegramConfig();
+      if (cfg?.botToken) {
+        token = cfg.botToken;
+        setBotToken(token);
+      } else {
+        alert("Telegram bot token topilmadi yoki admin huquqi yo'q.");
+        return;
+      }
+    }
+    setIsFindingId(true);
+    try {
+      const res = await getLatestTelegramChatId(token);
+      if (res.success && res.chatId) {
+        handleSaveTelegramSettings(res.chatId, autoSendTelegram);
+        telegramHaptic("success");
+        const name = res.user?.first_name ? ` (${res.user.first_name})` : "";
+        alert(`✅ Chat ID muvaffaqiyatli topildi: ${res.chatId}${name}!`);
+      } else {
+        telegramHaptic("error");
+        alert(res.error || "ID topilmadi. Telegram botingizga /start bosing va qaytadan sinab ko'ring.");
+      }
+    } catch (err: any) {
+      alert("Xatolik: " + (err.message || String(err)));
+    } finally {
+      setIsFindingId(false);
+    }
+  };
+
+  const handleSendTestMessage = async () => {
+    if (!adminChatId.trim()) {
+      alert("Iltimos, avval Telegram Chat ID ni kiriting yoki «🔍 Oxirgi ID» tugmasini bosing.");
+      return;
+    }
+    let token = botToken;
+    if (!token) {
+      const cfg = await fetchTelegramConfig();
+      if (cfg?.botToken) {
+        token = cfg.botToken;
+        setBotToken(token);
+      } else {
+        alert("Bot token topilmadi.");
+        return;
+      }
+    }
+    setIsSendingTest(true);
+    try {
+      const res = await sendTestTelegramMessage(token, adminChatId.trim());
+      if (res.success) {
+        telegramHaptic("success");
+        alert("✅ Test xabari Telegram botingizga muvaffaqiyatli yuborildi!");
+      } else {
+        telegramHaptic("error");
+        alert("❌ Telegram xatosi: " + (res.error || "Noma'lum"));
+      }
+    } catch (err: any) {
+      alert("Xatolik: " + (err.message || String(err)));
+    } finally {
+      setIsSendingTest(false);
+    }
   };
 
   // 5. Avto-generatsiya holati
@@ -334,18 +427,48 @@ export function AutoFactoryModal({ isOpen, onClose }: AutoFactoryModalProps) {
           },
         };
 
-        // f) Telegram-ga avtomatik yuborish (agar yoqilgan bo'lsa)
+        // f) Telegram-ga avtomatik yuborish (to'g'ridan-to'g'ri brauzerdan Telegram API ga)
         if (autoSendTelegram && adminChatId.trim()) {
-          setActiveStepText(`${langNames[lang]} videosi Telegram'ingizga yuborilmoqda...`);
+          setActiveStepText(`✈️ ${langNames[lang]} videosi Telegram'ingizga yuborilmoqda...`);
+          setTelegramStatuses((prev) => ({ ...prev, [lang]: { status: "sending" } }));
+
           const tgCaption = `🎬 <b>${resultEntry.title}</b>\n\n${fullCopyText}`;
-          const tgRes = await sendVideoToTelegramChat(
-            renderedVideo.blob,
-            fileName,
-            tgCaption,
-            adminChatId.trim()
-          );
+          let tgRes: { success: boolean; messageId?: number; error?: string } = { success: false };
+
+          let activeToken = botToken;
+          if (!activeToken) {
+            const cfg = await fetchTelegramConfig();
+            if (cfg?.botToken) {
+              activeToken = cfg.botToken;
+              setBotToken(activeToken);
+            }
+          }
+
+          if (activeToken) {
+            tgRes = await sendVideoDirectToTelegram(
+              activeToken,
+              adminChatId.trim(),
+              renderedVideo.blob,
+              fileName,
+              tgCaption
+            );
+          } else {
+            tgRes = await sendVideoToTelegramChat(
+              renderedVideo.blob,
+              fileName,
+              tgCaption,
+              adminChatId.trim()
+            );
+          }
+
           if (tgRes.success) {
             resultEntry.sentToTelegram = true;
+            setTelegramStatuses((prev) => ({ ...prev, [lang]: { status: "sent" } }));
+          } else {
+            setTelegramStatuses((prev) => ({
+              ...prev,
+              [lang]: { status: "error", error: tgRes.error || "Yuborib bo'lmadi" },
+            }));
           }
         }
 
@@ -409,21 +532,48 @@ ${result.socialCopy.hashtags}
       return;
     }
     setSendingTgIndex(index);
+    setTelegramStatuses((prev) => ({ ...prev, [result.lang]: { status: "sending" } }));
     try {
       const caption = `🎬 <b>${result.title}</b>\n\n${result.socialCopy.fullText}`;
-      const res = await sendVideoToTelegramChat(
-        result.videoBlob,
-        result.fileName,
-        caption,
-        adminChatId.trim()
-      );
+      let activeToken = botToken;
+      if (!activeToken) {
+        const cfg = await fetchTelegramConfig();
+        if (cfg?.botToken) {
+          activeToken = cfg.botToken;
+          setBotToken(activeToken);
+        }
+      }
+
+      let res: { success: boolean; messageId?: number; error?: string } = { success: false };
+      if (activeToken) {
+        res = await sendVideoDirectToTelegram(
+          activeToken,
+          adminChatId.trim(),
+          result.videoBlob,
+          result.fileName,
+          caption
+        );
+      } else {
+        res = await sendVideoToTelegramChat(
+          result.videoBlob,
+          result.fileName,
+          caption,
+          adminChatId.trim()
+        );
+      }
+
       if (res.success) {
-        alert("Video Telegram'ingizga muvaffaqiyatli yuborildi!");
+        alert("✅ Video Telegram'ingizga muvaffaqiyatli yuborildi!");
         const updated = [...generatedResults];
         updated[index].sentToTelegram = true;
         setGeneratedResults(updated);
+        setTelegramStatuses((prev) => ({ ...prev, [result.lang]: { status: "sent" } }));
       } else {
-        alert("Telegram'ga yuborishda xatolik: " + (res.error || "Noma'lum"));
+        alert("❌ Telegram'ga yuborishda xatolik: " + (res.error || "Noma'lum"));
+        setTelegramStatuses((prev) => ({
+          ...prev,
+          [result.lang]: { status: "error", error: res.error || "Yuborib bo'lmadi" },
+        }));
       }
     } catch (err: any) {
       alert("Xatolik: " + (err.message || String(err)));
@@ -668,30 +818,62 @@ ${result.socialCopy.hashtags}
 
           {/* 4. Telegram integratsiyasi */}
           <div className="p-4 sm:p-5 rounded-2xl bg-white/5 border border-white/10 space-y-3">
-            <h3 className="text-sm font-bold text-white flex items-center gap-2">
-              <Send size={16} className="text-[#229ED9]" />
-              4. Telegram'ga avtomatik yuborish (Kompyuterdan telefonga 1 soniyada)
-            </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
-              <div>
-                <label className="text-[11px] font-bold text-neutral-300 mb-1 block">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <Send size={16} className="text-[#229ED9]" />
+                4. Telegram'ga avtomatik yuborish (Kompyuterdan telefonga 1 soniyada)
+              </h3>
+              {botToken && (
+                <span className="text-[10px] bg-[#229ED9]/20 text-[#229ED9] border border-[#229ED9]/40 px-2 py-0.5 rounded-full font-bold">
+                  Bot ulangan ✅
+                </span>
+              )}
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-start">
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold text-neutral-300 block">
                   Admin Telegram Chat ID (yoki @user_id)
                 </label>
-                <input
-                  type="text"
-                  value={adminChatId}
-                  onChange={(e) => handleSaveTelegramSettings(e.target.value, autoSendTelegram)}
-                  placeholder="Masalan: 123456789"
-                  className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xs font-semibold text-white focus:outline-none focus:border-[#229ED9]"
-                />
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={adminChatId}
+                    onChange={(e) => handleSaveTelegramSettings(e.target.value, autoSendTelegram)}
+                    placeholder="Masalan: 123456789"
+                    className="flex-1 min-w-0 bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xs font-semibold text-white focus:outline-none focus:border-[#229ED9]"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleFindTelegramId}
+                    disabled={isFindingId}
+                    className="px-2.5 sm:px-3 py-2 rounded-xl bg-[#229ED9]/20 hover:bg-[#229ED9]/30 border border-[#229ED9]/40 text-[#229ED9] text-[11px] font-bold flex items-center gap-1 transition-all disabled:opacity-50 shrink-0 cursor-pointer"
+                    title="Botga yozgan oxirgi chat ID ni avtomatik topish"
+                  >
+                    {isFindingId ? <Loader2 size={12} className="animate-spin" /> : <Search size={12} />}
+                    <span>🔍 Oxirgi ID</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSendTestMessage}
+                    disabled={isSendingTest || !adminChatId.trim()}
+                    className="px-2.5 sm:px-3 py-2 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 text-[11px] font-bold flex items-center gap-1 transition-all disabled:opacity-50 shrink-0 cursor-pointer"
+                    title="Telegramga test xabar yuborish"
+                  >
+                    {isSendingTest ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
+                    <span>✈️ Test</span>
+                  </button>
+                </div>
+                <p className="text-[10px] text-neutral-400">
+                  * Chat ID ni bilmasangiz, Telegramda botingizga <code className="text-[#229ED9]">/start</code> yozing va «🔍 Oxirgi ID» tugmasini bosing.
+                </p>
               </div>
 
-              <label className="flex items-center gap-2.5 p-3 rounded-xl border border-white/10 bg-white/5 cursor-pointer mt-4 sm:mt-5">
+              <label className="flex items-center gap-2.5 p-3.5 rounded-xl border border-white/10 bg-white/5 cursor-pointer sm:mt-5 hover:bg-white/10 transition-colors">
                 <input
                   type="checkbox"
                   checked={autoSendTelegram}
                   onChange={(e) => handleSaveTelegramSettings(adminChatId, e.target.checked)}
-                  className="w-4 h-4 rounded text-[#229ED9] focus:ring-0"
+                  className="w-4 h-4 rounded text-[#229ED9] focus:ring-0 shrink-0"
                 />
                 <span className="text-xs font-semibold text-white">
                   Har bir tayyor videoni tavsifi bilan avtomat Telegram'imga yuborish
@@ -762,9 +944,29 @@ ${result.socialCopy.hashtags}
                       <span className="text-xs font-black text-white truncate">
                         {result.title}
                       </span>
-                      <span className="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full font-bold">
-                        Tayyor ✅
-                      </span>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {telegramStatuses[result.lang]?.status === "sending" && (
+                          <span className="text-[10px] bg-blue-500/20 text-blue-300 border border-blue-500/30 px-2 py-0.5 rounded-full font-bold flex items-center gap-1 animate-pulse">
+                            <Loader2 size={10} className="animate-spin" /> ✈️ Telegramga yuborilmoqda...
+                          </span>
+                        )}
+                        {telegramStatuses[result.lang]?.status === "sent" && (
+                          <span className="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full font-bold">
+                            ✅ Telegramga yuborildi!
+                          </span>
+                        )}
+                        {telegramStatuses[result.lang]?.status === "error" && (
+                          <span
+                            className="text-[10px] bg-red-500/20 text-red-300 border border-red-500/30 px-2 py-0.5 rounded-full font-bold"
+                            title={telegramStatuses[result.lang]?.error}
+                          >
+                            ❌ Telegram xatosi
+                          </span>
+                        )}
+                        <span className="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full font-bold">
+                          Tayyor ✅
+                        </span>
+                      </div>
                     </div>
 
                     {/* Video Player */}
