@@ -95,11 +95,14 @@ function getAdminApp() {
   return initializeApp({ credential: applicationDefault(), projectId: process.env.FIREBASE_PROJECT_ID || PROJECT_ID });
 }
 
+import type { Auth } from "firebase-admin/auth";
+import type { Firestore } from "firebase-admin/firestore";
+
 let _adminApp: any = null;
 let _adminAuth: any = null;
 let _adminDb: any = null;
 
-export const adminAuth = new Proxy({} as any, {
+export const adminAuth: Auth = new Proxy({} as any, {
   get(_, prop) {
     if (!_adminAuth) {
       if (!_adminApp) _adminApp = getAdminApp();
@@ -110,7 +113,7 @@ export const adminAuth = new Proxy({} as any, {
   },
 });
 
-export const adminDb = new Proxy({} as any, {
+export const adminDb: Firestore = new Proxy({} as any, {
   get(_, prop) {
     if (!_adminDb) {
       if (!_adminApp) _adminApp = getAdminApp();
