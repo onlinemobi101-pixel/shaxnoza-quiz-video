@@ -22,7 +22,7 @@ export function getLongVideoPreset(duration: Quiz["targetDuration"] = 3): LongVi
 }
 
 export function getIntroDurationMs(quiz: Quiz): number {
-  return quiz.videoFormat === "youtube" ? 6000 : 2000;
+  return quiz.videoFormat === "youtube" ? 6000 : 1500;
 }
 
 export function getOutroDurationMs(quiz: Quiz): number {

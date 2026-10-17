@@ -24,10 +24,10 @@ Platformaning maqsadi — qisqa (Shorts, Reels, TikTok) va uzun (YouTube) viktor
   - `16:9` Gorizontal (1920x1080) — YouTube asosiy videolari uchun 2, 3, 5, 8, 10, 12 daqiqalik uzoq video formati.
 
 ## 4. Narxlar va Tariflar (Pricing)
-- **Free Sinov:** 0 so'm / $0 — 1 ta video yaratish imkoniyati.
-- **Pack 10:** 20 000 so'm / $3 — 10 ta video eksporti, suv belgisini o'zgartirish.
-- **Premium (Oylik):** 99 000 so'm / $9 — 100 ta video, barcha uzoq YouTube formatlari, cheksiz fon videolari.
-- **VIP B2B Tayyor Paket:** 350 000 so'm / $29 — 30 ta tayyor virusli video, professional SMM post matnlari, 24 soatda adminga topshirish.
+- **Free Sinov:** 0 so'm / $0 — 1 ta video yaratish imkoniyati (@QuizVideoUz / @EnglishQuizArena tamg'asi bilan).
+- **Start (Boshlang'ich):** 49 000 so'm / $5 — 15 ta video eksporti, o'z kanal nomini (@username) qo'yish, 4 ta til.
+- **Pro Creator (1 Oylik):** 99 000 so'm / $9 — 35 ta video (1 oylik to'liq kontent), shaxsiy brending, 16:9 YouTube formatlari, 30 kunlik virusli mavzular bonusi.
+- **VIP B2B Tayyor Paket:** 350 000 so'm / $29 — 30 ta tayyor virusli video, professional SMM post matnlari, 24 soatda adminga topshirish (@Akramjon1984).
 
 ## 5. Dasturchilar va AI Agentlar Uchun
 - Standart: SPA (Single Page Application)

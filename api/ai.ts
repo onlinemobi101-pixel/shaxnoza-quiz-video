@@ -399,7 +399,7 @@ CRITICAL CORRECTNESS RULES:
 1. FIRST decide the correct answer, THEN place it at a RANDOM position (0, 1, or 2) among the 3 options.
 2. The correctOptionIndex MUST exactly match the 0-based position of the correct answer in the options array.
 3. DOUBLE-CHECK: After generating each question, verify that options[correctOptionIndex] is truly the correct answer. If not, fix the index.
-4. EXPLANATION MANDATE: The explanation (izoh) must clearly explain why the answer at correctOptionIndex is correct. It MUST be a complete, meaningful sentence (tugallangan ma'noli gap) and its total length MUST STRICTLY NOT EXCEED 110 characters (uzunligi qat'iy ravishda 110 ta belgidan oshmasin).
+4. EXPLANATION MANDATE: ${count === 3 ? "VIRAL SHORTS REJIMI (35-42s): The explanation (izoh) MUST be ultra-concise (lo'nda va qisqa), exactly 1 short sentence, and STRICTLY NOT EXCEED 70-80 characters (uzunligi qat'iy ravishda maksimal 70-80 ta belgidan oshmasin). Shunda diktor uni 3 soniyada o'qib tugatadi va umumiy video 35-42 soniya atrofida chiqadi." : "The explanation (izoh) must clearly explain why the answer at correctOptionIndex is correct. It MUST be a complete, meaningful sentence (tugallangan ma'noli gap) and its total length MUST STRICTLY NOT EXCEED 110 characters (uzunligi qat'iy ravishda 110 ta belgidan oshmasin)."}
 5. All facts must be 100% accurate and up-to-date. Do not invent fake facts.
 6. Each question must have exactly 3 distinct, plausible options. No duplicate or near-identical options.
 Avoid outdated facts, duplicate questions, near-identical wording, trick questions, and ambiguous answers.
@@ -416,7 +416,7 @@ history, space, science, nature, math, geography, art, music, sport, tech, liter
             text: { type: Type.STRING, description: "Savol matni / Question text" },
             options: { type: Type.ARRAY, items: { type: Type.STRING }, description: "3 ta variant / 3 options" },
             correctOptionIndex: { type: Type.INTEGER, description: "To'g'ri javob indeksi (0, 1 yoki 2) / Correct answer index (0, 1 or 2)" },
-            explanation: { type: Type.STRING, description: "Tugallangan ma'noli gap, maksimal 110 belgi / Complete sentence, max 110 chars" },
+            explanation: { type: Type.STRING, description: count === 3 ? "O'ta qisqa lo'nda 1 ta gap, maksimal 70-80 belgi / Ultra-concise sentence, max 70-80 chars" : "Tugallangan ma'noli gap, maksimal 110 belgi / Complete sentence, max 110 chars" },
             imageKeyword: { type: Type.STRING, description: "Mavzuga doir bitta inglizcha so'z / One English word for the topic" }
           },
           required: ["text", "options", "correctOptionIndex", "explanation", "imageKeyword"]

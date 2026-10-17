@@ -14,6 +14,7 @@ export interface VideoStrings {
   outroCtaText: string; // "🤖 Bunday videolarni 1 daqiqada yarating!..."
   introBadge: string; // intro'dagi rangli badge
   introCount: (n: number) => string; // intro pastki matni
+  introHookText: (n: number) => string; // 1.5s intro chaqirig'i / hook
   outroTitle: string;
   outroSubtitle: string;
   seconds: string; // preview taymeridagi "Soniya"
@@ -30,8 +31,9 @@ const STRINGS: Record<QuizLanguage, VideoStrings> = {
     hideLastAnswerCommentPrompt: "Oxirgi savol javobini va necha ball to'plaganingizni izohda yozing!",
     hideLastAnswerBadge: "IZOHDA 💬",
     outroCtaText: "🤖 Bunday videolarni 1 daqiqada yarating! Profilimizdagi havolaga kiring yoki izohga «AI» deb yozing!",
-    introBadge: "NECHTASINI TOPASIZ?",
+    introBadge: "BILIMINGIZNI SINANG!",
     introCount: (n) => `${n} ta savol • Javoblari ichida`,
+    introHookText: (n) => n === 3 ? "Bilimingizni sinab koʻring! 3 tadan nechta topasiz?" : `Bilimingizni sinab koʻring! ${n} tadan nechta topasiz?`,
     outroTitle: "Videoga Like Bosing!",
     outroSubtitle: "Kanalga obuna bo'lishni unutmang",
     seconds: "Soniya",
@@ -47,8 +49,9 @@ const STRINGS: Record<QuizLanguage, VideoStrings> = {
     hideLastAnswerCommentPrompt: "Write the answer to the last question and your score in the comments!",
     hideLastAnswerBadge: "COMMENT 💬",
     outroCtaText: "🤖 Create videos like this in 1 minute! Click the link in bio or comment «QUIZ» below!",
-    introBadge: "HOW MANY CAN YOU GET?",
+    introBadge: "TEST YOUR KNOWLEDGE!",
     introCount: (n) => `${n} questions • Answers inside`,
+    introHookText: (n) => n === 3 ? "Test your knowledge! Can you get 3 out of 3?" : `Test your knowledge! Can you get ${n} out of ${n}?`,
     outroTitle: "Like this video!",
     outroSubtitle: "Don't forget to subscribe",
     seconds: "Seconds",
@@ -64,8 +67,9 @@ const STRINGS: Record<QuizLanguage, VideoStrings> = {
     hideLastAnswerCommentPrompt: "Напишите ответ на последний вопрос и ваш счёт в комментариях!",
     hideLastAnswerBadge: "ОТВЕТ 💬",
     outroCtaText: "🤖 Создавайте такие видео за 1 минуту! Ссылка в профиле или напишите «ИИ» в комментарии!",
-    introBadge: "СКОЛЬКО УГАДАЕШЬ?",
+    introBadge: "ПРОВЕРЬТЕ ЭРУДИЦИЮ!",
     introCount: (n) => `Вопросов: ${n} • Ответы внутри`,
+    introHookText: (n) => n === 3 ? "Проверьте эрудицию! Ответите на 3 из 3?" : `Проверьте эрудицию! Ответите на ${n} из ${n}?`,
     outroTitle: "Ставь лайк!",
     outroSubtitle: "Не забудь подписаться на канал",
     seconds: "Секунды",
@@ -81,8 +85,9 @@ const STRINGS: Record<QuizLanguage, VideoStrings> = {
     hideLastAnswerCommentPrompt: "Son sorunun cevabını ve puanınızı yorumlara yazın!",
     hideLastAnswerBadge: "YORUM 💬",
     outroCtaText: "🤖 1 dakikada böyle videolar yapın! Profildeki linke tıklayın veya yorumlara «AI» yazın!",
-    introBadge: "KAÇINI BİLEBİLİRSİN?",
+    introBadge: "BİLGİNİ TEST ET!",
     introCount: (n) => `${n} soru • Cevaplar içinde`,
+    introHookText: (n) => n === 3 ? "Bilgini test et! 3'te 3 yapabilir misin?" : `Bilgini test et! ${n}'de ${n} yapabilir misin?`,
     outroTitle: "Videoyu beğen!",
     outroSubtitle: "Kanala abone olmayı unutma",
     seconds: "Saniye",

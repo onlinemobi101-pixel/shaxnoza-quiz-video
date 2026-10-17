@@ -546,9 +546,9 @@ export class QuizRenderer {
       titleLines.forEach((line, index) => this.ctx.fillText(line, w / 2, titleStart + index * 110));
       this.ctx.shadowColor = "transparent";
 
-      this.ctx.fillStyle = "rgba(255,255,255,0.82)";
-      this.ctx.font = '600 42px system-ui, -apple-system, sans-serif';
-      this.ctx.fillText(this.strings.introCount(this.quiz.questions.length), w / 2, 690);
+      this.ctx.fillStyle = "rgba(255,255,255,0.92)";
+      this.ctx.font = '700 44px system-ui, -apple-system, sans-serif';
+      this.ctx.fillText(this.strings.introHookText(this.quiz.questions.length), w / 2, 690);
       this.ctx.fillStyle = activeTheme.light;
       this.ctx.fillRect(620, 765, 680, 8);
       this.ctx.restore();
@@ -1194,9 +1194,13 @@ export class QuizRenderer {
       shown.forEach((l, i) => this.ctx.fillText(l, 0, startY + i * lh));
       this.ctx.shadowColor = 'transparent';
 
-      this.ctx.fillStyle = 'rgba(255,255,255,0.85)';
-      this.ctx.font = '600 44px system-ui, -apple-system, sans-serif';
-      this.ctx.fillText(this.strings.introCount(this.quiz.questions.length), 0, startY + shown.length * lh + 40);
+      this.ctx.fillStyle = activeTheme.light || '#34d399';
+      this.ctx.font = '800 44px system-ui, -apple-system, sans-serif';
+      const hookText = this.strings.introHookText(this.quiz.questions.length);
+      const hookLines = this.getWrappedLines(hookText, 920, 2);
+      hookLines.forEach((hl, hi) => {
+        this.ctx.fillText(hl, 0, startY + shown.length * lh + 45 + hi * 52);
+      });
 
       this.ctx.restore();
       return;

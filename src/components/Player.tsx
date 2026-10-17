@@ -51,9 +51,16 @@ export function Player({ quiz, onExit }: PlayerProps) {
 
     const runSequence = async () => {
       const questionStartedAt = performance.now();
-      setPhase("init");
-      await sleep(500);
-      if (isCancelled) return;
+      if (currentQuestionIndex === 0) {
+        setPhase("init");
+        playPop();
+        await sleep(1500);
+        if (isCancelled) return;
+      } else {
+        setPhase("init");
+        await sleep(350);
+        if (isCancelled) return;
+      }
 
       setPhase("question");
       
@@ -475,6 +482,29 @@ export function Player({ quiz, onExit }: PlayerProps) {
                 transition={{ duration: 0.5 }}
                 className="w-full flex flex-col justify-center"
               >
+                {/* 1.5s Intro Hook for Question 1 */}
+                <AnimatePresence>
+                  {phase === "init" && currentQuestionIndex === 0 && (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 1.05 }}
+                      transition={{ duration: 0.3 }}
+                      className="text-center p-6 rounded-3xl bg-black/60 backdrop-blur-xl border border-white/20 shadow-2xl flex flex-col items-center gap-4 my-auto"
+                    >
+                      <span className="px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-wider bg-emerald-500 text-white shadow-lg shadow-emerald-500/30">
+                        {vs.introBadge}
+                      </span>
+                      <h1 className="text-2xl sm:text-3xl font-black text-white leading-tight uppercase tracking-tight">
+                        {quiz.title || "QUIZ"}
+                      </h1>
+                      <p className="text-sm sm:text-base font-extrabold text-emerald-300">
+                        {vs.introHookText(quiz.questions.length)}
+                      </p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
                 {/* Question Box */}
                 <AnimatePresence>
                   {(phase === "question" ||

@@ -64,8 +64,8 @@ const RESERVATION_TTL_MS = 45 * 60 * 1000;
 
 export const PLAN_LIMITS: Record<Exclude<Role, "admin">, number> = {
   free: 1,
-  pack10: 10,
-  premium: 100,
+  pack10: 15,
+  premium: 35,
 };
 
 export type AiResource = "quizzes" | "ttsClips" | "imageCalls";

@@ -9,7 +9,8 @@
 //   GCP_SERVICE_ACCOUNT_JSON, FIREBASE_SERVICE_ACCOUNT_JSON
 // To'liq ro'yxat va izohlar: .env.example
 import { createServer, IncomingMessage, ServerResponse } from "http";
-import { readFile, stat } from "fs/promises";
+import { createWriteStream } from "fs";
+import { readFile, stat, mkdir, writeFile } from "fs/promises";
 import { extname, join, resolve, sep } from "path";
 import apiHandler from "./api/ai";
 
@@ -70,6 +71,45 @@ async function serveStatic(pathname: string, res: ServerResponse) {
   }
 }
 
+async function handleSaveLocal(req: IncomingMessage, res: ServerResponse) {
+  try {
+    const day = (req.headers["x-day"] as string) || "01";
+    const lang = (req.headers["x-lang"] as string) || "uz";
+    const rawFileName = (req.headers["x-filename"] as string) || `video_${Date.now()}.mp4`;
+    const fileName = decodeURIComponent(rawFileName);
+    const smmBase64 = (req.headers["x-smm-base64"] as string) || "";
+    const smmText = smmBase64 ? Buffer.from(smmBase64, "base64").toString("utf-8") : "";
+
+    const dayDir = `day_${String(day).padStart(2, "0")}`;
+    const targetDir = resolve(process.cwd(), "output", dayDir, lang);
+    await mkdir(targetDir, { recursive: true });
+
+    const videoPath = join(targetDir, fileName);
+    const writeStream = createWriteStream(videoPath);
+
+    await new Promise<void>((resolvePromise, rejectPromise) => {
+      req.pipe(writeStream);
+      writeStream.on("finish", resolvePromise);
+      writeStream.on("error", rejectPromise);
+    });
+
+    if (smmText) {
+      const baseName = fileName.replace(/\.[^/.]+$/, "");
+      const smmPath = join(targetDir, `${baseName}_smm.txt`);
+      await writeFile(smmPath, smmText, "utf-8");
+    }
+
+    res.statusCode = 200;
+    res.setHeader("Content-Type", "application/json");
+    res.end(JSON.stringify({ ok: true, path: videoPath }));
+  } catch (err: any) {
+    console.error("Save local error:", err);
+    res.statusCode = 500;
+    res.setHeader("Content-Type", "application/json");
+    res.end(JSON.stringify({ ok: false, error: String(err?.message || err) }));
+  }
+}
+
 const server = createServer((req: IncomingMessage, res: ServerResponse) => {
   const url = req.url || "/";
 
@@ -81,6 +121,19 @@ const server = createServer((req: IncomingMessage, res: ServerResponse) => {
         res.statusCode = 500;
         res.setHeader("Content-Type", "application/json");
         res.end(JSON.stringify({ error: String(err?.message || err) }));
+      }
+    });
+    return;
+  }
+
+  // Lokal saqlash endpointi: videolarni to'g'ridan-to'g'ri ./output/day_{XX}/{lang}/ papkalariga saqlash
+  if ((url === "/api/save-local" || url.startsWith("/api/save-local?")) && req.method === "POST") {
+    handleSaveLocal(req, res).catch((err) => {
+      console.error("handleSaveLocal error:", err);
+      if (!res.writableEnded) {
+        res.statusCode = 500;
+        res.setHeader("Content-Type", "application/json");
+        res.end(JSON.stringify({ ok: false, error: String(err?.message || err) }));
       }
     });
     return;

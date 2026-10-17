@@ -7,6 +7,8 @@ coverage
 .env*
 !.env.example
 public/backgrounds
+public/backgrounds/*.mp4
 *.mp4
 *.webm
+output
 gen-lang-client-*.json

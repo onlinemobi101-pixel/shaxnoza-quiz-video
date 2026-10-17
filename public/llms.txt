@@ -55,10 +55,10 @@ Platforma "Avto-Zavod" funksiyasi orqali bitta mavzudan bir vaqtning o'zida 4 ta
 ## 3. B2C va B2B Tariflar (Pricing & Packages)
 | Tarif Nomi | Narxi (UZS) | Narxi (USD) | Imkoniyatlar va Tavsif |
 | :--- | :--- | :--- | :--- |
-| **Free (Sinov)** | **0 UZS** | **$0** | 1 ta to'liq bepul video eksporti, 3 ta savol, 9:16 Shorts/Reels formati, barcha funksiyalarni sinash |
-| **Pack 10** | **20 000 UZS** | **$3** | 10 ta video eksporti, shaxsiy logotip (watermark), barcha 4 ta til (UZ, RU, EN, TR) |
-| **Premium (Oylik Obuna)** | **99 000 UZS** | **$9** | 100 ta video, barcha 16:9 YouTube formatlar (2–12 daqiqa), shaxsiy MP4 fon videolari, ustuvor AI navbati |
-| **VIP B2B Tayyor Paket** | **350 000 UZS** | **$29** | Biznesingiz uchun 30 ta to'liq tayyorlangan video, shaxsiy brending va logotip, tayyor SMM tavsiflari va xeshteglar, 24 soat ichida admin tomonidan topshiriladi |
+| **Free (Sinov)** | **0 UZS** | **$0** | 1 ta sinov videosi (@QuizVideoUz / @EnglishQuizArena tamg'asi bilan), 3 ta savol, 9:16 Shorts/Reels formati |
+| **Start (Boshlang'ich)** | **49 000 UZS** | **$5** | 15 ta video eksporti, o'z kanal nomini (@username) qo'yish, barcha 4 ta til (UZ, RU, EN, TR) |
+| **Pro Creator (1 Oylik)** | **99 000 UZS** | **$9** | 35 ta video (1 oylik to'liq kontent), shaxsiy brending va logotip, 16:9 YouTube formatlar, 30 kunlik virusli mavzular bonusi |
+| **VIP B2B Tayyor Paket** | **350 000 UZS** | **$29** | O'quv markazlari va ekspertlar uchun 30 ta tayyor video (24 soatda biz tayyorlab beramiz -> @Akramjon1984), shaxsiy brending, SMM matnlari |
 
 ---
 

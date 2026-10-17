@@ -33,6 +33,8 @@ import {
   sendTestTelegramMessage,
   telegramHaptic,
 } from "../services/telegram";
+import { resolveLoopVideoUrl, DEFAULT_LANGUAGE_BACKGROUND_INDICES } from "../services/backgrounds";
+import { saveVideoLocally } from "../services/localExport";
 
 interface AutoFactoryModalProps {
   isOpen: boolean;
@@ -350,7 +352,7 @@ export function AutoFactoryModal({ isOpen, onClose }: AutoFactoryModalProps) {
         const langWatermark = watermarks[lang] || DEFAULT_WATERMARKS[lang];
         const assignedBgVideo = bgVideosRef.current.length > 0
           ? bgVideosRef.current[langIndex % bgVideosRef.current.length]
-          : undefined;
+          : await resolveLoopVideoUrl(DEFAULT_LANGUAGE_BACKGROUND_INDICES[lang] ?? langIndex);
 
         const preparedQuiz: Quiz = {
           title: selectedTopic,
@@ -359,7 +361,7 @@ export function AutoFactoryModal({ isOpen, onClose }: AutoFactoryModalProps) {
           watermark: langWatermark,
           themeColor: "emerald",
           themePreset: "default",
-          timerDuration: 5,
+          timerDuration: 3,
           hideLastAnswer: true,
           outroEnabled: true,
           outroAudioBase64: outroAudio,
@@ -382,22 +384,11 @@ export function AutoFactoryModal({ isOpen, onClose }: AutoFactoryModalProps) {
           renderer.start().catch(reject);
         });
 
-        // Aniq nom bilan yuklab olish
+        // Aniq nom bilan fayl nomi shakllantirish
         const safeTopic = selectedTopic
           .replace(/[^a-zA-Z0-9\u0400-\u04FF]/g, "_")
           .slice(0, 30);
         const fileName = `${String(selectedTopicIndex + 1).padStart(2, "0")}_${lang.toUpperCase()}_${safeTopic}.${renderedVideo.ext}`;
-
-        try {
-          const a = document.createElement("a");
-          a.href = renderedVideo.url;
-          a.download = fileName;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-        } catch (downloadErr) {
-          console.warn("Auto-download failed:", downloadErr);
-        }
 
         // e) Viral Shorts / Instagram Reels tavsif matnini generatsiya qilish
         const socialData = generateViralSocialCopy(preparedQuiz);
@@ -411,6 +402,35 @@ export function AutoFactoryModal({ isOpen, onClose }: AutoFactoryModalProps) {
             : "👇 Izohlarda nechta savolga to'g'ri javob berganingizni yozing!";
 
         const fullCopyText = `${socialData.titles.engaging}\n\n${commentPrompt}\n\n${socialData.hashtags.join(" ")}`;
+
+        // Lokal muhitda avtomatik ./output/day_{XX}/{lang}/ papkasiga saqlash
+        const isLocal = typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
+        let savedLocally = false;
+        if (isLocal) {
+          setActiveStepText(`${langNames[lang]} videosi ./output/ papkasiga saqlanmoqda...`);
+          const localSaveResult = await saveVideoLocally({
+            day: selectedTopicIndex + 1,
+            lang,
+            fileName,
+            videoBlob: renderedVideo.blob,
+            smmText: fullCopyText,
+          });
+          savedLocally = localSaveResult.ok;
+        }
+
+        // Agar lokal saqlanmagan bo'lsa (yoki ishlab chiqarishda bo'lsa), brauzer orqali yuklab olish
+        if (!savedLocally) {
+          try {
+            const a = document.createElement("a");
+            a.href = renderedVideo.url;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+          } catch (downloadErr) {
+            console.warn("Auto-download failed:", downloadErr);
+          }
+        }
 
         const resultEntry: GeneratedVideoResult = {
           lang,
@@ -723,8 +743,9 @@ ${result.socialCopy.hashtags}
                 </span>
               </div>
             ) : (
-              <p className="text-xs text-neutral-500 italic">
-                * Fon videolari yuklanmasa, standart yuqori sifatli rasmlardan foydalaniladi.
+              <p className="text-xs text-emerald-400 font-semibold flex items-center gap-1.5">
+                <Sparkles size={13} className="shrink-0 text-emerald-400" />
+                Avtomatik estetik Loop Video fonlar faol (har bir tilga Kosmos, Kiber Neon, Oltin to'lqinlar alohida biriktiriladi).
               </p>
             )}
           </div>

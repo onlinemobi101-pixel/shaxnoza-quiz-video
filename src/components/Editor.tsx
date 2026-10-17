@@ -483,7 +483,9 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, uiLang, onUiL
           title: topicToUse,
           questions: newQuestions,
           language: selectedLanguage,
-          timerDuration: (isYouTubeFormat && isAdmin) ? longVideoPreset.timerSeconds : quiz.timerDuration,
+          timerDuration: (isYouTubeFormat && isAdmin)
+            ? longVideoPreset.timerSeconds
+            : (questionCount === 3 ? 3 : (quiz.timerDuration || 5)),
         };
         // Avval savollarni ekranga chiqaramiz
         setQuiz(generatedQuiz);
@@ -1233,7 +1235,10 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, uiLang, onUiL
           </span>
           <button
             type="button"
-            onClick={() => setAiQuestionCount(3)}
+            onClick={() => {
+              setAiQuestionCount(3);
+              setQuiz({ ...quiz, timerDuration: 3 });
+            }}
             className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
               aiQuestionCount === 3
                 ? "bg-indigo-600 text-white shadow-md shadow-indigo-900/40 border border-indigo-400/50 scale-[1.02]"
@@ -1244,7 +1249,10 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, uiLang, onUiL
           </button>
           <button
             type="button"
-            onClick={() => setAiQuestionCount(5)}
+            onClick={() => {
+              setAiQuestionCount(5);
+              setQuiz({ ...quiz, timerDuration: 5 });
+            }}
             className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
               aiQuestionCount === 5
                 ? "bg-indigo-600 text-white shadow-md shadow-indigo-900/40 border border-indigo-400/50 scale-[1.02]"
@@ -1391,7 +1399,7 @@ export function Editor({ quiz, setQuiz, onPlay, user, userProfile, uiLang, onUiL
                           timerDuration: preset.timerSeconds,
                         });
                       } else {
-                        setQuiz({ ...quiz, videoFormat: "vertical", timerDuration: 5 });
+                        setQuiz({ ...quiz, videoFormat: "vertical", timerDuration: (quiz.questions.length === 3 ? 3 : 5) });
                       }
                     }}
                     className={`rounded-2xl border p-4 text-left transition-all cursor-pointer ${

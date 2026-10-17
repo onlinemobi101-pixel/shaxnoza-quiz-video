@@ -182,7 +182,7 @@ export function PaywallModal({ isOpen, onClose, userId, uiLang }: PaywallModalPr
 
                   {/* 3 Plans Selection */}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 w-full mb-6">
-                    {/* Plan 1: 10 Videos */}
+                    {/* Plan 1: Start (15 Videos) */}
                     <div
                       onClick={() => setSelectedPlan("pack10")}
                       className={`relative p-4 rounded-2xl border transition-all duration-300 cursor-pointer flex flex-col justify-between ${
@@ -196,22 +196,22 @@ export function PaywallModal({ isOpen, onClose, userId, uiLang }: PaywallModalPr
                           <div className={`p-1.5 rounded-lg border ${selectedPlan === "pack10" ? "bg-cyan-500/10 border-cyan-500/30 text-cyan-400" : "bg-white/5 border-white/5 text-slate-400"}`}>
                             <ShoppingBag size={15} />
                           </div>
-                          <h4 className="text-xs font-bold text-slate-100">1 Martalik Paket</h4>
+                          <h4 className="text-xs font-bold text-slate-100">Start</h4>
                         </div>
                         <p className="text-[11px] text-slate-400 leading-relaxed">
-                          Loyiha doirasida 10 ta to'liq video yaratish huquqi.
+                          15 ta video + O'z kanal nomini (@username) qo'yish + 4 ta til.
                         </p>
                       </div>
                       <div className="flex items-center justify-between pt-2 border-t border-slate-800/60 mt-auto">
-                        <span className="text-[11px] text-slate-400">10 Ta Video</span>
+                        <span className="text-[11px] text-slate-400">15 Ta Video</span>
                         <div className="flex flex-col items-end">
-                          <span className="text-[9px] text-slate-500 line-through decoration-red-500/70 -mb-0.5">{lang === "uz" ? "40,000 so'm" : "$6"}</span>
-                          <span className="text-sm font-black text-cyan-400">{lang === "uz" ? "20,000 so'm" : "$3"}</span>
+                          <span className="text-[9px] text-slate-500 line-through decoration-red-500/70 -mb-0.5">{lang === "uz" ? "98,000 so'm" : "$10"}</span>
+                          <span className="text-sm font-black text-cyan-400">{lang === "uz" ? "49,000 so'm" : "$5"}</span>
                         </div>
                       </div>
                     </div>
 
-                    {/* Plan 2: 100 monthly exports */}
+                    {/* Plan 2: Pro Creator (35 videos - 1 month) */}
                     <div
                       onClick={() => setSelectedPlan("premium")}
                       className={`relative p-4 rounded-2xl border transition-all duration-300 cursor-pointer flex flex-col justify-between ${
@@ -228,14 +228,14 @@ export function PaywallModal({ isOpen, onClose, userId, uiLang }: PaywallModalPr
                           <div className={`p-1.5 rounded-lg border ${selectedPlan === "premium" ? "bg-fuchsia-500/10 border-fuchsia-500/30 text-fuchsia-400" : "bg-white/5 border-white/5 text-slate-400"}`}>
                             <Crown size={15} />
                           </div>
-                          <h4 className="text-xs font-bold text-slate-100">Oylik Premium</h4>
+                          <h4 className="text-xs font-bold text-slate-100">Pro Creator</h4>
                         </div>
                         <p className="text-[11px] text-slate-400 leading-relaxed">
-                          Oyiga 100 ta video, barcha AI ovozlar va mavzular.
+                          35 ta video (1 oylik to'liq kontent) + Shaxsiy brending + Bonus: 30 kunlik virusli mavzular.
                         </p>
                       </div>
                       <div className="flex items-center justify-between pt-2 border-t border-slate-800/60 mt-auto">
-                        <span className="text-[11px] text-slate-400">Oyiga 100 Video</span>
+                        <span className="text-[11px] text-slate-400">35 Ta Video (1 Oy)</span>
                         <div className="flex flex-col items-end">
                           <span className="text-[9px] text-slate-500 line-through decoration-red-500/70 -mb-0.5">{lang === "uz" ? "199,000 so'm" : "$19"}</span>
                           <span className="text-sm font-black text-fuchsia-400">{lang === "uz" ? "99,000 so'm" : "$9"}</span>
@@ -281,19 +281,19 @@ export function PaywallModal({ isOpen, onClose, userId, uiLang }: PaywallModalPr
                   <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-900/40 border border-slate-900 rounded-2xl p-4 mb-6 text-left text-xs">
                     <div className="flex items-start gap-2.5">
                       <CheckCircle2 size={15} className="text-indigo-400 mt-0.5 shrink-0" />
-                      <span className="text-slate-300">Suv belgisiz (No Watermark) eksport</span>
+                      <span className="text-slate-300"><strong>Bepul:</strong> 1 ta sinov videosi (@QuizVideoUz / @EnglishQuizArena tamg'asi bilan)</span>
                     </div>
                     <div className="flex items-start gap-2.5">
                       <CheckCircle2 size={15} className="text-indigo-400 mt-0.5 shrink-0" />
-                      <span className="text-slate-300">Cyberpunk, Retro va Chalk Board dizaynlari</span>
+                      <span className="text-slate-300"><strong>Start (49 000 UZS / $5):</strong> 15 ta video + O'z kanal nomini qo'yish</span>
                     </div>
                     <div className="flex items-start gap-2.5">
                       <CheckCircle2 size={15} className="text-indigo-400 mt-0.5 shrink-0" />
-                      <span className="text-slate-300">4 ta qo'shimcha premium AI ovozlari</span>
+                      <span className="text-slate-300"><strong>Pro Creator (99 000 UZS / $9):</strong> 35 ta video (1 oylik reja) + Bonus mavzular</span>
                     </div>
                     <div className="flex items-start gap-2.5">
                       <CheckCircle2 size={15} className="text-indigo-400 mt-0.5 shrink-0" />
-                      <span className="text-slate-300">VIP Paketda barcha 30 ta videoni 24 soatda o'zimiz tayyorlab beramiz</span>
+                      <span className="text-slate-300"><strong>VIP B2B (350 000 UZS / $29):</strong> 30 ta tayyor video 24 soatda adminga topshirish</span>
                     </div>
                   </div>
 

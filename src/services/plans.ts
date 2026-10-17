@@ -2,8 +2,8 @@ import type { UserProfile } from "../types";
 
 export const PLAN_EXPORT_LIMITS: Record<Exclude<UserProfile["role"], "admin">, number> = {
   free: 1,
-  pack10: 10,
-  premium: 100,
+  pack10: 15,
+  premium: 35,
 };
 
 export interface PlanPackageInfo {
@@ -16,15 +16,15 @@ export interface PlanPackageInfo {
 export const PLAN_PACKAGES: Record<"pack10" | "premium" | "b2b30", PlanPackageInfo> = {
   pack10: {
     id: "pack10",
-    priceUz: "20,000 so'm",
-    priceGlobal: "$3",
-    videoCount: 10,
+    priceUz: "49,000 so'm",
+    priceGlobal: "$5",
+    videoCount: 15,
   },
   premium: {
     id: "premium",
     priceUz: "99,000 so'm",
     priceGlobal: "$9",
-    videoCount: 100,
+    videoCount: 35,
   },
   b2b30: {
     id: "b2b30",
